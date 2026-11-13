@@ -193,7 +193,11 @@ export async function POST(request: Request) {
         const rekap = key === 'kesimpulan' ? undefined : (rekapMap as any)[key];
         if (key !== 'kesimpulan' && !rekap) return;
 
-        const hasil = await buatPembahasanGrafik(key, rekap);
+        const hasil = await buatPembahasanGrafik(
+          key,
+          rekap,
+          key === 'kesimpulan' ? { totalPeserta, rekapMap } : undefined
+        );
         const payload = {
           judul: hasil.judul,
           poin1: hasil.poin1,

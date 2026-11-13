@@ -26,6 +26,11 @@ export interface PembahasanItem {
   sumber: 'template' | 'ai' | 'manual';
 }
 
+export interface KesimpulanContext {
+  totalPeserta: number;
+  rekapMap?: Record<string, RekapGrafikData>;
+}
+
 /**
  * RUMUS PEMBAHASAN TEMPLAT BAKU RESMI (KP-05 & PPTX BPSDM)
  * Menghasilkan butir pembahasan yang 100% cocok dengan angka rekapitulasi data
@@ -113,21 +118,19 @@ export function generatePembahasanTemplate(
 
     case 'kesimpulan':
     default:
-      // Slide 4 PPT: Kesimpulan dan Rekomendasi
+      // Slide 4 PPT: Kesimpulan dan Rekomendasi (rekomendasi dikosongkan agar dibuat oleh AI)
       judul = 'Kesimpulan dan Rekomendasi';
-      poin1 = `Ringkasan capaian hasil wawancara dan survei alumni disusun berdasarkan data evaluasi pasca pelatihan yang aktif tersimpan di database.`;
-      poin2 = `Proses mutasi/rotasi/promosi berdampak besar terhadap keberlangsungan Aksi Perubahan.`;
-      poin3 = `Keberlanjutan dan Replikasi Aksi Perubahan Alumni perlu mendapat pendampingan agar aksi perubahan berlanjut dan diintegrasikan ke program kerja, serta direplikasi sebagai best practice di perangkat daerah lain.`;
-      poin4 = `Aksi perubahan yang dibuat oleh peserta tidak harus menggunakan Aplikasi Komputer, karena konsekuensi harus menyiapkan infrastruktur pendukung seperti Server, Hosting dan SDM untuk pengembangan Aplikasi.\n\nProses mutasi/rotasi/promosi hendaknya memperhatikan terhadap Aksi Perubahan Alumni.`;
+      poin1 = `Ringkasan capaian hasil wawancara dan survei alumni siap dianalisis menggunakan AI dari data peserta aktif.`;
+      poin2 = '';
+      poin3 = '';
+      poin4 = '';
       break;
   }
 
-  const teksLengkap = [
-    `• ${poin1}`,
-    `• ${poin2}`,
-    `• ${poin3}`,
-    `• ${poin4}`,
-  ].join('\n');
+  const teksLengkap = [poin1, poin2, poin3, poin4]
+    .filter(Boolean)
+    .map((p) => `• ${p}`)
+    .join('\n');
 
   return {
     grafikKey,
@@ -184,6 +187,126 @@ function parseAiJsonResponse(rawText: string): any {
   return JSON.parse(text);
 }
 
+interface AiProviderConfig {
+  geminiApiKey?: string;
+  geminiModel: string;
+  orcaApiKey?: string;
+  orcaBaseUrl: string;
+  orcaModel: string;
+}
+
+/**
+ * Helper terpadu memanggil penyedia AI (Gemini / OrcaRouter) dan memvalidasi JSON 4 poin.
+ */
+async function requestAiPembahasan(
+  prompt: string,
+  grafikKey: string,
+  judul: string,
+  config: AiProviderConfig,
+  validate?: (teksLengkap: string) => boolean
+): Promise<PembahasanItem | null> {
+  const formatResult = (parsed: any): PembahasanItem | null => {
+    if (!parsed?.poin1 || !parsed?.poin2 || !parsed?.poin3 || !parsed?.poin4) {
+      return null;
+    }
+    const poin1 = String(parsed.poin1).trim();
+    const poin2 = String(parsed.poin2).trim();
+    const poin3 = String(parsed.poin3).trim();
+    const poin4 = String(parsed.poin4).trim();
+    const teksLengkap = [poin1, poin2, poin3, poin4].map((p) => `• ${p}`).join('\n');
+
+    if (validate && !validate(teksLengkap)) {
+      return null;
+    }
+
+    return {
+      grafikKey,
+      judul,
+      poin1,
+      poin2,
+      poin3,
+      poin4,
+      teksLengkap,
+      sumber: 'ai',
+    };
+  };
+
+  if (config.geminiApiKey && config.geminiApiKey.trim() !== '') {
+    const modelsToTry = [
+      config.geminiModel,
+      config.geminiModel !== 'models/gemini-3.5-flash-lite'
+        ? 'models/gemini-3.5-flash-lite'
+        : null,
+    ].filter(Boolean) as string[];
+
+    for (const m of modelsToTry) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/${m}:generateContent?key=${config.geminiApiKey.trim()}`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.2,
+              responseMimeType: 'application/json',
+            },
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+          const result = formatResult(parseAiJsonResponse(rawText));
+          if (result) return result;
+          console.warn(`Verifikasi hasil Gemini (${m}) untuk ${grafikKey} tidak sesuai, mencoba fallback lain`);
+        } else {
+          const errText = await response.text();
+          console.warn(`Gemini API (${m}) returned ${response.status}:`, errText);
+        }
+      } catch (err) {
+        console.error(`Error memanggil Gemini API (${m}):`, err);
+      }
+    }
+  }
+
+  if (config.orcaApiKey && config.orcaApiKey.trim() !== '') {
+    try {
+      const url = `${config.orcaBaseUrl.replace(/\/+$/, '')}/chat/completions`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${config.orcaApiKey.trim()}`,
+        },
+        body: JSON.stringify({
+          model: config.orcaModel,
+          messages: [
+            {
+              role: 'system',
+              content:
+                'Anda adalah analis evaluasi pasca pelatihan di BPSDM Provinsi Jawa Barat. Selalu balas dalam format JSON valid.',
+            },
+            { role: 'user', content: prompt },
+          ],
+          temperature: 0.2,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const rawText = data?.choices?.[0]?.message?.content;
+        const result = formatResult(parseAiJsonResponse(rawText));
+        if (result) return result;
+      }
+    } catch (err) {
+      console.error('Error memanggil OrcaRouter DeepSeek API:', err);
+    }
+  }
+
+  return null;
+}
+
 /**
  * GENERATOR PEMBAHASAN AI / FALLBACK TEMPLATE
  * Memprioritaskan Google Gemini API (GEMINI_API_KEY).
@@ -192,42 +315,55 @@ function parseAiJsonResponse(rawText: string): any {
  */
 export async function buatPembahasanGrafik(
   grafikKey: string,
-  rekap?: RekapGrafikData
+  rekap?: RekapGrafikData,
+  kesimpulanCtx?: KesimpulanContext
 ): Promise<PembahasanItem> {
-  const geminiApiKey = process.env.GEMINI_API_KEY;
   const rawGeminiModel = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
-  const geminiModel = rawGeminiModel.startsWith('models/') ? rawGeminiModel : `models/${rawGeminiModel}`;
+  const config: AiProviderConfig = {
+    geminiApiKey: process.env.GEMINI_API_KEY,
+    geminiModel: rawGeminiModel.startsWith('models/') ? rawGeminiModel : `models/${rawGeminiModel}`,
+    orcaApiKey:
+      process.env.ORCAROUTER_API_KEY ||
+      process.env.DEEPSEEK_API_KEY ||
+      process.env.OPENROUTER_API_KEY ||
+      process.env.AI_API_KEY,
+    orcaBaseUrl:
+      process.env.ORCAROUTER_BASE_URL ||
+      process.env.DEEPSEEK_BASE_URL ||
+      'https://api.orcarouter.ai/v1',
+    orcaModel:
+      process.env.ORCAROUTER_MODEL ||
+      process.env.DEEPSEEK_MODEL ||
+      'orcarouter/deepseek/deepseek-chat',
+  };
 
-  const orcaApiKey =
-    process.env.ORCAROUTER_API_KEY ||
-    process.env.DEEPSEEK_API_KEY ||
-    process.env.OPENROUTER_API_KEY ||
-    process.env.AI_API_KEY;
-
-  const orcaBaseUrl =
-    process.env.ORCAROUTER_BASE_URL ||
-    process.env.DEEPSEEK_BASE_URL ||
-    'https://api.orcarouter.ai/v1';
-
-  const orcaModel =
-    process.env.ORCAROUTER_MODEL ||
-    process.env.DEEPSEEK_MODEL ||
-    'orcarouter/deepseek/deepseek-chat';
-
-  // Jika tidak ada kunci API sama sekali -> gunakan templat resmi terverifikasi (KP-05)
-  if ((!geminiApiKey || geminiApiKey.trim() === '') && (!orcaApiKey || orcaApiKey.trim() === '')) {
+  if (
+    (!config.geminiApiKey || config.geminiApiKey.trim() === '') &&
+    (!config.orcaApiKey || config.orcaApiKey.trim() === '')
+  ) {
     return generatePembahasanTemplate(grafikKey, rekap);
   }
 
-  // Khusus Slide Kesimpulan dan Rekomendasi
+  // Khusus Slide Kesimpulan dan Rekomendasi (memakai ringkasan data aktual)
   if (grafikKey === 'kesimpulan') {
+    const ringkasanTeks = kesimpulanCtx?.rekapMap
+      ? Object.values(kesimpulanCtx.rekapMap)
+          .map(
+            (g) =>
+              `- ${g.judul}\n  ${g.labelA} (N=${g.totalA}): [0: ${g.dataA[0]}, 1-25: ${g.dataA[1]}, 26-50: ${g.dataA[2]}, 51-75: ${g.dataA[3]}, 76-100: ${g.dataA[4]}]\n  ${g.labelB} (N=${g.totalB}): [0: ${g.dataB[0]}, 1-25: ${g.dataB[1]}, 26-50: ${g.dataB[2]}, 51-75: ${g.dataB[3]}, 76-100: ${g.dataB[4]}]`
+          )
+          .join('\n')
+      : 'Ringkasan data terlampir pada database aktif.';
+
     const promptKesimpulan = `Anda adalah analis evaluasi pasca pelatihan di BPSDM Provinsi Jawa Barat.
-Berdasarkan hasil evaluasi pasca pelatihan PKP Angkatan VII Tahun 2023 yang menunjukkan tren positif (mayoritas capaian berada pada rentang 76-100%):
-Buatlah narasi resmi Pembahasan dan Rekomendasi kebijakan:
-Poin 1: Paragraf capaian hasil pelatihan dan efektivitas implementasi aksi perubahan alumni di unit kerja masing-masing.
-Poin 2: Paragraf dampak mutasi/rotasi/promosi terhadap keberlangsungan aksi perubahan.
-Poin 3: Rekomendasi kebijakan tentang keberlanjutan dan pendampingan replikasi ke perangkat daerah lain.
-Poin 4: Rekomendasi kebijakan bahwa aksi perubahan tidak harus aplikasi komputer (beban server, hosting, SDM) dan mutasi/rotasi hendaknya memperhatikan kesinambungan proper alumni.
+Berikut adalah data rekapitulasi aktual dari ${kesimpulanCtx?.totalPeserta ?? 'seluruh'} peserta terdaftar:
+${ringkasanTeks}
+
+Susunlah narasi resmi Slide Kesimpulan & Rekomendasi berbasis data aktual di atas (jangan mengarang angka di luar data):
+- "poin1": Paragraf kesimpulan umum tentang capaian implementasi aksi perubahan peserta berdasarkan data survei dan wawancara aktual.
+- "poin2": Paragraf analisis perbandingan kesenjangan antara hasil survei alumni dengan hasil wawancara evaluator, serta kondisi peserta dengan skor rendah/kosong bila ada.
+- "poin3": Satu butir rekomendasi kebijakan pertama yang konkret, spesifik, dan langsung menjawab temuan data di atas (tanpa nomor di awal kalimat).
+- "poin4": Dua butir rekomendasi kebijakan lanjutan yang konkret untuk keberlanjutan/replikasi dan penguatan aspek lemah berdasarkan data di atas, pisahkan tepat dengan satu baris baru (\\n) tanpa nomor urut di awal kalimat.
 
 Format balasan wajib JSON:
 {
@@ -237,97 +373,13 @@ Format balasan wajib JSON:
   "poin4": "..."
 }`;
 
-    // 1. Coba via Gemini API (dengan fallback model jika 503)
-    if (geminiApiKey && geminiApiKey.trim() !== '') {
-      const modelsToTry = [
-        geminiModel,
-        geminiModel !== 'models/gemini-3.5-flash-lite' ? 'models/gemini-3.5-flash-lite' : null,
-      ].filter(Boolean) as string[];
-
-      for (const m of modelsToTry) {
-        try {
-          const url = `https://generativelanguage.googleapis.com/v1beta/${m}:generateContent?key=${geminiApiKey.trim()}`;
-          const res = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: promptKesimpulan }] }],
-              generationConfig: {
-                temperature: 0.2,
-                responseMimeType: 'application/json',
-              },
-            }),
-          });
-
-          if (res.ok) {
-            const data = await res.json();
-            const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-            const parsed = parseAiJsonResponse(raw);
-            if (parsed?.poin1 && parsed?.poin2 && parsed?.poin3 && parsed?.poin4) {
-              return {
-                grafikKey: 'kesimpulan',
-                judul: 'Kesimpulan dan Rekomendasi',
-                poin1: parsed.poin1,
-                poin2: parsed.poin2,
-                poin3: parsed.poin3,
-                poin4: parsed.poin4,
-                teksLengkap: `• ${parsed.poin1}\n• ${parsed.poin2}\n• ${parsed.poin3}\n• ${parsed.poin4}`,
-                sumber: 'ai',
-              };
-            }
-          }
-        } catch (e) {
-          console.warn(`Error generate kesimpulan via Gemini (${m}):`, e);
-        }
-      }
-    }
-
-    // 2. Coba via OrcaRouter (jika Gemini tidak diisi)
-    if (orcaApiKey && orcaApiKey.trim() !== '') {
-      try {
-        const res = await fetch(`${orcaBaseUrl.replace(/\/+$/, '')}/chat/completions`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${orcaApiKey.trim()}`,
-          },
-          body: JSON.stringify({
-            model: orcaModel,
-            messages: [
-              {
-                role: 'system',
-                content:
-                  'Anda adalah analis evaluasi pasca pelatihan di BPSDM Provinsi Jawa Barat. Selalu balas dalam format JSON valid.',
-              },
-              { role: 'user', content: promptKesimpulan },
-            ],
-            temperature: 0.2,
-          }),
-        });
-
-        if (res.ok) {
-          const json = await res.json();
-          const raw = json?.choices?.[0]?.message?.content;
-          const parsed = parseAiJsonResponse(raw);
-          if (parsed?.poin1 && parsed?.poin2 && parsed?.poin3 && parsed?.poin4) {
-            return {
-              grafikKey: 'kesimpulan',
-              judul: 'Kesimpulan dan Rekomendasi',
-              poin1: parsed.poin1,
-              poin2: parsed.poin2,
-              poin3: parsed.poin3,
-              poin4: parsed.poin4,
-              teksLengkap: `• ${parsed.poin1}\n• ${parsed.poin2}\n• ${parsed.poin3}\n• ${parsed.poin4}`,
-              sumber: 'ai',
-            };
-          }
-        }
-      } catch (e) {
-        console.warn('Error generate kesimpulan via OrcaRouter, fallback to template:', e);
-      }
-    }
-
-    return generatePembahasanTemplate('kesimpulan');
+    const aiResult = await requestAiPembahasan(
+      promptKesimpulan,
+      'kesimpulan',
+      'Kesimpulan dan Rekomendasi',
+      config
+    );
+    return aiResult || generatePembahasanTemplate('kesimpulan');
   }
 
   // Untuk Grafik 1 s.d. 5
@@ -354,126 +406,12 @@ Format balasan wajib JSON:
   "poin4": "..."
 }`;
 
-  // 1. Prioritas Utama: Google Gemini API (dengan fallback otomatis jika 503 high demand)
-  if (geminiApiKey && geminiApiKey.trim() !== '') {
-    const modelsToTry = [
-      geminiModel,
-      geminiModel !== 'models/gemini-3.5-flash-lite' ? 'models/gemini-3.5-flash-lite' : null,
-    ].filter(Boolean) as string[];
-
-    for (const m of modelsToTry) {
-      try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/${m}:generateContent?key=${geminiApiKey.trim()}`;
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: promptGrafik }] }],
-            generationConfig: {
-              temperature: 0.2,
-              responseMimeType: 'application/json',
-            },
-          }),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-          const parsed = parseAiJsonResponse(rawText);
-
-          if (parsed?.poin1 && parsed?.poin2 && parsed?.poin3 && parsed?.poin4) {
-            const teksLengkap = [
-              `• ${parsed.poin1}`,
-              `• ${parsed.poin2}`,
-              `• ${parsed.poin3}`,
-              `• ${parsed.poin4}`,
-            ].join('\n');
-
-            // Validasi Pengaman Angka (URD Bab 7.2)
-            const valid = verifikasiHasilAI(teksLengkap, rekap);
-            if (valid) {
-              return {
-                grafikKey,
-                judul: rekap.judul,
-                poin1: parsed.poin1,
-                poin2: parsed.poin2,
-                poin3: parsed.poin3,
-                poin4: parsed.poin4,
-                teksLengkap,
-                sumber: 'ai',
-              };
-            } else {
-              console.warn(`Verifikasi angka Gemini (${m}) untuk ${grafikKey} tidak cocok, beralih ke model/templat lain`);
-            }
-          }
-        } else {
-          const errText = await response.text();
-          console.warn(`Gemini API (${m}) returned ${response.status}:`, errText);
-          // Jika 503 high demand, loop akan lanjut mencoba model berikutnya
-        }
-      } catch (err) {
-        console.error(`Error memanggil Gemini API (${m}):`, err);
-      }
-    }
-  }
-
-  // 2. Prioritas Kedua: OrcaRouter (DeepSeek)
-  if (orcaApiKey && orcaApiKey.trim() !== '') {
-    try {
-      const url = `${orcaBaseUrl.replace(/\/+$/, '')}/chat/completions`;
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${orcaApiKey.trim()}`,
-        },
-        body: JSON.stringify({
-          model: orcaModel,
-          messages: [
-            {
-              role: 'system',
-              content:
-                'Anda adalah analis evaluasi pasca pelatihan di BPSDM Provinsi Jawa Barat. Selalu balas dalam format JSON valid.',
-            },
-            { role: 'user', content: promptGrafik },
-          ],
-          temperature: 0.2,
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const rawText = data?.choices?.[0]?.message?.content;
-        const parsed = parseAiJsonResponse(rawText);
-
-        if (parsed?.poin1 && parsed?.poin2 && parsed?.poin3 && parsed?.poin4) {
-          const teksLengkap = [
-            `• ${parsed.poin1}`,
-            `• ${parsed.poin2}`,
-            `• ${parsed.poin3}`,
-            `• ${parsed.poin4}`,
-          ].join('\n');
-
-          const valid = verifikasiHasilAI(teksLengkap, rekap);
-          if (valid) {
-            return {
-              grafikKey,
-              judul: rekap.judul,
-              poin1: parsed.poin1,
-              poin2: parsed.poin2,
-              poin3: parsed.poin3,
-              poin4: parsed.poin4,
-              teksLengkap,
-              sumber: 'ai',
-            };
-          }
-        }
-      }
-    } catch (err) {
-      console.error('Error memanggil OrcaRouter DeepSeek API:', err);
-    }
-  }
-
-  // 3. Fallback utama: Templat Baku Terverifikasi KP-05
-  return generatePembahasanTemplate(grafikKey, rekap);
+  const aiResult = await requestAiPembahasan(
+    promptGrafik,
+    grafikKey,
+    rekap.judul,
+    config,
+    (teksLengkap) => verifikasiHasilAI(teksLengkap, rekap)
+  );
+  return aiResult || generatePembahasanTemplate(grafikKey, rekap);
 }
