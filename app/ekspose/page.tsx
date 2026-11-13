@@ -309,14 +309,13 @@ export default function EksposePage() {
     },
   ];
 
+  const totalPeserta = data?.ringkasan?.totalPeserta ?? 0;
+
   const kesimpulanItem = pembahasanMap['kesimpulan'] || {
-    poin1:
-      'Berdasarkan hasil wawancara dan survei alumni Diklat Pelatihan Kepemimpinan Pengawas (PKP) Kabupaten Bogor Angkatan 7 Tahun 2023 yang dilaksanakan pada tanggal 29–30 Oktober 2025, diperoleh gambaran bahwa capaian hasil pasca pelatihan menunjukkan tren positif. Mayoritas responden menilai tingkat keberhasilan aksi perubahan dalam jangka menengah dan panjang berada pada rentang 76–100%, yang menandakan bahwa tujuan pembelajaran dan implementasi aksi perubahan telah berjalan efektif di unit kerja masing-masing.',
-    poin2: 'Proses mutasi/rotasi/promosi berdampak besar terhadap keberlangsungan Aksi Perubahan.',
-    poin3:
-      'Keberlanjutan dan Replikasi Aksi Perubahan Alumni perlu mendapat pendampingan agar aksi perubahan berlanjut dan diintegrasikan ke program kerja, serta direplikasi sebagai best practice di perangkat daerah lain.',
-    poin4:
-      'Aksi perubahan yang dibuat oleh peserta tidak harus menggunakan Aplikasi Komputer, karena konsekuensi harus menyiapkan infrastruktur pendukung seperti Server, Hosting dan SDM untuk pengembangan Aplikasi.\n\nProses mutasi/rotasi/promosi hendaknya memperhatikan terhadap Aksi Perubahan Alumni.',
+    poin1: '',
+    poin2: '',
+    poin3: '',
+    poin4: '',
   };
 
   return (
@@ -341,8 +340,8 @@ export default function EksposePage() {
         <div className="flex flex-wrap items-center gap-2.5">
           <button
             onClick={() => handleRegenerate('all')}
-            disabled={actionLoadingKey === 'all'}
-            className="px-3.5 py-2 text-xs font-bold rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
+            disabled={actionLoadingKey === 'all' || totalPeserta === 0}
+            className="px-3.5 py-2 text-xs font-bold rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed text-emerald-800 transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
             title="Generate penjelasan AI untuk seluruh slide"
           >
             <Sparkles className={`w-3.5 h-3.5 text-emerald-600 ${actionLoadingKey === 'all' ? 'animate-spin' : ''}`} />
@@ -351,7 +350,8 @@ export default function EksposePage() {
 
           <button
             onClick={handleExportCSV}
-            className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
+            disabled={totalPeserta === 0}
+            className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-slate-700 transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
           >
             <Download className="w-3.5 h-3.5 text-slate-500" />
             Ekspor Rekap CSV
@@ -359,7 +359,8 @@ export default function EksposePage() {
 
           <button
             onClick={handlePrint}
-            className="px-4 py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition shadow-sm shadow-emerald-200 flex items-center gap-1.5 cursor-pointer"
+            disabled={totalPeserta === 0}
+            className="px-4 py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white transition shadow-sm shadow-emerald-200 flex items-center gap-1.5 cursor-pointer"
           >
             <Printer className="w-3.5 h-3.5" />
             Cetak Slide (PDF)
@@ -367,53 +368,52 @@ export default function EksposePage() {
         </div>
       </header>
 
-      {/* Slide Navigation Pill Quicklinks */}
-      <div className="flex flex-wrap items-center gap-2 no-print bg-slate-100/80 p-2 rounded-xl text-xs font-semibold text-slate-600">
-        <span className="px-2 py-1 text-slate-400 font-bold text-[11px]">Lompat ke Slide:</span>
-        {slideList.map((s, idx) => (
-          <a
-            key={s.key}
-            href={`#${s.key}`}
-            className="px-3 py-1.5 rounded-lg bg-white hover:bg-emerald-50 hover:text-emerald-800 border border-slate-200/80 transition shadow-2xs cursor-pointer"
-          >
-            Slide {idx + 1} ({s.slideNumber})
-          </a>
-        ))}
-        <a
-          href="#kesimpulan"
-          className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition shadow-2xs cursor-pointer font-bold"
-        >
-          Slide 6 (Kesimpulan & Rekomendasi)
-        </a>
-      </div>
-
-      {/* Banner Informasi Ketika Database Kosong */}
-      {data?.ringkasan?.totalPeserta === 0 && (
-        <div className="no-print bg-amber-50 border border-amber-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
-          <div className="flex items-start sm:items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 font-bold">
+      {totalPeserta === 0 ? (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs">
+          <div className="flex items-start sm:items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 font-bold text-base">
               !
             </div>
             <div>
-              <p className="text-xs font-bold text-amber-900">
+              <p className="text-sm font-bold text-amber-900">
                 Basis Data Saat Ini Kosong (0 Peserta)
               </p>
-              <p className="text-xs text-amber-800/80 mt-0.5">
-                Semua data telah dihapus. Nilai grafik pada slide di bawah kini menunjukkan angka 0. Halaman ini 100% dinamis dan akan otomatis terisi penuh saat berkas Excel diimpor.
+              <p className="text-xs text-amber-800/80 mt-1">
+                Semua data telah dihapus. Slide ekspose dan pembahasan belum ditampilkan sampai berkas Excel hasil survei/wawancara diimpor.
               </p>
             </div>
           </div>
           <a
             href="/peserta"
-            className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-amber-700 hover:bg-amber-800 text-white transition shadow-2xs shrink-0 self-start sm:self-auto text-center"
+            className="px-4 py-2 text-xs font-bold rounded-xl bg-amber-700 hover:bg-amber-800 text-white transition shadow-2xs shrink-0 self-start sm:self-auto text-center"
           >
             Buka Menu Impor Excel
           </a>
         </div>
-      )}
+      ) : (
+        <>
+          {/* Slide Navigation Pill Quicklinks */}
+          <div className="flex flex-wrap items-center gap-2 no-print bg-slate-100/80 p-2 rounded-xl text-xs font-semibold text-slate-600">
+            <span className="px-2 py-1 text-slate-400 font-bold text-[11px]">Lompat ke Slide:</span>
+            {slideList.map((s, idx) => (
+              <a
+                key={s.key}
+                href={`#${s.key}`}
+                className="px-3 py-1.5 rounded-lg bg-white hover:bg-emerald-50 hover:text-emerald-800 border border-slate-200/80 transition shadow-2xs cursor-pointer"
+              >
+                Slide {idx + 1} ({s.slideNumber})
+              </a>
+            ))}
+            <a
+              href="#kesimpulan"
+              className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition shadow-2xs cursor-pointer font-bold"
+            >
+              Slide 6 (Kesimpulan & Rekomendasi)
+            </a>
+          </div>
 
-      {/* Rangkaian 6 Slide Presentasi Resmi */}
-      <div className="space-y-12 print:space-y-0">
+          {/* Rangkaian 6 Slide Presentasi Resmi */}
+          <div className="space-y-12 print:space-y-0">
         {/* SLIDE 1 S.D. 5 (5 GRAFIK PRESENTASI) */}
         {slideList.map((slide, sIdx) => {
           const g = slide.g;
@@ -567,35 +567,12 @@ export default function EksposePage() {
                       {/* Teks Butir-Butir Pembahasan */}
                       {!isEditing ? (
                         <div className="space-y-3 text-xs sm:text-[13px] text-slate-900 leading-relaxed font-sans">
-                          {slide.key === 'grafik1' ? (
-                            <ul className="list-disc pl-4 space-y-2">
-                              <li>
-                                {renderFormattedText(
-                                  pItem?.poin1 ||
-                                    'Sebagian besar alumni berhasil merealisasikan Rencana Aksi jangka menengah dengan baik.'
-                                )}{' '}
-                                {renderFormattedText(
-                                  pItem?.poin2 ||
-                                    'Sebanyak **11 orang** mencapai capaian **di atas 75%**, menunjukkan komitmen tinggi terhadap penerapan hasil pelatihan.'
-                                )}{' '}
-                                {renderFormattedText(
-                                  pItem?.poin3 ||
-                                    'Selain itu, **17 orang** berada pada kategori **51–75%**, sedangkan **1 orang** masih di bawah 50%.'
-                                )}{' '}
-                                {renderFormattedText(
-                                  pItem?.poin4 ||
-                                    'Secara keseluruhan, capaian ini menunjukkan bahwa mayoritas alumni mampu melaksanakan rencana jangka menengah secara efektif.'
-                                )}
-                              </li>
-                            </ul>
-                          ) : (
-                            <ul className="list-disc pl-4 space-y-2.5">
-                              {pItem?.poin1 && <li>{renderFormattedText(pItem.poin1)}</li>}
-                              {pItem?.poin2 && <li>{renderFormattedText(pItem.poin2)}</li>}
-                              {pItem?.poin3 && <li>{renderFormattedText(pItem.poin3)}</li>}
-                              {pItem?.poin4 && <li>{renderFormattedText(pItem.poin4)}</li>}
-                            </ul>
-                          )}
+                          <ul className="list-disc pl-4 space-y-2.5">
+                            {pItem?.poin1 && <li>{renderFormattedText(pItem.poin1)}</li>}
+                            {pItem?.poin2 && <li>{renderFormattedText(pItem.poin2)}</li>}
+                            {pItem?.poin3 && <li>{renderFormattedText(pItem.poin3)}</li>}
+                            {pItem?.poin4 && <li>{renderFormattedText(pItem.poin4)}</li>}
+                          </ul>
                         </div>
                       ) : (
                         <div className="space-y-2.5 text-xs">
@@ -819,6 +796,8 @@ export default function EksposePage() {
           </div>
         </section>
       </div>
+        </>
+      )}
     </div>
   );
 }

@@ -9,10 +9,7 @@ import BottomCards from '@/components/dashboard/BottomCards';
 import ImportExcelModal from '@/components/ImportExcelModal';
 import {
   Upload,
-  RefreshCw,
   Database,
-  FileSpreadsheet,
-  AlertCircle,
   CheckCircle2,
   Trash2,
 } from 'lucide-react';
@@ -42,34 +39,6 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchData();
   }, []);
-
-  const handleMuatData = async (type: 'muat-dummy' | 'muat-asli') => {
-    try {
-      setActionLoading(true);
-      setActionMessage(null);
-      const res = await fetch('/api/peserta', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: type }),
-      });
-      const json = await res.json();
-      if (json.success) {
-        setActionMessage(
-          type === 'muat-dummy'
-            ? 'Berhasil memuat 10 Peserta Dummy (A - J) untuk pengujian rumus.'
-            : 'Berhasil memuat 30 Peserta Asli (Versi Ekspose PPT PKP 2023).'
-        );
-        fetchData();
-      } else {
-        alert(json.error || 'Gagal memuat data');
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Terjadi kesalahan koneksi');
-    } finally {
-      setActionLoading(false);
-    }
-  };
 
   const handleResetData = async () => {
     if (!confirm('PERINGATAN: Kosongkan seluruh data di database?\n\nSeluruh tabel peserta, survei, dan wawancara akan dibersihkan.')) {
@@ -113,10 +82,6 @@ export default function DashboardPage() {
             <p className="text-sm font-black text-slate-800">
               {loading && !data
                 ? 'Memuat data dari database...'
-                : data?.ringkasan?.totalPeserta === 30
-                ? 'Dataset 30 Peserta Asli (PKP Angk. VII 2023)'
-                : data?.ringkasan?.totalPeserta === 10
-                ? 'Dataset 10 Peserta Dummy (Uji Rumus)'
                 : data?.ringkasan?.totalPeserta === 0
                 ? 'Database Kosong (Siap Impor Berkas)'
                 : `${data?.ringkasan?.totalPeserta || 0} Peserta Terdaftar`}
@@ -126,25 +91,6 @@ export default function DashboardPage() {
 
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => handleMuatData('muat-asli')}
-            disabled={actionLoading}
-            className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
-            title="Memuat ulang 30 data asli PKP 2023"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 text-slate-500 ${actionLoading ? 'animate-spin' : ''}`} />
-            Muat 30 Data Asli
-          </button>
-
-          <button
-            onClick={() => handleMuatData('muat-dummy')}
-            disabled={actionLoading}
-            className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
-            title="Memuat data dummy 10 peserta (A - J)"
-          >
-            Muat Data Dummy
-          </button>
-
           <button
             onClick={handleResetData}
             disabled={actionLoading}

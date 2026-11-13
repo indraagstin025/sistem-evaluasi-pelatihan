@@ -37,6 +37,14 @@ export function generatePembahasanTemplate(
 ): PembahasanItem {
   const dataA = rekap?.dataA || [0, 0, 0, 0, 0];
   const dataB = rekap?.dataB || [0, 0, 0, 0, 0];
+  const a0 = dataA[0] ?? 0;
+  const a1 = dataA[1] ?? 0;
+  const a2 = dataA[2] ?? 0;
+  const a3 = dataA[3] ?? 0;
+  const a4 = dataA[4] ?? 0;
+  const b2 = dataB[2] ?? 0;
+  const b3 = dataB[3] ?? 0;
+  const b4 = dataB[4] ?? 0;
 
   let poin1 = '';
   let poin2 = '';
@@ -44,57 +52,70 @@ export function generatePembahasanTemplate(
   let poin4 = '';
   let judul = rekap?.judul || '';
 
+  if (grafikKey !== 'kesimpulan' && (rekap?.totalA ?? 0) === 0 && (rekap?.totalB ?? 0) === 0) {
+    return {
+      grafikKey,
+      judul: judul || `Grafik ${grafikKey}`,
+      poin1: 'Belum ada data peserta yang tersedia pada database.',
+      poin2: 'Silakan impor berkas Excel hasil survei dan wawancara pada menu Data Peserta.',
+      poin3: 'Seluruh distribusi rentang saat ini bernilai 0 responden.',
+      poin4: 'Narasi analisis otomatis akan menyesuaikan segera setelah data diimpor.',
+      teksLengkap: 'Belum ada data peserta yang tersedia pada database.',
+      sumber: 'template',
+    };
+  }
+
   switch (grafikKey) {
     case 'grafik1':
       // Slide 5 PPT: Perbandingan Capaian Jangka Menengah dengan Jangka Panjang (Hasil wawancara)
       judul = 'Perbandingan Capaian Jangka Menengah dengan Jangka Panjang (Hasil wawancara)';
-      poin1 = `Sebagian besar alumni berhasil merealisasikan Rencana Aksi jangka menengah dengan baik.`;
-      poin2 = `Sebanyak ${dataA[4] || 11} orang mencapai capaian di atas 75%, menunjukkan komitmen tinggi terhadap penerapan hasil pelatihan.`;
-      poin3 = `Selain itu, ${dataA[3] || 17} orang berada pada kategori 51–75%, sedangkan ${(dataA[2] || 0) + (dataA[1] || 0) || 1} orang masih di bawah 50%.`;
-      poin4 = `Secara keseluruhan, capaian ini menunjukkan bahwa mayoritas alumni mampu melaksanakan rencana jangka menengah secara efektif.`;
+      poin1 = `Distribusi capaian Rencana Aksi jangka menengah dan jangka panjang berdasarkan hasil wawancara.`;
+      poin2 = `Sebanyak ${a4} orang mencapai capaian jangka menengah di atas 75%, sedangkan pada jangka panjang tercatat ${b4} orang.`;
+      poin3 = `Selain itu, ${a3} orang berada pada kategori 51–75% untuk jangka menengah, dan ${a2 + a1 + a0} orang berada pada rentang <= 50%.`;
+      poin4 = `Secara keseluruhan, ringkasan ini dihitung langsung dari data valid yang tersimpan di database.`;
       break;
 
     case 'grafik2':
       // Slide 6 PPT: Target Aksi Perubahan Dalam Jangka Panjang Tercapai
       judul = 'Target Aksi Perubahan Dalam Jangka Panjang Tercapai';
-      poin1 = `Realisasi target aksi perubahan jangka panjang yang tercapai terdapat perbedaan antara hasil survei dan hasil wawancara.`;
-      poin2 = `Di rentang 76-100%: Hasil wawancara (${dataB[4] || 10} orang) lebih tinggi daripada hasil survei (${dataA[4] || 6} orang).`;
-      poin3 = `Di rentang 51-75%: Hasil survei (${dataA[3] || 19} orang) sedikit lebih tinggi daripada hasil wawancara (${dataB[3] || 18} orang), menunjukkan mayoritas persepsi di tingkat ini.`;
-      poin4 = `Di rentang 26-50%: Hasil survei (${dataA[2] || 5} orang) jauh lebih tinggi daripada hasil wawancara (${dataB[2] || 1} orang). Di rentang 1-25%: Tidak ada responden yang melaporkan pencapaian (0 orang).`;
+      poin1 = `Perbandingan capaian target aksi perubahan jangka panjang antara hasil survei dan hasil wawancara.`;
+      poin2 = `Di rentang 76-100%: Hasil wawancara (${b4} orang) dibanding hasil survei (${a4} orang).`;
+      poin3 = `Di rentang 51-75%: Hasil survei (${a3} orang) dibanding hasil wawancara (${b3} orang).`;
+      poin4 = `Di rentang 26-50%: Hasil survei (${a2} orang) dibanding hasil wawancara (${b2} orang). Di rentang 1-25%: tercatat ${a1} orang pada survei dan ${dataB[1] ?? 0} orang pada wawancara.`;
       break;
 
     case 'grafik3':
       // Slide 7 PPT: Seluruh Tujuan Aksi Perubahan Dapat Tercapai
       judul = 'Seluruh Tujuan Aksi Perubahan Dapat Tercapai';
-      poin1 = `Pencapaian seluruh tujuan aksi perubahan terkonsentrasi pada rentang menengah dan optimal (51-100%), dengan adanya perbedaan antara hasil survei dan wawancara.`;
-      poin2 = `Rentang Dominan (51-75%): Hasil survei (${dataA[3] || 20} orang) menjadi yang tertinggi, sedikit melebihi hasil wawancara (${dataB[3] || 15} orang).`;
-      poin3 = `Rentang Optimal (76-100%): Hasil wawancara (${dataB[4] || 13} orang) lebih dari dua kali lipat hasil survei (${dataA[4] || 6} orang), menunjukkan optimisme yang lebih tinggi dari pihak yang diwawancarai.`;
-      poin4 = `Rentang Rendah (26-50%): Hasil survei (${dataA[2] || 4} orang) jauh lebih tinggi daripada hasil wawancara (${dataB[2] || 1} orang).`;
+      poin1 = `Sebaran pencapaian seluruh tujuan aksi perubahan antara hasil survei dan wawancara.`;
+      poin2 = `Rentang Dominan (51-75%): Hasil survei (${a3} orang) dibanding hasil wawancara (${b3} orang).`;
+      poin3 = `Rentang Optimal (76-100%): Hasil wawancara (${b4} orang) dibanding hasil survei (${a4} orang).`;
+      poin4 = `Rentang Rendah (26-50%): Hasil survei (${a2} orang) dibanding hasil wawancara (${b2} orang).`;
       break;
 
     case 'grafik4':
       // Slide 8 PPT: Manfaat Aksi Perubahan
       judul = 'Manfaat Aksi Perubahan';
-      poin1 = `Penilaian terhadap manfaat aksi perubahan terkonsentrasi kuat pada rentang yang tinggi (51-100%), dengan perbedaan antara hasil survei dan wawancara.`;
-      poin2 = `Rentang Optimal (76-100%): Hasil wawancara (${dataB[4] || 15} orang) menunjukkan tingkat optimisme tertinggi dan lebih tinggi daripada hasil survei (${dataA[4] || 10} orang).`;
-      poin3 = `Rentang Dominan (51-75%): Hasil survei (${dataA[3] || 19} orang) menjadi yang tertinggi, melebihi hasil wawancara (${dataB[3] || 13} orang), menunjukkan mayoritas persepsi manfaat berada di tingkat ini.`;
-      poin4 = `Rentang Rendah (26-50%): Baik hasil wawancara maupun survei hanya mencatat ${dataB[2] || 1} orang pada rentang ini, yang menunjukkan bahwa sedikit sekali responden yang merasa manfaatnya rendah.`;
+      poin1 = `Penilaian terhadap manfaat aksi perubahan antara hasil survei dan wawancara.`;
+      poin2 = `Rentang Optimal (76-100%): Hasil wawancara (${b4} orang) dibanding hasil survei (${a4} orang).`;
+      poin3 = `Rentang Dominan (51-75%): Hasil survei (${a3} orang) dibanding hasil wawancara (${b3} orang).`;
+      poin4 = `Rentang Rendah (26-50%): Hasil survei (${a2} orang) dan hasil wawancara (${b2} orang).`;
       break;
 
     case 'grafik5':
       // Slide 9 PPT: Nilai Keseluruhan
       judul = 'Nilai Keseluruhan';
-      poin1 = `Penilaian keseluruhan menunjukkan bahwa mayoritas responden menilai tinggi (51-100%) dengan adanya pola perbedaan antara hasil wawancara dan survei.`;
-      poin2 = `Rentang Dominan (51-75%): Hasil wawancara (${dataB[3] || 20} orang) menjadi yang tertinggi, sedikit lebih unggul dari hasil survei (${dataA[3] || 17} orang).`;
-      poin3 = `Rentang Optimal (76-100%): Hasil survei (${dataA[4] || 12} orang) justru lebih tinggi dari hasil wawancara (${dataB[4] || 8} orang), yang merupakan kebalikan dari pola grafik sebelumnya.`;
-      poin4 = `Rentang Rendah (26-50%): Baik hasil wawancara maupun survei hanya mencatat ${dataB[2] || 1} orang pada rentang ini.`;
+      poin1 = `Rekapitulasi nilai keseluruhan antara rata-rata survei (L) dan wawancara (M).`;
+      poin2 = `Rentang Dominan (51-75%): Hasil wawancara (${b3} orang) dibanding hasil survei (${a3} orang).`;
+      poin3 = `Rentang Optimal (76-100%): Hasil survei (${a4} orang) dibanding hasil wawancara (${b4} orang).`;
+      poin4 = `Rentang Rendah (26-50%): Hasil survei (${a2} orang) dan hasil wawancara (${b2} orang).`;
       break;
 
     case 'kesimpulan':
     default:
       // Slide 4 PPT: Kesimpulan dan Rekomendasi
       judul = 'Kesimpulan dan Rekomendasi';
-      poin1 = `Berdasarkan hasil wawancara dan survei alumni Diklat Pelatihan Kepemimpinan Pengawas (PKP) Kabupaten Bogor Angkatan 7 Tahun 2023 yang dilaksanakan pada tanggal 29–30 Oktober 2025, diperoleh gambaran bahwa capaian hasil pasca pelatihan menunjukkan tren positif. Mayoritas responden menilai tingkat keberhasilan aksi perubahan dalam jangka menengah dan panjang berada pada rentang 76–100%, yang menandakan bahwa tujuan pembelajaran dan implementasi aksi perubahan telah berjalan efektif di unit kerja masing-masing.`;
+      poin1 = `Ringkasan capaian hasil wawancara dan survei alumni disusun berdasarkan data evaluasi pasca pelatihan yang aktif tersimpan di database.`;
       poin2 = `Proses mutasi/rotasi/promosi berdampak besar terhadap keberlangsungan Aksi Perubahan.`;
       poin3 = `Keberlanjutan dan Replikasi Aksi Perubahan Alumni perlu mendapat pendampingan agar aksi perubahan berlanjut dan diintegrasikan ke program kerja, serta direplikasi sebagai best practice di perangkat daerah lain.`;
       poin4 = `Aksi perubahan yang dibuat oleh peserta tidak harus menggunakan Aplikasi Komputer, karena konsekuensi harus menyiapkan infrastruktur pendukung seperti Server, Hosting dan SDM untuk pengembangan Aplikasi.\n\nProses mutasi/rotasi/promosi hendaknya memperhatikan terhadap Aksi Perubahan Alumni.`;

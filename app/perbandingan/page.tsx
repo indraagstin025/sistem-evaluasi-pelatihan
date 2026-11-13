@@ -203,7 +203,13 @@ export default function PerbandinganPage() {
             {avgDiff > 0 ? `+${avgDiff.toFixed(2)}` : avgDiff.toFixed(2)}
           </p>
           <p className="text-[11px] text-slate-500 mt-1">
-            {avgDiff > 0 ? 'Evaluator lebih tinggi' : 'Survei alumni lebih tinggi'}
+            {(ringkasan?.totalPeserta ?? 0) === 0
+              ? 'Belum ada data'
+              : avgDiff > 0
+              ? 'Evaluator lebih tinggi'
+              : avgDiff < 0
+              ? 'Survei alumni lebih tinggi'
+              : 'Nilai seimbang'}
           </p>
         </div>
 

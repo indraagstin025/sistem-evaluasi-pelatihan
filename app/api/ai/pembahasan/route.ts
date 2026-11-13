@@ -115,9 +115,14 @@ async function getRekapGrafikMap() {
   };
 }
 
-// GET: Ambil pembahasan tersimpan atau inisialisasi dari templat
+// GET: Ambil pembahasan tersimpan atau inisialisasi dari templat (hanya jika ada peserta)
 export async function GET() {
   try {
+    const totalPeserta = await prisma.peserta.count();
+    if (totalPeserta === 0) {
+      return NextResponse.json({ success: true, data: {} });
+    }
+
     const saved = await prisma.pembahasan.findMany();
     const result: Record<string, any> = {};
     const keys = ['grafik1', 'grafik2', 'grafik3', 'grafik4', 'grafik5', 'kesimpulan'] as const;
@@ -164,6 +169,14 @@ export async function GET() {
 // POST: Buat / generate ulang pembahasan (bisa 1 grafik atau semua)
 export async function POST(request: Request) {
   try {
+    const totalPeserta = await prisma.peserta.count();
+    if (totalPeserta === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Belum ada data peserta untuk dianalisis. Impor data terlebih dahulu.' },
+        { status: 400 }
+      );
+    }
+
     const body = await request.json().catch(() => ({}));
     const targetKey = body.grafikKey || 'all';
 

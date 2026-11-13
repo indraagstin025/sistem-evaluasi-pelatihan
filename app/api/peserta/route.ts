@@ -2,12 +2,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import {
   hapusSemuaDataPeserta,
-  simpanBatchPesertaDenganDetail,
   simpanPesertaDenganDetail,
-  type PesertaDetailInput,
 } from '@/lib/peserta-db';
-import fs from 'fs';
-import path from 'path';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,95 +44,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    // Support action: "muat-dummy" atau "muat-asli"
-    if (body.action === 'muat-dummy' || body.action === 'muat-asli') {
-      const fileName =
-        body.action === 'muat-dummy'
-          ? 'uji-dummy-evaluasi-pasca-pelatihan.csv'
-          : 'data-anonim-pkp-30-peserta-ekspose.csv';
-
-      const filePath = path.join(process.cwd(), 'prisma', 'data', fileName);
-      if (!fs.existsSync(filePath)) {
-        return NextResponse.json(
-          { success: false, error: `File ${fileName} tidak ditemukan.` },
-          { status: 404 }
-        );
-      }
-
-      const content = fs.readFileSync(filePath, 'utf-8');
-      const lines = content.split(/\r?\n/).filter(line => line.trim().length > 0);
-      const parseLine = (line: string): string[] => {
-        const result: string[] = [];
-        let cur = '';
-        let inQuotes = false;
-        for (let i = 0; i < line.length; i++) {
-          const char = line[i];
-          if (char === '"') {
-            if (inQuotes && line[i + 1] === '"') {
-              cur += '"';
-              i++;
-            } else {
-              inQuotes = !inQuotes;
-            }
-          } else if (char === ',' && !inQuotes) {
-            result.push(cur.trim());
-            cur = '';
-          } else {
-            cur += char;
-          }
-        }
-        result.push(cur.trim());
-        return result;
-      };
-
-      const headers = parseLine(lines[0]);
-      const parseNum = (v: string | undefined) =>
-        !v || v.trim() === '' || isNaN(Number(v)) ? null : Number(v.trim());
-
-      // Hapus data lama agar bersih
-      await hapusSemuaDataPeserta(false);
-
-      const defaultSumber = body.action === 'muat-dummy' ? 'Dummy' : 'Ekspose';
-      const batchItems: PesertaDetailInput[] = [];
-
-      for (let i = 1; i < lines.length; i++) {
-        const cols = parseLine(lines[i]);
-        const row: Record<string, string> = {};
-        headers.forEach((h, idx) => {
-          row[h] = cols[idx] ?? '';
-        });
-
-        batchItems.push({
-          nama: row.nama,
-          nip: row.nip || null,
-          jabatanPelatihan: row.jabatanPelatihan || null,
-          jabatanSaatIni: row.jabatanSaatIni || null,
-          instansi: row.instansi || null,
-          pelatihan: 'PKP',
-          angkatan: 'VII',
-          tahun: 2023,
-          metode: 'Blended Learning',
-          sumber: defaultSumber,
-          s_panjang: parseNum(row.survei_jangka_panjang),
-          s_tujuan: parseNum(row.survei_seluruh_tujuan),
-          s_manfaat: parseNum(row.survei_manfaat),
-          w_menengah: parseNum(row.wawancara_jangka_menengah),
-          w_panjang: parseNum(row.wawancara_jangka_panjang),
-          w_tujuan: parseNum(row.wawancara_seluruh_tujuan),
-          w_manfaat: parseNum(row.wawancara_manfaat),
-          w_komunikasi: parseNum(row.wawancara_teknik_komunikasi),
-        });
-      }
-
-      const loadedCount = await simpanBatchPesertaDenganDetail(batchItems);
-
-      return NextResponse.json({
-        success: true,
-        message: `Berhasil memuat ${loadedCount} data peserta.`,
-      });
-    }
-
-    // Default: Tambah satu peserta baru
+    // Tambah satu peserta baru secara manual
     const { nama, nip, jabatanPelatihan, jabatanSaatIni, instansi, pelatihan, angkatan, tahun } =
       body;
 
