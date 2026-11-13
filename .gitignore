@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+/.pnp
+.pnp.js
+
+# Next.js build outputs
+/.next/
+/out/
+/build/
+
+# Environment variables (NEVER commit secrets)
+.env
+.env*.local
+
+# Local SQLite database remnants & logs
+prisma/dev.db
+prisma/dev.db-journal
+*.log
+npm-debug.log*
+
+# TypeScript / OS / IDE / Vercel
+*.tsbuildinfo
+next-env.d.ts
+.vercel
+.DS_Store
+Thumbs.db

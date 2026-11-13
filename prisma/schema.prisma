@@ -1,0 +1,77 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Peserta {
+  id                  String       @id @default(cuid())
+  nama                String
+  nip                 String?
+  jabatanPelatihan    String?
+  jabatanSaatIni      String?
+  instansi            String?
+  pelatihan           String       @default("PKP")
+  angkatan            String       @default("VII")
+  tahun               Int          @default(2023)
+  metode              String?
+  survey              Survey[]
+  wawancara           Wawancara[]
+  hasil               HasilEkspose?
+  createdAt           DateTime     @default(now())
+}
+
+model Survey {
+  id          String   @id @default(cuid())
+  pesertaId   String
+  peserta     Peserta  @relation(fields: [pesertaId], references: [id], onDelete: Cascade)
+  responden   String   // "alumni" atau "atasan"
+  kode        String   // contoh: "L4_01" jangka panjang, "L4_02" seluruh tujuan, "L4_03" manfaat, "L3_01".."L3_30", dst
+  jawabanTeks String?  // "Sangat Sesuai" / "Sesuai" / "Kurang Sesuai" / "Tidak Sesuai"
+  skor        Int?     // 4 / 3 / 2 / 1, 0 bila jawaban kosong
+  sumber      String   @default("Jawaban")
+
+  @@unique([pesertaId, responden, kode])
+}
+
+model Wawancara {
+  id          String   @id @default(cuid())
+  pesertaId   String
+  peserta     Peserta  @relation(fields: [pesertaId], references: [id], onDelete: Cascade)
+  kriteria    String   // "menengah" | "jangkaPanjang" | "seluruhTujuan" | "manfaat" | "komunikasi"
+  bobot       Int      // 20, 20, 20, 30, 10
+  nilai       Int?     // 0-100, null = KOSONG
+  deskripsi   String?
+  sumber      String   @default("Ekspose")
+
+  @@unique([pesertaId, kriteria])
+}
+
+model HasilEkspose {
+  id             String   @id @default(cuid())
+  pesertaId      String   @unique
+  peserta        Peserta  @relation(fields: [pesertaId], references: [id], onDelete: Cascade)
+  rataSurveiL    Float?
+  rataWawancaraM Float?
+  totalForm      Float?
+  selisih        Float?
+  rangeSurvei    String?
+  rangeWawancara String?
+  updatedAt      DateTime @updatedAt
+}
+
+model Pembahasan {
+  id          String   @id @default(cuid())
+  grafikKey   String   @unique // "grafik1" .. "grafik5"
+  judul       String
+  poin1       String   // Konsentrasi penilaian
+  poin2       String   // Rentang optimal (76-100)
+  poin3       String   // Rentang dominan (51-75)
+  poin4       String   // Rentang rendah (26-50)
+  teksLengkap String
+  sumber      String   @default("template") // "template" | "ai" | "manual"
+  updatedAt   DateTime @updatedAt
+}
