@@ -92,74 +92,81 @@ export async function GET() {
     // Peserta dengan wawancara kosong
     const kosongList = mapped.filter(p => p.isWawancaraKosong);
 
-    return NextResponse.json({
-      success: true,
-      kategori: KATEGORI_RENTANG,
-      rekap: {
-        grafik1: {
-          judul: 'Grafik 1: Target Aksi Perubahan Jangka Menengah vs Jangka Panjang (Wawancara)',
-          slide: 'Slide PPT 5',
-          labelA: 'Jangka Menengah (Wawancara)',
-          dataA: g1_menengah,
-          totalA: g1_menengah.reduce((a, b) => a + b, 0),
-          labelB: 'Jangka Panjang (Wawancara)',
-          dataB: g1_panjang,
-          totalB: g1_panjang.reduce((a, b) => a + b, 0),
+    return NextResponse.json(
+      {
+        success: true,
+        kategori: KATEGORI_RENTANG,
+        rekap: {
+          grafik1: {
+            judul: 'Grafik 1: Target Aksi Perubahan Jangka Menengah vs Jangka Panjang (Wawancara)',
+            slide: 'Slide PPT 5',
+            labelA: 'Jangka Menengah (Wawancara)',
+            dataA: g1_menengah,
+            totalA: g1_menengah.reduce((a, b) => a + b, 0),
+            labelB: 'Jangka Panjang (Wawancara)',
+            dataB: g1_panjang,
+            totalB: g1_panjang.reduce((a, b) => a + b, 0),
+          },
+          grafik2: {
+            judul: 'Grafik 2: Target Jangka Panjang — Survei vs Wawancara',
+            slide: 'Slide PPT 6',
+            labelA: 'Survei (Jangka Panjang)',
+            dataA: g2_survei,
+            totalA: g2_survei.reduce((a, b) => a + b, 0),
+            labelB: 'Wawancara (Jangka Panjang)',
+            dataB: g2_wawancara,
+            totalB: g2_wawancara.reduce((a, b) => a + b, 0),
+          },
+          grafik3: {
+            judul: 'Grafik 3: Seluruh Tujuan Aksi Perubahan — Survei vs Wawancara',
+            slide: 'Slide PPT 7',
+            labelA: 'Survei (Seluruh Tujuan)',
+            dataA: g3_survei,
+            totalA: g3_survei.reduce((a, b) => a + b, 0),
+            labelB: 'Wawancara (Seluruh Tujuan)',
+            dataB: g3_wawancara,
+            totalB: g3_wawancara.reduce((a, b) => a + b, 0),
+          },
+          grafik4: {
+            judul: 'Grafik 4: Manfaat Aksi Perubahan — Survei vs Wawancara',
+            slide: 'Slide PPT 8',
+            labelA: 'Survei (Manfaat)',
+            dataA: g4_survei,
+            totalA: g4_survei.reduce((a, b) => a + b, 0),
+            labelB: 'Wawancara (Manfaat)',
+            dataB: g4_wawancara,
+            totalB: g4_wawancara.reduce((a, b) => a + b, 0),
+          },
+          grafik5: {
+            judul: 'Grafik 5: Nilai Keseluruhan (L vs M) — Survei vs Wawancara',
+            slide: 'Slide PPT 9',
+            labelA: 'Rata-Rata Survei (L)',
+            dataA: g5_survei,
+            totalA: g5_survei.reduce((a, b) => a + b, 0),
+            labelB: 'Rata-Rata Wawancara (M)',
+            dataB: g5_wawancara,
+            totalB: g5_wawancara.reduce((a, b) => a + b, 0),
+          },
         },
-        grafik2: {
-          judul: 'Grafik 2: Target Jangka Panjang — Survei vs Wawancara',
-          slide: 'Slide PPT 6',
-          labelA: 'Survei (Jangka Panjang)',
-          dataA: g2_survei,
-          totalA: g2_survei.reduce((a, b) => a + b, 0),
-          labelB: 'Wawancara (Jangka Panjang)',
-          dataB: g2_wawancara,
-          totalB: g2_wawancara.reduce((a, b) => a + b, 0),
+        ringkasan: {
+          totalPeserta: mapped.length,
+          totalValidSurvei: validL.length,
+          totalValidWawancara: validM.length,
+          totalKosongWawancara: kosongList.length,
+          rataRataSurveiL: avgL,
+          rataRataWawancaraM: avgM,
+          selisihTerbesarPositif: maxPositive,
+          selisihTerbesarNegatif: maxNegative,
+          daftarKosong: kosongList,
         },
-        grafik3: {
-          judul: 'Grafik 3: Seluruh Tujuan Aksi Perubahan — Survei vs Wawancara',
-          slide: 'Slide PPT 7',
-          labelA: 'Survei (Seluruh Tujuan)',
-          dataA: g3_survei,
-          totalA: g3_survei.reduce((a, b) => a + b, 0),
-          labelB: 'Wawancara (Seluruh Tujuan)',
-          dataB: g3_wawancara,
-          totalB: g3_wawancara.reduce((a, b) => a + b, 0),
-        },
-        grafik4: {
-          judul: 'Grafik 4: Manfaat Aksi Perubahan — Survei vs Wawancara',
-          slide: 'Slide PPT 8',
-          labelA: 'Survei (Manfaat)',
-          dataA: g4_survei,
-          totalA: g4_survei.reduce((a, b) => a + b, 0),
-          labelB: 'Wawancara (Manfaat)',
-          dataB: g4_wawancara,
-          totalB: g4_wawancara.reduce((a, b) => a + b, 0),
-        },
-        grafik5: {
-          judul: 'Grafik 5: Nilai Keseluruhan (L vs M) — Survei vs Wawancara',
-          slide: 'Slide PPT 9',
-          labelA: 'Rata-Rata Survei (L)',
-          dataA: g5_survei,
-          totalA: g5_survei.reduce((a, b) => a + b, 0),
-          labelB: 'Rata-Rata Wawancara (M)',
-          dataB: g5_wawancara,
-          totalB: g5_wawancara.reduce((a, b) => a + b, 0),
-        },
+        peserta: mapped,
       },
-      ringkasan: {
-        totalPeserta: mapped.length,
-        totalValidSurvei: validL.length,
-        totalValidWawancara: validM.length,
-        totalKosongWawancara: kosongList.length,
-        rataRataSurveiL: avgL,
-        rataRataWawancaraM: avgM,
-        selisihTerbesarPositif: maxPositive,
-        selisihTerbesarNegatif: maxNegative,
-        daftarKosong: kosongList,
-      },
-      peserta: mapped,
-    });
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        },
+      }
+    );
   } catch (error: any) {
     console.error('GET /api/ekspose error:', error);
     return NextResponse.json(
