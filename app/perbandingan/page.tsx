@@ -30,7 +30,7 @@ export default function PerbandinganPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/ekspose');
+      const res = await fetch('/api/ekspose', { cache: 'no-store' });
       const json = await res.json();
       if (json.success) {
         setData(json);

@@ -17,24 +17,30 @@ interface BottomCardsProps {
 }
 
 export default function BottomCards({ ringkasan }: BottomCardsProps) {
-  const total = ringkasan?.totalPeserta ?? 30;
-  const valid = ringkasan?.totalValidWawancara ?? 29;
-  const kosong = ringkasan?.totalKosongWawancara ?? 1;
+  const total = ringkasan?.totalPeserta ?? 0;
+  const valid = ringkasan?.totalValidWawancara ?? 0;
+  const kosong = ringkasan?.totalKosongWawancara ?? 0;
 
-  const pctValid = total > 0 ? ((valid / total) * 100).toFixed(1) : '96.7';
-  const pctKosong = total > 0 ? ((kosong / total) * 100).toFixed(1) : '3.3';
+  const pctValid = total > 0 ? ((valid / total) * 100).toFixed(1) : '0.0';
+  const pctKosong = total > 0 ? ((kosong / total) * 100).toFixed(1) : '0.0';
 
-  const lVal = ringkasan?.rataRataSurveiL ?? 85.24;
-  const mVal = ringkasan?.rataRataWawancaraM ?? 83.17;
-  const avgBoth = ((lVal + mVal) / 2).toFixed(2);
+  const validSurvei = ringkasan?.totalValidSurvei ?? 0;
+  const lVal = validSurvei > 0 ? (ringkasan?.rataRataSurveiL ?? 0) : 0;
+  const mVal = valid > 0 ? (ringkasan?.rataRataWawancaraM ?? 0) : 0;
+  const avgBoth =
+    validSurvei > 0 || valid > 0
+      ? ((lVal + mVal) / (validSurvei > 0 && valid > 0 ? 2 : 1)).toFixed(2)
+      : '0.00';
 
-  const maxPos = ringkasan?.selisihTerbesarPositif?.selisih ?? 16.67;
-  const maxNeg = ringkasan?.selisihTerbesarNegatif?.selisih ?? -40.00;
+  const maxPos = ringkasan?.selisihTerbesarPositif?.selisih;
+  const maxNeg = ringkasan?.selisihTerbesarNegatif?.selisih;
+  const hasPos = typeof maxPos === 'number' && !isNaN(maxPos);
+  const hasNeg = typeof maxNeg === 'number' && !isNaN(maxNeg);
 
   // Donut SVG circumference calculation (r = 38 => C = 2 * PI * 38 = 238.76)
   const c = 238.76;
-  const dashValid = ((valid / (total || 1)) * c).toFixed(1);
-  const dashKosong = ((kosong / (total || 1)) * c).toFixed(1);
+  const dashValid = total > 0 ? ((valid / total) * c).toFixed(1) : '0';
+  const dashKosong = total > 0 ? ((kosong / total) * c).toFixed(1) : '0';
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -143,7 +149,13 @@ export default function BottomCards({ ringkasan }: BottomCardsProps) {
         </div>
 
         <p className="text-[11px] text-slate-400 pt-3 border-t border-slate-100">
-          Kategori nilai rata-rata berada pada Rentang Optimal (76–100).
+          {total === 0
+            ? 'Belum ada data peserta untuk dihitung.'
+            : Number(avgBoth) >= 76
+            ? 'Kategori nilai rata-rata berada pada Rentang Optimal (76–100).'
+            : Number(avgBoth) >= 51
+            ? 'Kategori nilai rata-rata berada pada Rentang Baik (51–75).'
+            : 'Kategori nilai rata-rata perlu peningkatan (< 51).'}
         </p>
       </div>
 
@@ -161,10 +173,10 @@ export default function BottomCards({ ringkasan }: BottomCardsProps) {
               Tertinggi (+)
             </span>
             <span className="text-2xl font-black text-emerald-700 font-mono mt-1 block">
-              +{Math.abs(maxPos).toFixed(2)}
+              {hasPos ? `${maxPos >= 0 ? '+' : ''}${maxPos.toFixed(2)}` : '0.00'}
             </span>
             <span className="text-[10px] text-emerald-600 font-medium mt-1 block truncate">
-              {ringkasan?.selisihTerbesarPositif?.nama || 'Evaluator > Survei'}
+              {ringkasan?.selisihTerbesarPositif?.nama || (total === 0 ? 'Belum ada data' : 'Evaluator > Survei')}
             </span>
           </div>
 
@@ -174,10 +186,10 @@ export default function BottomCards({ ringkasan }: BottomCardsProps) {
               Terendah (-)
             </span>
             <span className="text-2xl font-black text-rose-700 font-mono mt-1 block">
-              {maxNeg > 0 ? `-${maxNeg.toFixed(2)}` : maxNeg.toFixed(2)}
+              {hasNeg ? (maxNeg > 0 ? `-${maxNeg.toFixed(2)}` : maxNeg.toFixed(2)) : '0.00'}
             </span>
             <span className="text-[10px] text-rose-600 font-medium mt-1 block truncate">
-              {ringkasan?.selisihTerbesarNegatif?.nama || 'Survei > Evaluator'}
+              {ringkasan?.selisihTerbesarNegatif?.nama || (total === 0 ? 'Belum ada data' : 'Survei > Evaluator')}
             </span>
           </div>
         </div>

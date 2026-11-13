@@ -16,25 +16,45 @@ interface StatCardsProps {
 }
 
 export default function StatCards({ ringkasan }: StatCardsProps) {
-  const total = ringkasan?.totalPeserta ?? 30;
-  const lVal = ringkasan?.rataRataSurveiL !== undefined ? ringkasan.rataRataSurveiL.toFixed(2) : '85.24';
-  const mVal = ringkasan?.rataRataWawancaraM !== undefined ? ringkasan.rataRataWawancaraM.toFixed(2) : '83.17';
+  const total = ringkasan?.totalPeserta ?? 0;
+  const validSurvei = ringkasan?.totalValidSurvei ?? 0;
+  const validWawancara = ringkasan?.totalValidWawancara ?? 0;
+
+  const lVal = validSurvei > 0 && ringkasan?.rataRataSurveiL !== undefined
+    ? ringkasan.rataRataSurveiL.toFixed(2)
+    : '0.00';
+  const mVal = validWawancara > 0 && ringkasan?.rataRataWawancaraM !== undefined
+    ? ringkasan.rataRataWawancaraM.toFixed(2)
+    : '0.00';
 
   const maxPos = ringkasan?.selisihTerbesarPositif?.selisih;
   const maxNeg = ringkasan?.selisihTerbesarNegatif?.selisih;
+  const hasPos = typeof maxPos === 'number' && !isNaN(maxPos);
+  const hasNeg = typeof maxNeg === 'number' && !isNaN(maxNeg);
 
-  const selisihDisplay = maxPos !== undefined ? `+${maxPos.toFixed(2)}` : '+16.67';
+  const selisihDisplay = hasPos
+    ? `${maxPos >= 0 ? '+' : ''}${maxPos.toFixed(2)}`
+    : '0.00';
   const subSelisih =
-    maxPos !== undefined && maxNeg !== undefined
-      ? `(+${maxPos.toFixed(2)} / ${maxNeg.toFixed(2)})`
-      : '(+16.67 / -40.00)';
+    hasPos && hasNeg
+      ? `(${maxPos >= 0 ? '+' : ''}${maxPos.toFixed(2)} / ${maxNeg.toFixed(2)})`
+      : 'Belum ada data selisih';
+
+  const lRentangTrend =
+    validSurvei === 0
+      ? 'Belum ada data'
+      : (ringkasan?.rataRataSurveiL ?? 0) >= 76
+      ? 'Rentang Optimal (76-100)'
+      : (ringkasan?.rataRataSurveiL ?? 0) >= 51
+      ? 'Rentang Baik (51-75)'
+      : 'Perlu Peningkatan';
 
   const stats = [
     {
       id: 'peserta',
       title: 'Total Peserta',
       value: String(total),
-      trend: `N=${ringkasan?.totalValidSurvei ?? 30} Survei`,
+      trend: `N=${validSurvei} Survei`,
       trendColor: 'text-emerald-700',
       icon: Users,
       iconBg: 'bg-emerald-100',
@@ -46,8 +66,8 @@ export default function StatCards({ ringkasan }: StatCardsProps) {
       id: 'l',
       title: 'Rata-rata L (Survei)',
       value: lVal,
-      trend: 'Rentang Optimal',
-      trendColor: 'text-emerald-700',
+      trend: lRentangTrend,
+      trendColor: validSurvei > 0 ? 'text-emerald-700' : 'text-slate-400',
       icon: BarChart3,
       iconBg: 'bg-emerald-100',
       iconColor: 'text-emerald-700',
@@ -58,7 +78,7 @@ export default function StatCards({ ringkasan }: StatCardsProps) {
       id: 'm',
       title: 'Rata-rata M (Wawancara)',
       value: mVal,
-      trend: `N=${ringkasan?.totalValidWawancara ?? 29} Valid`,
+      trend: `N=${validWawancara} Valid`,
       trendColor: 'text-emerald-700',
       icon: BarChart3,
       iconBg: 'bg-emerald-800',

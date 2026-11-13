@@ -27,21 +27,21 @@ export default function InputNilaiPage() {
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   // Form State
-  const [b1, setB1] = useState<number | ''>(3);
-  const [b2, setB2] = useState<number | ''>(3);
-  const [b3, setB3] = useState<number | ''>(3);
+  const [b1, setB1] = useState<number | ''>('');
+  const [b2, setB2] = useState<number | ''>('');
+  const [b3, setB3] = useState<number | ''>('');
 
-  const [k1, setK1] = useState<number | ''>(85);
-  const [k2, setK2] = useState<number | ''>(88);
-  const [k3, setK3] = useState<number | ''>(84);
-  const [k4, setK4] = useState<number | ''>(82);
-  const [k5, setK5] = useState<number | ''>(90);
+  const [k1, setK1] = useState<number | ''>('');
+  const [k2, setK2] = useState<number | ''>('');
+  const [k3, setK3] = useState<number | ''>('');
+  const [k4, setK4] = useState<number | ''>('');
+  const [k5, setK5] = useState<number | ''>('');
 
   // Fetch all participants
   const fetchPesertaList = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/peserta');
+      const res = await fetch('/api/peserta', { cache: 'no-store' });
       const json = await res.json();
       if (json.success && json.data) {
         setPesertaList(json.data);

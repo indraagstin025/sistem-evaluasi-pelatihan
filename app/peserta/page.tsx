@@ -40,7 +40,7 @@ export default function DataPesertaPage() {
   const fetchPeserta = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/ekspose');
+      const res = await fetch('/api/ekspose', { cache: 'no-store' });
       const json = await res.json();
       if (json.success && json.peserta) {
         setPesertaList(json.peserta);

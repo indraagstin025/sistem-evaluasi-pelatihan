@@ -14,7 +14,19 @@ interface ChartColumnData {
   legendColor: string;
 }
 
-export default function ChartEksposeOverview() {
+interface ChartEksposeOverviewProps {
+  peserta?: any[];
+}
+
+function hitungRataKolom(peserta: any[], field: string, pengali = 1): number {
+  const valid = peserta
+    .map((p) => p?.[field])
+    .filter((v): v is number => typeof v === 'number' && !isNaN(v));
+  if (valid.length === 0) return 0;
+  return (valid.reduce((acc, v) => acc + v, 0) / valid.length) * pengali;
+}
+
+export default function ChartEksposeOverview({ peserta = [] }: ChartEksposeOverviewProps) {
   const columns: ChartColumnData[] = [
     {
       num: '1',
@@ -23,9 +35,9 @@ export default function ChartEksposeOverview() {
       subtitle: '(Aksi Perubahan)',
       barColor: 'bg-[#3B82F6]',
       bars: [
-        { label: 'P1', value: 86.2 },
-        { label: 'P2', value: 84.7 },
-        { label: 'P3', value: 82.9 },
+        { label: 'P1', value: hitungRataKolom(peserta, 's_panjang', 25) },
+        { label: 'P2', value: hitungRataKolom(peserta, 's_tujuan', 25) },
+        { label: 'P3', value: hitungRataKolom(peserta, 's_manfaat', 25) },
       ],
       legend: '• P1   • P2   • P3',
       legendColor: 'text-[#3B82F6]',
@@ -37,8 +49,8 @@ export default function ChartEksposeOverview() {
       subtitle: '(Menengah & Panjang)',
       barColor: 'bg-[#10B981]',
       bars: [
-        { label: 'K1', value: 87.5 },
-        { label: 'K2', value: 85.1 },
+        { label: 'K1', value: hitungRataKolom(peserta, 'w_menengah') },
+        { label: 'K2', value: hitungRataKolom(peserta, 'w_panjang') },
       ],
       legend: '• K1   • K2',
       legendColor: 'text-[#10B981]',
@@ -49,7 +61,7 @@ export default function ChartEksposeOverview() {
       title: 'Wawancara',
       subtitle: '(Seluruh Tujuan)',
       barColor: 'bg-[#3B82F6]',
-      bars: [{ label: 'K3', value: 83.7 }],
+      bars: [{ label: 'K3', value: hitungRataKolom(peserta, 'w_tujuan') }],
       legend: '• K3',
       legendColor: 'text-[#3B82F6]',
     },
@@ -59,7 +71,7 @@ export default function ChartEksposeOverview() {
       title: 'Wawancara',
       subtitle: '(Manfaat Aksi)',
       barColor: 'bg-[#F59E0B]',
-      bars: [{ label: 'K4', value: 81.9 }],
+      bars: [{ label: 'K4', value: hitungRataKolom(peserta, 'w_manfaat') }],
       legend: '• K4',
       legendColor: 'text-[#F59E0B]',
     },
@@ -69,7 +81,7 @@ export default function ChartEksposeOverview() {
       title: 'Wawancara',
       subtitle: '(Komunikasi)',
       barColor: 'bg-[#06B6D4]',
-      bars: [{ label: 'K5', value: 84.3 }],
+      bars: [{ label: 'K5', value: hitungRataKolom(peserta, 'w_komunikasi') }],
       legend: '• K5',
       legendColor: 'text-[#06B6D4]',
     },

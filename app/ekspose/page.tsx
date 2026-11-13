@@ -85,8 +85,8 @@ export default function EksposePage() {
     try {
       setLoading(true);
       const [resEkspose, resPembahasan] = await Promise.all([
-        fetch('/api/ekspose'),
-        fetch('/api/ai/pembahasan'),
+        fetch('/api/ekspose', { cache: 'no-store' }),
+        fetch('/api/ai/pembahasan', { cache: 'no-store' }),
       ]);
 
       const jsonEkspose = await resEkspose.json();

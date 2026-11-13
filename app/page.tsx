@@ -27,7 +27,7 @@ export default function DashboardPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/ekspose');
+      const res = await fetch('/api/ekspose', { cache: 'no-store' });
       const json = await res.json();
       if (json.success) {
         setData(json);
@@ -111,7 +111,9 @@ export default function DashboardPage() {
           <div>
             <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Sumber Data Aktif</h2>
             <p className="text-sm font-black text-slate-800">
-              {data?.ringkasan?.totalPeserta === 30
+              {loading && !data
+                ? 'Memuat data dari database...'
+                : data?.ringkasan?.totalPeserta === 30
                 ? 'Dataset 30 Peserta Asli (PKP Angk. VII 2023)'
                 : data?.ringkasan?.totalPeserta === 10
                 ? 'Dataset 10 Peserta Dummy (Uji Rumus)'
@@ -170,17 +172,42 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* 2. Empat Kartu KPI Utama */}
-      <StatCards ringkasan={data?.ringkasan} />
+      {loading && !data ? (
+        <div className="space-y-6 animate-pulse">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[0, 1, 2, 3].map((idx) => (
+              <div key={idx} className="h-32 rounded-2xl bg-white border border-slate-200/80 p-5">
+                <div className="h-3 w-24 bg-slate-200 rounded mb-3" />
+                <div className="h-7 w-16 bg-slate-200 rounded" />
+              </div>
+            ))}
+          </div>
+          <div className="h-14 rounded-2xl bg-white border border-slate-200/80" />
+          <div className="h-64 rounded-2xl bg-white border border-slate-200/80" />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {[0, 1, 2].map((idx) => (
+              <div key={idx} className="h-52 rounded-2xl bg-white border border-slate-200/80" />
+            ))}
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* 2. Empat Kartu KPI Utama */}
+          <StatCards ringkasan={data?.ringkasan} />
 
-      {/* 3. Banner Peringatan Data Kosong */}
-      <WarningBanner daftarKosong={data?.ringkasan?.daftarKosong} />
+          {/* 3. Banner Peringatan Data Kosong */}
+          <WarningBanner
+            daftarKosong={data?.ringkasan?.daftarKosong}
+            totalPeserta={data?.ringkasan?.totalPeserta ?? 0}
+          />
 
-      {/* 4. Kartu Ringkasan Grafik Ekspose (5 Kolom) */}
-      <ChartEksposeOverview />
+          {/* 4. Kartu Ringkasan Grafik Ekspose (5 Kolom) */}
+          <ChartEksposeOverview peserta={data?.peserta} />
 
-      {/* 5. Tiga Kartu Bagian Bawah (Status Data, Rekap Nilai, Selisih) */}
-      <BottomCards ringkasan={data?.ringkasan} />
+          {/* 5. Tiga Kartu Bagian Bawah (Status Data, Rekap Nilai, Selisih) */}
+          <BottomCards ringkasan={data?.ringkasan} />
+        </>
+      )}
 
       {/* Modal Dialog Impor Excel Fleksibel */}
       <ImportExcelModal
