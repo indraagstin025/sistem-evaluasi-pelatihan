@@ -1,6 +1,5 @@
 'use client';
 
-import { Calendar, ChevronDown } from 'lucide-react';
 import React from 'react';
 
 interface TopbarProps {
@@ -11,27 +10,21 @@ interface TopbarProps {
 
 export default function Topbar({ title, subtitle, children }: TopbarProps) {
   return (
-    <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+    <header className="mb-7 flex flex-col justify-between gap-4 border-b border-zinc-200 pb-5 sm:flex-row sm:items-end">
       <div>
-        <h1 className="text-2xl sm:text-[28px] font-bold text-gray-900 tracking-tight leading-tight">
+        <h1 className="text-2xl font-semibold leading-tight tracking-tight text-zinc-950 sm:text-[28px]">
           {title}
         </h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <p className="mt-1 text-sm font-normal text-zinc-600">
           {subtitle}
         </p>
       </div>
 
-      <div className="flex items-center gap-3">
-        {children}
-
-        {/* Dropdown Dataset Selector (Persis FigCraft) */}
-        <div className="flex items-center gap-2.5 bg-white border border-gray-200 px-3.5 py-2 rounded-xl shadow-xs text-xs font-medium text-gray-800 cursor-pointer hover:border-gray-300 transition-colors">
-          <Calendar className="w-4 h-4 text-gray-500" />
-          <span>PKP Angkatan VII · 2023</span>
-          <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
-          <span className="w-2 h-2 rounded-full bg-emerald-500 ml-0.5 inline-block" />
+      {children && (
+        <div className="flex flex-wrap items-center gap-2.5">
+          {children}
         </div>
-      </div>
+      )}
     </header>
   );
 }

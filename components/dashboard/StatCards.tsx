@@ -1,7 +1,12 @@
 'use client';
 
 import React from 'react';
-import { Users, BarChart3, Scale } from 'lucide-react';
+import {
+  BarChartIcon,
+  MixerHorizontalIcon,
+  PersonIcon,
+  TargetIcon,
+} from '@radix-ui/react-icons';
 
 interface StatCardsProps {
   ringkasan?: {
@@ -20,12 +25,14 @@ export default function StatCards({ ringkasan }: StatCardsProps) {
   const validSurvei = ringkasan?.totalValidSurvei ?? 0;
   const validWawancara = ringkasan?.totalValidWawancara ?? 0;
 
-  const lVal = validSurvei > 0 && ringkasan?.rataRataSurveiL !== undefined
-    ? ringkasan.rataRataSurveiL.toFixed(2)
-    : '0.00';
-  const mVal = validWawancara > 0 && ringkasan?.rataRataWawancaraM !== undefined
-    ? ringkasan.rataRataWawancaraM.toFixed(2)
-    : '0.00';
+  const lVal =
+    validSurvei > 0 && ringkasan?.rataRataSurveiL !== undefined
+      ? ringkasan.rataRataSurveiL.toFixed(2)
+      : '0.00';
+  const mVal =
+    validWawancara > 0 && ringkasan?.rataRataWawancaraM !== undefined
+      ? ringkasan.rataRataWawancaraM.toFixed(2)
+      : '0.00';
 
   const maxPos = ringkasan?.selisihTerbesarPositif?.selisih;
   const maxNeg = ringkasan?.selisihTerbesarNegatif?.selisih;
@@ -37,105 +44,115 @@ export default function StatCards({ ringkasan }: StatCardsProps) {
     : '0.00';
   const subSelisih =
     hasPos && hasNeg
-      ? `(${maxPos >= 0 ? '+' : ''}${maxPos.toFixed(2)} / ${maxNeg.toFixed(2)})`
-      : 'Belum ada selisih';
+      ? `Rentang ${maxNeg.toFixed(2)} s.d. ${maxPos >= 0 ? '+' : ''}${maxPos.toFixed(2)}`
+      : 'Belum ada perbandingan';
 
-  const lRentangTrend =
+  const lRentangText =
     validSurvei === 0
-      ? 'Belum ada data'
+      ? 'Belum ada data survei'
       : (ringkasan?.rataRataSurveiL ?? 0) >= 76
       ? 'Rentang Optimal (76-100)'
       : (ringkasan?.rataRataSurveiL ?? 0) >= 51
       ? 'Rentang Baik (51-75)'
-      : 'Perlu ditingkatkan';
+      : 'Perlu ditingkatkan (< 51)';
 
-  const stats = [
+  const wawancaraCoverage =
+    total > 0 ? Math.round((validWawancara / total) * 100) : 0;
+
+  const secondaryStats = [
     {
       id: 'peserta',
-      title: 'Total Peserta',
+      title: 'Total peserta',
       value: String(total),
-      trend: `N=${validSurvei} Survei`,
-      trendColor: 'text-emerald-700',
-      icon: Users,
-      iconBg: 'bg-emerald-100',
-      iconColor: 'text-emerald-700',
-      sparkPath: 'M0 14 C20 18, 40 4, 60 12 C80 18, 95 2, 110 0',
-      sparkStroke: '#10B981',
+      detail: `${validSurvei} terdata survei, ${validWawancara} terdata wawancara`,
+      icon: PersonIcon,
     },
     {
-      id: 'l',
-      title: 'Rata-rata L (Survei)',
-      value: lVal,
-      trend: lRentangTrend,
-      trendColor: validSurvei > 0 ? 'text-emerald-700' : 'text-slate-400',
-      icon: BarChart3,
-      iconBg: 'bg-emerald-100',
-      iconColor: 'text-emerald-700',
-      sparkPath: 'M0 16 C25 18, 45 6, 70 10 C90 14, 100 2, 110 0',
-      sparkStroke: '#10B981',
-    },
-    {
-      id: 'm',
-      title: 'Rata-rata M (Wawancara)',
-      value: mVal,
-      trend: `N=${validWawancara} Valid`,
-      trendColor: 'text-emerald-700',
-      icon: BarChart3,
-      iconBg: 'bg-emerald-800',
-      iconColor: 'text-white',
-      sparkPath: 'M0 14 C20 16, 40 10, 60 14 C80 8, 95 4, 110 0',
-      sparkStroke: '#10B981',
+      id: 'cakupan',
+      title: 'Cakupan wawancara',
+      value: `${wawancaraCoverage}%`,
+      detail: `${validWawancara} dari ${total} peserta tervalidasi`,
+      icon: TargetIcon,
     },
     {
       id: 'selisih',
-      title: 'Selisih Terbesar',
+      title: 'Selisih tertinggi (M - L)',
       value: selisihDisplay,
-      trend: subSelisih,
-      trendColor: 'text-slate-500',
-      icon: Scale,
-      iconBg: 'bg-amber-100',
-      iconColor: 'text-amber-700',
-      sparkPath: 'M0 10 C20 18, 40 2, 60 14 C70 12, 75 0, 80 0',
-      sparkStroke: '#10B981',
+      detail: subSelisih,
+      icon: MixerHorizontalIcon,
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      {stats.map((stat) => {
-        const Icon = stat.icon;
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+      {/* Hero Asymmetric Inverted Card */}
+      <div className="flex flex-col justify-between rounded-2xl bg-zinc-950 p-6 text-white lg:col-span-5">
+        <div>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-zinc-400">
+              Indeks Evaluasi Utama
+            </p>
+            <BarChartIcon className="h-4 w-4 shrink-0 text-zinc-300" aria-hidden="true" />
+          </div>
 
-        return (
-          <div
-            key={stat.id}
-            className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs hover:shadow-xs transition"
-          >
-            <div className="flex items-start justify-between">
+          <div className="mt-5 grid grid-cols-2 divide-x divide-zinc-800">
+            <div className="pr-4">
+              <p className="text-xs font-normal text-zinc-300">Rata-rata L (Survei)</p>
+              <p className="mt-1.5 font-mono text-3xl font-semibold leading-none tracking-tight text-white tabular-nums sm:text-[34px]">
+                {lVal}
+              </p>
+              <p className="mt-2 text-[11px] font-normal text-zinc-300">
+                {lRentangText}
+              </p>
+            </div>
+
+            <div className="pl-4">
+              <p className="text-xs font-normal text-zinc-300">Rata-rata M (Wawancara)</p>
+              <p className="mt-1.5 font-mono text-3xl font-semibold leading-none tracking-tight text-white tabular-nums sm:text-[34px]">
+                {mVal}
+              </p>
+              <p className="mt-2 text-[11px] font-normal text-zinc-300">
+                {validWawancara} dari {total} terisi
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-5 flex items-center justify-between border-t border-zinc-800 pt-3.5 text-xs">
+          <span className="font-normal text-zinc-300">Gap Tertinggi (M - L)</span>
+          <span className="font-mono font-semibold text-white tabular-nums">
+            {selisihDisplay}
+          </span>
+        </div>
+      </div>
+
+      {/* Right Ledger Strip */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:col-span-7">
+        {secondaryStats.map((stat) => {
+          const Icon = stat.icon;
+
+          return (
+            <div
+              key={stat.id}
+              className="flex flex-col justify-between rounded-2xl border border-zinc-200 bg-white p-5"
+            >
               <div>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">{stat.title}</p>
-                <p className="text-[28px] font-black text-slate-900 mt-1 leading-tight tracking-tight">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-medium text-zinc-600">{stat.title}</p>
+                  <Icon className="h-4 w-4 shrink-0 text-zinc-700" aria-hidden="true" />
+                </div>
+                <p className="mt-3 font-mono text-[28px] font-semibold leading-tight tracking-tight text-zinc-950 tabular-nums">
                   {stat.value}
                 </p>
               </div>
 
-              <div className={`w-10 h-10 rounded-xl ${stat.iconBg} ${stat.iconColor} flex items-center justify-center shrink-0`}>
-                <Icon className="w-5 h-5" />
-              </div>
+              <p className="mt-4 border-t border-zinc-100 pt-2.5 text-xs font-normal text-zinc-600">
+                {stat.detail}
+              </p>
             </div>
-
-            <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
-              <span className={`text-[11px] font-bold ${stat.trendColor}`}>
-                {stat.trend}
-              </span>
-
-              {/* Sparkline Visual */}
-              <svg width="80" height="20" viewBox="0 0 110 20" fill="none" className="opacity-70">
-                <path d={stat.sparkPath} stroke={stat.sparkStroke} strokeWidth="2.5" strokeLinecap="round" />
-              </svg>
-            </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }

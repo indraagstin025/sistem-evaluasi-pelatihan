@@ -1,36 +1,46 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import {
+  FileTextIcon,
+  TrashIcon,
+  UploadIcon,
+} from '@radix-ui/react-icons';
 import Topbar from '@/components/Topbar';
 import StatCards from '@/components/dashboard/StatCards';
 import WarningBanner from '@/components/dashboard/WarningBanner';
 import ChartEksposeOverview from '@/components/dashboard/ChartEksposeOverview';
 import BottomCards from '@/components/dashboard/BottomCards';
 import ImportExcelModal from '@/components/ImportExcelModal';
-import {
-  Upload,
-  Database,
-  CheckCircle2,
-  Trash2,
-} from 'lucide-react';
+import { ConfirmDialog } from '@/components/ui/alert-dialog';
+import { StatusBanner } from '@/components/ui/status-banner';
 
 export default function DashboardPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
-  const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+  const [feedback, setFeedback] = useState<{
+    text: string;
+    tone: 'success' | 'error';
+  } | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const fetchData = async () => {
     try {
       setLoading(true);
+      setFetchError(null);
       const res = await fetch('/api/ekspose', { cache: 'no-store' });
       const json = await res.json();
-      if (json.success) {
-        setData(json);
+      if (!res.ok || !json.success) {
+        setFetchError(json.error || 'Gagal memuat ringkasan data dashboard.');
+        return;
       }
+      setData(json);
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
+      setFetchError('Koneksi bermasalah saat memuat data dashboard.');
     } finally {
       setLoading(false);
     }
@@ -40,126 +50,140 @@ export default function DashboardPage() {
     fetchData();
   }, []);
 
-  const handleResetData = async () => {
-    if (!confirm('Hapus semua data?\n\nSeluruh data peserta, survei, dan wawancara akan ikut terhapus.')) {
-      return;
-    }
+  const handleConfirmResetData = async () => {
     try {
       setActionLoading(true);
-      setActionMessage(null);
+      setFeedback(null);
       const res = await fetch('/api/peserta', { method: 'DELETE' });
       const json = await res.json();
-      if (json.success) {
-        setActionMessage('Semua data sudah dihapus.');
-        fetchData();
+      if (res.ok && json.success) {
+        setResetConfirmOpen(false);
+        setFeedback({ text: 'Semua data peserta berhasil dihapus.', tone: 'success' });
+        await fetchData();
       } else {
-        alert(json.error || 'Gagal menghapus data');
+        setResetConfirmOpen(false);
+        setFeedback({ text: json.error || 'Gagal menghapus data.', tone: 'error' });
       }
     } catch (err) {
       console.error(err);
-      alert('Koneksi bermasalah, silakan coba lagi.');
+      setResetConfirmOpen(false);
+      setFeedback({ text: 'Koneksi bermasalah, silakan coba lagi.', tone: 'error' });
     } finally {
       setActionLoading(false);
     }
   };
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-12">
-      {/* 1. Header & Dropdown Dataset */}
+    <div className="space-y-6 pb-12">
       <Topbar
         title="Dashboard"
         subtitle="Ringkasan hasil evaluasi pasca pelatihan PKP Angkatan VII 2023"
-      />
+      >
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => setResetConfirmOpen(true)}
+            disabled={actionLoading || (data?.ringkasan?.totalPeserta ?? 0) === 0}
+            className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-zinc-500 bg-white px-3.5 py-2 text-xs font-medium text-zinc-950 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <TrashIcon className="h-3.5 w-3.5" aria-hidden="true" />
+            Hapus Semua Data
+          </button>
 
-      {/* Action Bar: Kartu Aksi Cepat Impor & Manajemen Data */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-100">
-            <Database className="w-5 h-5" />
-          </div>
-          <div>
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Sumber data</h2>
-            <p className="text-sm font-black text-slate-800">
+          <button
+            type="button"
+            onClick={() => setIsModalOpen(true)}
+            className="inline-flex min-h-[40px] items-center gap-2 rounded-lg bg-zinc-950 px-4 py-2 text-xs font-semibold text-white transition hover:bg-zinc-800"
+          >
+            <UploadIcon className="h-3.5 w-3.5" aria-hidden="true" />
+            Impor File Excel
+          </button>
+        </div>
+      </Topbar>
+
+      {/* Active Dataset Bar */}
+      <div className="flex flex-col justify-between gap-2 rounded-2xl border border-zinc-200 bg-white px-5 py-3.5 sm:flex-row sm:items-center">
+        <div className="flex items-center gap-2.5">
+          <FileTextIcon className="h-4 w-4 shrink-0 text-zinc-800" aria-hidden="true" />
+          <div className="flex flex-wrap items-baseline gap-x-2">
+            <span className="text-xs font-normal text-zinc-600">Sumber data aktif:</span>
+            <span className="text-xs font-semibold text-zinc-950">
               {loading && !data
                 ? 'Memuat data...'
                 : data?.ringkasan?.totalPeserta === 0
                 ? 'Belum ada data (siap diimpor)'
                 : `${data?.ringkasan?.totalPeserta || 0} peserta terdaftar`}
-            </p>
+            </span>
           </div>
         </div>
-
-        {/* Action Buttons */}
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={handleResetData}
-            disabled={actionLoading}
-            className="px-3 py-1.5 text-xs font-bold rounded-xl border border-rose-200 bg-white hover:bg-rose-50 text-rose-700 transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
-            title="Hapus semua data"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            Hapus Semua Data
-          </button>
-
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="px-4 py-2 text-xs font-black rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-200 transition flex items-center gap-2 cursor-pointer"
-          >
-            <Upload className="w-4 h-4" />
-            Impor File Excel
-          </button>
-        </div>
+        <p className="text-xs font-normal text-zinc-600">
+          Instrumen Survei Alumni &amp; Wawancara Evaluator
+        </p>
       </div>
 
-      {actionMessage && (
-        <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-          {actionMessage}
-        </div>
+      {feedback && (
+        <StatusBanner
+          tone={feedback.tone}
+          message={feedback.text}
+          onDismiss={() => setFeedback(null)}
+        />
+      )}
+
+      {fetchError && (
+        <StatusBanner
+          tone="error"
+          title="Gagal memuat dashboard"
+          message={fetchError}
+          onRetry={fetchData}
+        />
       )}
 
       {loading && !data ? (
-        <div className="space-y-6 animate-pulse">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[0, 1, 2, 3].map((idx) => (
-              <div key={idx} className="h-32 rounded-2xl bg-white border border-slate-200/80 p-5">
-                <div className="h-3 w-24 bg-slate-200 rounded mb-3" />
-                <div className="h-7 w-16 bg-slate-200 rounded" />
-              </div>
-            ))}
+        <div className="space-y-6" aria-busy="true">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+            <div className="h-48 rounded-2xl bg-zinc-900/90 p-6 lg:col-span-5" />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:col-span-7">
+              {[0, 1, 2].map((idx) => (
+                <div key={idx} className="h-48 rounded-2xl border border-zinc-200 bg-white p-5">
+                  <div className="mb-3 h-3 w-24 rounded bg-zinc-200" />
+                  <div className="h-8 w-16 rounded bg-zinc-200" />
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="h-14 rounded-2xl bg-white border border-slate-200/80" />
-          <div className="h-64 rounded-2xl bg-white border border-slate-200/80" />
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {[0, 1, 2].map((idx) => (
-              <div key={idx} className="h-52 rounded-2xl bg-white border border-slate-200/80" />
-            ))}
-          </div>
+          <div className="h-14 rounded-2xl border border-zinc-200 bg-white" />
+          <div className="h-64 rounded-2xl border border-zinc-200 bg-white" />
         </div>
-      ) : (
+      ) : !fetchError ? (
         <>
-          {/* 2. Empat Kartu KPI Utama */}
           <StatCards ringkasan={data?.ringkasan} />
 
-          {/* 3. Banner Peringatan Data Kosong */}
           <WarningBanner
             daftarKosong={data?.ringkasan?.daftarKosong}
             totalPeserta={data?.ringkasan?.totalPeserta ?? 0}
           />
 
-          {/* 4. Kartu Ringkasan Grafik Ekspose (5 Kolom) */}
           <ChartEksposeOverview peserta={data?.peserta} />
 
-          {/* 5. Tiga Kartu Bagian Bawah (Status Data, Rekap Nilai, Selisih) */}
           <BottomCards ringkasan={data?.ringkasan} />
         </>
-      )}
+      ) : null}
 
-      {/* Modal Dialog Impor Excel Fleksibel */}
       <ImportExcelModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSuccess={fetchData}
+      />
+
+      <ConfirmDialog
+        open={resetConfirmOpen}
+        onOpenChange={setResetConfirmOpen}
+        title="Hapus semua data peserta?"
+        description="Seluruh data peserta, skor survei alumni, nilai wawancara, dan pembahasan ekspose terkait akan ikut terhapus permanen."
+        confirmLabel="Ya, Hapus Semua"
+        tone="danger"
+        loading={actionLoading}
+        onConfirm={handleConfirmResetData}
       />
     </div>
   );

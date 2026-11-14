@@ -2,17 +2,25 @@
 
 import React, { useState, useRef } from 'react';
 import {
-  X,
-  UploadCloud,
-  FileSpreadsheet,
-  CheckCircle2,
-  AlertTriangle,
-  Info,
-  Trash2,
-  RefreshCw,
-  FileText,
-} from 'lucide-react';
+  CheckCircledIcon,
+  ExclamationTriangleIcon,
+  FileTextIcon,
+  InfoCircledIcon,
+  ReloadIcon,
+  TableIcon,
+  TrashIcon,
+  UploadIcon,
+} from '@radix-ui/react-icons';
 import * as XLSX from 'xlsx';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 interface ImportExcelModalProps {
   isOpen: boolean;
@@ -40,9 +48,6 @@ export default function ImportExcelModal({
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  if (!isOpen) return null;
-
-  // Analisis tipe workbook dari sheet
   const analyzeWorkbook = async (file: File): Promise<DetectedFile> => {
     try {
       const buffer = await file.arrayBuffer();
@@ -74,15 +79,11 @@ export default function ImportExcelModal({
     setErrorMessage(null);
     setSuccessMessage(null);
     const addedFiles: File[] = Array.from(newFileList);
+    const analyzed = await Promise.all(addedFiles.map((f) => analyzeWorkbook(f)));
 
-    const analyzedPromises = addedFiles.map((f) => analyzeWorkbook(f));
-    const analyzed = await Promise.all(analyzedPromises);
-
-    // Gabungkan dengan file yang sudah ada (maksimal 2 berkas yang berbeda)
     setFiles((prev) => {
       const combined = [...prev];
       for (const item of analyzed) {
-        // Cek duplikat nama & ukuran
         const isDuplicate = combined.some(
           (c) => c.file.name === item.file.name && c.file.size === item.file.size
         );
@@ -117,10 +118,8 @@ export default function ImportExcelModal({
     setErrorMessage(null);
   };
 
-  // Klasifikasi berkas saat ini
   const surveyFiles = files.filter((f) => f.type === 'olah_data');
   const interviewFiles = files.filter((f) => f.type === 'form_penilaian');
-  const unknownFiles = files.filter((f) => f.type === 'unknown');
 
   const hasTwoSurveys = surveyFiles.length >= 2;
   const hasTwoInterviews = interviewFiles.length >= 2;
@@ -165,11 +164,11 @@ export default function ImportExcelModal({
         setTimeout(() => {
           onSuccess();
           onClose();
-        }, 1200);
+        }, 900);
       } else {
         setErrorMessage(json.error || 'Gagal memproses file Excel.');
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('Import error:', err);
       setErrorMessage('Koneksi bermasalah saat mengunggah file. Coba lagi.');
     } finally {
@@ -178,41 +177,35 @@ export default function ImportExcelModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh]">
-        {/* Modal Header */}
-        <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-emerald-50/40">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-sm shadow-emerald-200">
-              <FileSpreadsheet className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">Impor File Excel</h2>
-              <p className="text-xs text-slate-500">Siapkan file Olah Data dan Form Penilaian</p>
-            </div>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open && !isProcessing) onClose();
+      }}
+    >
+      <DialogContent
+        closeDisabled={isProcessing}
+        onEscapeKeyDown={(e) => {
+          if (isProcessing) e.preventDefault();
+        }}
+        className="flex max-h-[90vh] max-w-xl flex-col overflow-hidden p-0"
+      >
+        <DialogHeader>
+          <div className="flex items-center gap-2.5">
+            <TableIcon className="h-4 w-4 text-zinc-950" aria-hidden="true" />
+            <DialogTitle>Impor File Excel</DialogTitle>
           </div>
-          <button
-            onClick={onClose}
-            disabled={isProcessing}
-            className="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+          <DialogDescription>
+            Unggah file Olah Data Survei dan Form Penilaian Wawancara (.xlsx atau .xls).
+          </DialogDescription>
+        </DialogHeader>
 
-        {/* Modal Body */}
-        <div className="p-6 space-y-5 overflow-y-auto">
-          {/* Unified Dropzone Area */}
+        <div className="space-y-4 overflow-y-auto px-6 py-5">
+          {/* Dropzone dengan button aksesibel penuh (zero clickable div) */}
           <div
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
-            className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition flex flex-col items-center justify-center gap-3 ${
-              isDragging
-                ? 'border-emerald-500 bg-emerald-50/60 scale-[0.99]'
-                : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50 hover:border-emerald-400'
-            }`}
           >
             <input
               ref={fileInputRef}
@@ -225,77 +218,76 @@ export default function ImportExcelModal({
               }}
               className="hidden"
             />
-            <div className="w-12 h-12 rounded-full bg-white shadow-sm border border-slate-100 flex items-center justify-center text-emerald-600">
-              <UploadCloud className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-slate-800">
-                Tarik file Excel ke sini, atau <span className="text-emerald-600 underline">pilih file</span>
-              </p>
-              <p className="text-xs text-slate-500 mt-1">
-                Boleh 1 atau 2 file (.xlsx, .xls) — jenis filenya dikenali otomatis
-              </p>
-            </div>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className={`flex w-full flex-col items-center justify-center gap-2.5 rounded-xl border-2 border-dashed p-6 text-center transition ${
+                isDragging
+                  ? 'border-zinc-950 bg-zinc-100'
+                  : 'border-zinc-400 bg-zinc-50 hover:border-zinc-950 hover:bg-zinc-100/70'
+              }`}
+            >
+              <UploadIcon className="h-5 w-5 text-zinc-950" aria-hidden="true" />
+              <div>
+                <p className="text-sm font-medium text-zinc-950">
+                  Tarik file Excel ke sini, atau <span className="font-semibold text-zinc-950 underline underline-offset-4">pilih file</span>
+                </p>
+                <p className="mt-1 text-xs font-normal text-zinc-600">
+                  Boleh 1 atau 2 file (.xlsx, .xls), jenis filenya dikenali otomatis.
+                </p>
+              </div>
+            </button>
           </div>
 
-          {/* Daftar Berkas yang Terdeteksi */}
+          {/* Daftar File yang Terdeteksi */}
           {files.length > 0 && (
             <div className="space-y-2.5">
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                File yang Dipilih ({files.length}/2)
+              <p className="text-xs font-medium text-zinc-700">
+                File terpilih ({files.length}/2)
               </p>
               <div className="space-y-2">
                 {files.map((item, idx) => (
                   <div
-                    key={idx}
-                    className="p-3.5 rounded-xl border border-slate-200 bg-white shadow-sm flex items-center justify-between gap-3"
+                    key={`${item.file.name}-${idx}`}
+                    className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-white px-3.5 py-2.5"
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div
-                        className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
-                          item.type === 'olah_data'
-                            ? 'bg-emerald-100 text-emerald-700'
-                            : item.type === 'form_penilaian'
-                            ? 'bg-blue-100 text-blue-700'
-                            : 'bg-amber-100 text-amber-700'
-                        }`}
-                      >
-                        <FileSpreadsheet className="w-4 h-4" />
-                      </div>
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <FileTextIcon className="h-4 w-4 shrink-0 text-zinc-700" aria-hidden="true" />
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-slate-900 truncate max-w-[220px]">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="max-w-[240px] truncate text-xs font-medium text-zinc-950">
                             {item.file.name}
                           </span>
                           <span
-                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
                               item.type === 'olah_data'
-                                ? 'bg-emerald-100 text-emerald-800'
+                                ? 'bg-zinc-950 text-white'
                                 : item.type === 'form_penilaian'
-                                ? 'bg-blue-100 text-blue-800'
-                                : 'bg-amber-100 text-amber-800'
+                                ? 'border border-zinc-300 bg-zinc-100 text-zinc-900'
+                                : 'border border-zinc-900 bg-white text-zinc-950'
                             }`}
                           >
                             {item.type === 'olah_data'
                               ? 'Survei (Olah Data)'
                               : item.type === 'form_penilaian'
                               ? 'Wawancara'
-                              : 'Format Belum Dikenal'}
+                              : 'Format belum dikenal'}
                           </span>
                         </div>
-                        <p className="text-[11px] text-slate-400 mt-0.5">
-                          {(item.file.size / 1024).toFixed(1)} KB • {item.sheetNames.length} sheet
+                        <p className="mt-0.5 text-[11px] font-normal text-zinc-600">
+                          {(item.file.size / 1024).toFixed(1)} KB, {item.sheetNames.length} sheet
                         </p>
                       </div>
                     </div>
 
                     <button
+                      type="button"
                       onClick={() => handleRemoveFile(idx)}
                       disabled={isProcessing}
-                      className="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition"
-                      title="Hapus file"
+                      aria-label={`Hapus file ${item.file.name}`}
+                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-950 disabled:opacity-40"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <TrashIcon className="h-4 w-4" aria-hidden="true" />
                     </button>
                   </div>
                 ))}
@@ -303,121 +295,125 @@ export default function ImportExcelModal({
             </div>
           )}
 
-          {/* Notifikasi Cerdas Kasus Khusus */}
+          {/* Pilihan file survei jika mengunggah dua file survei (Radix RadioGroup) */}
           {hasTwoSurveys && (
-            <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-2">
+            <div className="space-y-2.5 rounded-lg border border-zinc-900 bg-zinc-100 p-3.5 text-xs text-zinc-950">
               <div className="flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                <p>
-                  <strong>Kedua file terdeteksi sebagai file survei.</strong> Pilih mana yang
-                  mau dipakai sebagai data survei utama:
+                <ExclamationTriangleIcon className="mt-0.5 h-4 w-4 shrink-0 text-zinc-950" aria-hidden="true" />
+                <p className="font-normal">
+                  <span className="font-semibold">Kedua file terdeteksi sebagai file survei.</span>{' '}
+                  Pilih salah satu file sebagai data survei utama:
                 </p>
               </div>
-              <div className="pl-6 space-y-1">
-                {surveyFiles.map((sf, sIdx) => (
-                  <label key={sIdx} className="flex items-center gap-2 cursor-pointer font-medium text-slate-800">
-                    <input
-                      type="radio"
-                      name="selectedSurvey"
-                      checked={selectedSurveyIndex === sIdx}
-                      onChange={() => setSelectedSurveyIndex(sIdx)}
-                      className="text-emerald-600 focus:ring-emerald-500"
-                    />
-                    {sf.file.name}
-                  </label>
-                ))}
-              </div>
+              <RadioGroup
+                value={String(selectedSurveyIndex)}
+                onValueChange={(v) => setSelectedSurveyIndex(Number(v))}
+                className="pl-6"
+              >
+                {surveyFiles.map((sf, sIdx) => {
+                  const id = `survey-choice-${sIdx}`;
+                  return (
+                    <div key={id} className="flex items-center gap-2">
+                      <RadioGroupItem value={String(sIdx)} id={id} />
+                      <label htmlFor={id} className="font-medium text-zinc-950">
+                        {sf.file.name}
+                      </label>
+                    </div>
+                  );
+                })}
+              </RadioGroup>
             </div>
           )}
 
           {hasTwoInterviews && (
-            <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-              <p>
-                <strong>Kedua file adalah Form Penilaian Wawancara.</strong> Masih butuh file Olah Data
-                Survei sebagai data utama peserta (nama, NIP, instansi). Silakan tambahkan file Olah Data Survei.
+            <div className="flex items-start gap-2 rounded-lg border border-zinc-900 bg-zinc-100 p-3.5 text-xs text-zinc-950">
+              <ExclamationTriangleIcon className="mt-0.5 h-4 w-4 shrink-0 text-zinc-950" aria-hidden="true" />
+              <p className="font-normal">
+                <span className="font-semibold">Kedua file adalah Form Penilaian Wawancara.</span>{' '}
+                Tambahkan file Olah Data Survei sebagai data utama peserta (nama, NIP, instansi).
               </p>
             </div>
           )}
 
           {hasOnlyInterview && (
-            <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-              <p>
-                <strong>Baru ada file wawancara.</strong> Tambahkan juga file Olah Data Survei
-                supaya daftar peserta bisa dimuat.
+            <div className="flex items-start gap-2 rounded-lg border border-zinc-900 bg-zinc-100 p-3.5 text-xs text-zinc-950">
+              <ExclamationTriangleIcon className="mt-0.5 h-4 w-4 shrink-0 text-zinc-950" aria-hidden="true" />
+              <p className="font-normal">
+                <span className="font-semibold">Baru ada file wawancara.</span>{' '}
+                Tambahkan juga file Olah Data Survei agar daftar peserta dapat dimuat.
               </p>
             </div>
           )}
 
           {hasOnlySurvey && (
-            <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-900 flex items-start gap-2">
-              <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-              <p>
-                <strong>File Form Penilaian Wawancara tidak disertakan.</strong> Nilai survei (L) tetap bisa diproses,
-                tapi nilai wawancara (M) dan Total Form akan berstatus <strong>KOSONG</strong>.
+            <div className="flex items-start gap-2 rounded-lg border border-zinc-300 bg-zinc-50 p-3.5 text-xs text-zinc-800">
+              <InfoCircledIcon className="mt-0.5 h-4 w-4 shrink-0 text-zinc-800" aria-hidden="true" />
+              <p className="font-normal">
+                <span className="font-semibold text-zinc-950">Form Penilaian Wawancara tidak disertakan.</span>{' '}
+                Nilai survei (L) tetap diproses, sementara nilai wawancara (M) dan Total Form berstatus KOSONG.
               </p>
             </div>
           )}
 
           {surveyFiles.length === 1 && interviewFiles.length === 1 && (
-            <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 flex items-start gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-              <p>
-                <strong>Kedua file lengkap!</strong> File Olah Data Survei dan Form Penilaian Wawancara siap
-                diproses untuk membandingkan nilai L, M, dan Total Form.
+            <div className="flex items-start gap-2 rounded-lg border border-zinc-300 bg-white p-3.5 text-xs text-zinc-900">
+              <CheckCircledIcon className="mt-0.5 h-4 w-4 shrink-0 text-zinc-950" aria-hidden="true" />
+              <p className="font-normal">
+                <span className="font-semibold text-zinc-950">Kedua file lengkap.</span>{' '}
+                File Olah Data Survei dan Form Penilaian Wawancara siap diproses.
               </p>
             </div>
           )}
 
           {errorMessage && (
-            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800 flex items-start gap-2">
-              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+            <div role="alert" className="flex items-start gap-2 rounded-lg border border-zinc-950 bg-zinc-950 p-3.5 text-xs text-white">
+              <ExclamationTriangleIcon className="mt-0.5 h-4 w-4 shrink-0 text-white" aria-hidden="true" />
               <p>{errorMessage}</p>
             </div>
           )}
 
           {successMessage && (
-            <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-start gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+            <div role="status" className="flex items-start gap-2 rounded-lg border border-zinc-900 bg-zinc-100 p-3.5 text-xs text-zinc-950">
+              <CheckCircledIcon className="mt-0.5 h-4 w-4 shrink-0 text-zinc-950" aria-hidden="true" />
               <p>{successMessage}</p>
             </div>
           )}
         </div>
 
-        {/* Modal Footer */}
-        <div className="p-6 border-t border-slate-100 bg-slate-50/60 flex items-center justify-between gap-3">
+        <DialogFooter>
           <button
+            type="button"
             onClick={onClose}
             disabled={isProcessing}
-            className="px-4 py-2.5 text-xs font-semibold rounded-xl border border-slate-200 text-slate-600 hover:bg-white transition"
+            className="rounded-lg border border-zinc-500 bg-white px-4 py-2 text-xs font-medium text-zinc-900 transition hover:bg-zinc-100 disabled:opacity-50"
           >
             Batal
           </button>
 
           <button
+            type="button"
             onClick={handleStartImport}
             disabled={!isReady || hasOnlyInterview || isProcessing}
-            className={`px-5 py-2.5 text-xs font-bold rounded-xl shadow-md transition flex items-center gap-2 ${
+            className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition ${
               isReady && !hasOnlyInterview && !isProcessing
-                ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200 cursor-pointer'
-                : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+                ? 'bg-zinc-950 text-white hover:bg-zinc-800'
+                : 'cursor-not-allowed bg-zinc-200 text-zinc-600'
             }`}
           >
             {isProcessing ? (
               <>
-                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                <ReloadIcon className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
                 Memproses file...
               </>
             ) : (
               <>
-                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <TableIcon className="h-3.5 w-3.5" aria-hidden="true" />
                 Mulai Impor
               </>
             )}
           </button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
