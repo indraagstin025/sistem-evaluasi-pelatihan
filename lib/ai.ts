@@ -192,10 +192,26 @@ interface AiProviderConfig {
   geminiModel: string;
 }
 
+export interface AiExecutionMeta {
+  item: PembahasanItem;
+  modelUsed: string | null;
+  rateLimited: boolean;
+  errorMessage?: string;
+}
+
 const GEMINI_FALLBACK_MODELS = [
   'models/gemini-2.5-flash',
   'models/gemini-3.5-flash-lite',
 ] as const;
+
+const GEMINI_REQUEST_TIMEOUT_MS = 25_000;
+
+interface RawAiAttemptResult {
+  item: PembahasanItem | null;
+  modelUsed: string | null;
+  rateLimited: boolean;
+  errorMessage?: string;
+}
 
 /**
  * Helper terpadu memanggil Google Gemini API dan memvalidasi JSON 4 poin.
@@ -206,7 +222,7 @@ async function requestAiPembahasan(
   judul: string,
   config: AiProviderConfig,
   validate?: (teksLengkap: string) => boolean
-): Promise<PembahasanItem | null> {
+): Promise<RawAiAttemptResult> {
   const formatResult = (parsed: any): PembahasanItem | null => {
     if (!parsed?.poin1 || !parsed?.poin2 || !parsed?.poin3 || !parsed?.poin4) {
       return null;
@@ -233,17 +249,23 @@ async function requestAiPembahasan(
     };
   };
 
+  let hitRateLimit = false;
+  let lastError: string | undefined;
+
   if (config.geminiApiKey && config.geminiApiKey.trim() !== '') {
     const modelsToTry = Array.from(
       new Set([config.geminiModel, ...GEMINI_FALLBACK_MODELS])
     );
 
     for (const m of modelsToTry) {
+      const controller = new AbortController();
+      const timeoutHandle = setTimeout(() => controller.abort(), GEMINI_REQUEST_TIMEOUT_MS);
       try {
         const url = `https://generativelanguage.googleapis.com/v1beta/${m}:generateContent?key=${config.geminiApiKey.trim()}`;
         const response = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
             generationConfig: {
@@ -257,32 +279,53 @@ async function requestAiPembahasan(
           const data = await response.json();
           const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
           const result = formatResult(parseAiJsonResponse(rawText));
-          if (result) return result;
+          if (result) {
+            return {
+              item: result,
+              modelUsed: m,
+              rateLimited: false,
+            };
+          }
+          lastError = `Verifikasi hasil Gemini (${m}) tidak lolos cek angka/struktur KP-05`;
           console.warn(`Verifikasi hasil Gemini (${m}) untuk ${grafikKey} tidak sesuai, mencoba model fallback Gemini lain`);
         } else {
           const errText = await response.text();
+          if (response.status === 429 || response.status === 503) {
+            hitRateLimit = true;
+          }
+          lastError = `Gemini API (${m}) status ${response.status}`;
           console.warn(`Gemini API (${m}) returned ${response.status}:`, errText);
         }
-      } catch (err) {
+      } catch (err: any) {
+        const isAbort = err?.name === 'AbortError';
+        if (isAbort) hitRateLimit = true;
+        lastError = isAbort
+          ? `Timeout ${GEMINI_REQUEST_TIMEOUT_MS / 1000}s saat memanggil ${m}`
+          : err?.message || `Gagal menghubungi Gemini API (${m})`;
         console.error(`Error memanggil Gemini API (${m}):`, err);
+      } finally {
+        clearTimeout(timeoutHandle);
       }
     }
   }
 
-  return null;
+  return {
+    item: null,
+    modelUsed: null,
+    rateLimited: hitRateLimit,
+    errorMessage: lastError,
+  };
 }
 
 /**
- * GENERATOR PEMBAHASAN AI / FALLBACK TEMPLATE
- * Menggunakan Google Gemini API (GEMINI_API_KEY, default model deep-research-preview-04-2026)
- * dengan fallback internal sesama model Gemini bila terkena batas kuota.
- * Jika tidak ada kunci API atau verifikasi gagal, otomatis menggunakan templat resmi (KP-05).
+ * Menjalankan generasi pembahasan beserta metadata eksekusi (modelUsed & rateLimited)
+ * untuk mendukung retry backoff pada queue worker.
  */
-export async function buatPembahasanGrafik(
+export async function buatPembahasanGrafikWithMeta(
   grafikKey: string,
   rekap?: RekapGrafikData,
   kesimpulanCtx?: KesimpulanContext
-): Promise<PembahasanItem> {
+): Promise<AiExecutionMeta> {
   const rawGeminiModel = process.env.GEMINI_MODEL || 'deep-research-preview-04-2026';
   const config: AiProviderConfig = {
     geminiApiKey: process.env.GEMINI_API_KEY,
@@ -290,7 +333,12 @@ export async function buatPembahasanGrafik(
   };
 
   if (!config.geminiApiKey || config.geminiApiKey.trim() === '') {
-    return generatePembahasanTemplate(grafikKey, rekap);
+    return {
+      item: generatePembahasanTemplate(grafikKey, rekap),
+      modelUsed: null,
+      rateLimited: false,
+      errorMessage: 'GEMINI_API_KEY kosong, memakai templat KP-05',
+    };
   }
 
   // Khusus Slide Kesimpulan dan Rekomendasi (memakai ringkasan data aktual)
@@ -322,17 +370,29 @@ Format balasan wajib JSON:
   "poin4": "..."
 }`;
 
-    const aiResult = await requestAiPembahasan(
+    const aiAttempt = await requestAiPembahasan(
       promptKesimpulan,
       'kesimpulan',
       'Kesimpulan dan Rekomendasi',
       config
     );
-    return aiResult || generatePembahasanTemplate('kesimpulan');
+    return {
+      item: aiAttempt.item || generatePembahasanTemplate('kesimpulan'),
+      modelUsed: aiAttempt.modelUsed,
+      rateLimited: aiAttempt.rateLimited,
+      errorMessage: aiAttempt.errorMessage,
+    };
   }
 
   // Untuk Grafik 1 s.d. 5
-  if (!rekap) return generatePembahasanTemplate(grafikKey);
+  if (!rekap) {
+    return {
+      item: generatePembahasanTemplate(grafikKey),
+      modelUsed: null,
+      rateLimited: false,
+      errorMessage: 'Data rekap grafik tidak ditemukan',
+    };
+  }
 
   const promptGrafik = `Anda adalah analis evaluasi pasca pelatihan di BPSDM Provinsi Jawa Barat.
 Tugas Anda adalah menulis narasi Pembahasan 4 poin gaya slide ekspose resmi untuk grafik berikut:
@@ -355,12 +415,32 @@ Format balasan wajib JSON:
   "poin4": "..."
 }`;
 
-  const aiResult = await requestAiPembahasan(
+  const aiAttempt = await requestAiPembahasan(
     promptGrafik,
     grafikKey,
     rekap.judul,
     config,
     (teksLengkap) => verifikasiHasilAI(teksLengkap, rekap)
   );
-  return aiResult || generatePembahasanTemplate(grafikKey, rekap);
+  return {
+    item: aiAttempt.item || generatePembahasanTemplate(grafikKey, rekap),
+    modelUsed: aiAttempt.modelUsed,
+    rateLimited: aiAttempt.rateLimited,
+    errorMessage: aiAttempt.errorMessage,
+  };
+}
+
+/**
+ * GENERATOR PEMBAHASAN AI / FALLBACK TEMPLATE
+ * Menggunakan Google Gemini API (GEMINI_API_KEY, default model deep-research-preview-04-2026)
+ * dengan fallback internal sesama model Gemini bila terkena batas kuota.
+ * Jika tidak ada kunci API atau verifikasi gagal, otomatis menggunakan templat resmi (KP-05).
+ */
+export async function buatPembahasanGrafik(
+  grafikKey: string,
+  rekap?: RekapGrafikData,
+  kesimpulanCtx?: KesimpulanContext
+): Promise<PembahasanItem> {
+  const { item } = await buatPembahasanGrafikWithMeta(grafikKey, rekap, kesimpulanCtx);
+  return item;
 }

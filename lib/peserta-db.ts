@@ -134,7 +134,9 @@ export async function simpanBatchPesertaDenganDetail(
  */
 export async function hapusSemuaDataPeserta(includePembahasan = false) {
   await Promise.all([
-    ...(includePembahasan ? [prisma.pembahasan.deleteMany({})] : []),
+    ...(includePembahasan
+      ? [prisma.pembahasan.deleteMany({}), prisma.aiJob.deleteMany({})]
+      : []),
     prisma.hasilEkspose.deleteMany({}),
     prisma.wawancara.deleteMany({}),
     prisma.survey.deleteMany({}),

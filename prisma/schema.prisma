@@ -75,3 +75,22 @@ model Pembahasan {
   sumber      String   @default("template") // "template" | "ai" | "manual"
   updatedAt   DateTime @updatedAt
 }
+
+model AiJob {
+  id          String    @id @default(cuid())
+  batchId     String?
+  grafikKey   String    // "grafik1" .. "grafik5" | "kesimpulan"
+  status      String    @default("queued") // "queued" | "processing" | "done" | "failed"
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(3)
+  modelUsed   String?
+  lastError   String?
+  nextRunAt   DateTime  @default(now())
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status, nextRunAt, createdAt])
+  @@index([grafikKey, status])
+}

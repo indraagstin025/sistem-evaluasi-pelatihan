@@ -1,119 +1,10 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { buatPembahasanGrafik, generatePembahasanTemplate } from '@/lib/ai';
-import {
-  KATEGORI_RENTANG,
-  hitungDistribusiRentang,
-  tentukanRentang,
-  tentukanRentangItemSurvei,
-  isValidNumber,
-} from '@/lib/hitung';
+import { getRekapGrafikMap, PEMBAHASAN_KEYS } from '@/lib/pembahasan-server';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
-
-// Helper untuk menghitung rekap 5 grafik dari database saat ini
-async function getRekapGrafikMap() {
-  const listPeserta = await prisma.peserta.findMany({
-    include: {
-      survey: true,
-      wawancara: true,
-      hasil: true,
-    },
-    orderBy: { nama: 'asc' },
-  });
-
-  const mapped = listPeserta.map((p) => {
-    const s_panjang = p.survey.find((s) => s.kode === 'L4_01' && s.responden === 'alumni')?.skor;
-    const s_tujuan = p.survey.find((s) => s.kode === 'L4_02' && s.responden === 'alumni')?.skor;
-    const s_manfaat = p.survey.find((s) => s.kode === 'L4_03' && s.responden === 'alumni')?.skor;
-
-    const w_menengah = p.wawancara.find((w) => w.kriteria === 'menengah')?.nilai;
-    const w_panjang = p.wawancara.find((w) => w.kriteria === 'jangkaPanjang')?.nilai;
-    const w_tujuan = p.wawancara.find((w) => w.kriteria === 'seluruhTujuan')?.nilai;
-    const w_manfaat = p.wawancara.find((w) => w.kriteria === 'manfaat')?.nilai;
-
-    return {
-      s_panjang,
-      s_tujuan,
-      s_manfaat,
-      w_menengah,
-      w_panjang,
-      w_tujuan,
-      w_manfaat,
-      rangeSurvei: p.hasil?.rangeSurvei || 'KOSONG',
-      rangeWawancara: p.hasil?.rangeWawancara || 'KOSONG',
-    };
-  });
-
-  const g1_menengah = hitungDistribusiRentang(mapped.map((p) => tentukanRentang(p.w_menengah)));
-  const g1_panjang = hitungDistribusiRentang(mapped.map((p) => tentukanRentang(p.w_panjang)));
-
-  const g2_survei = hitungDistribusiRentang(mapped.map((p) => tentukanRentangItemSurvei(p.s_panjang)));
-  const g2_wawancara = hitungDistribusiRentang(mapped.map((p) => tentukanRentang(p.w_panjang)));
-
-  const g3_survei = hitungDistribusiRentang(mapped.map((p) => tentukanRentangItemSurvei(p.s_tujuan)));
-  const g3_wawancara = hitungDistribusiRentang(mapped.map((p) => tentukanRentang(p.w_tujuan)));
-
-  const g4_survei = hitungDistribusiRentang(mapped.map((p) => tentukanRentangItemSurvei(p.s_manfaat)));
-  const g4_wawancara = hitungDistribusiRentang(mapped.map((p) => tentukanRentang(p.w_manfaat)));
-
-  const g5_survei = hitungDistribusiRentang(mapped.map((p) => p.rangeSurvei));
-  const g5_wawancara = hitungDistribusiRentang(mapped.map((p) => p.rangeWawancara));
-
-  return {
-    grafik1: {
-      judul: 'Grafik 1: Target Aksi Perubahan Jangka Menengah vs Jangka Panjang (Wawancara)',
-      slide: 'Slide PPT 5',
-      labelA: 'Jangka Menengah (Wawancara)',
-      dataA: g1_menengah,
-      totalA: g1_menengah.reduce((a, b) => a + b, 0),
-      labelB: 'Jangka Panjang (Wawancara)',
-      dataB: g1_panjang,
-      totalB: g1_panjang.reduce((a, b) => a + b, 0),
-    },
-    grafik2: {
-      judul: 'Grafik 2: Target Jangka Panjang — Survei vs Wawancara',
-      slide: 'Slide PPT 6',
-      labelA: 'Survei (Jangka Panjang)',
-      dataA: g2_survei,
-      totalA: g2_survei.reduce((a, b) => a + b, 0),
-      labelB: 'Wawancara (Jangka Panjang)',
-      dataB: g2_wawancara,
-      totalB: g2_wawancara.reduce((a, b) => a + b, 0),
-    },
-    grafik3: {
-      judul: 'Grafik 3: Seluruh Tujuan Tercapai — Survei vs Wawancara',
-      slide: 'Slide PPT 7',
-      labelA: 'Survei (Seluruh Tujuan)',
-      dataA: g3_survei,
-      totalA: g3_survei.reduce((a, b) => a + b, 0),
-      labelB: 'Wawancara (Seluruh Tujuan)',
-      dataB: g3_wawancara,
-      totalB: g3_wawancara.reduce((a, b) => a + b, 0),
-    },
-    grafik4: {
-      judul: 'Grafik 4: Manfaat Aksi Perubahan — Survei vs Wawancara',
-      slide: 'Slide PPT 8',
-      labelA: 'Survei (Manfaat)',
-      dataA: g4_survei,
-      totalA: g4_survei.reduce((a, b) => a + b, 0),
-      labelB: 'Wawancara (Manfaat)',
-      dataB: g4_wawancara,
-      totalB: g4_wawancara.reduce((a, b) => a + b, 0),
-    },
-    grafik5: {
-      judul: 'Grafik 5: Nilai Keseluruhan (L vs M) — Survei vs Wawancara',
-      slide: 'Slide PPT 9',
-      labelA: 'Rata-Rata Survei (L)',
-      dataA: g5_survei,
-      totalA: g5_survei.reduce((a, b) => a + b, 0),
-      labelB: 'Rata-Rata Wawancara (M)',
-      dataB: g5_wawancara,
-      totalB: g5_wawancara.reduce((a, b) => a + b, 0),
-    },
-  };
-}
 
 // GET: Ambil pembahasan tersimpan atau inisialisasi dari templat (hanya jika ada peserta)
 export async function GET() {
@@ -125,7 +16,7 @@ export async function GET() {
 
     const saved = await prisma.pembahasan.findMany();
     const result: Record<string, any> = {};
-    const keys = ['grafik1', 'grafik2', 'grafik3', 'grafik4', 'grafik5', 'kesimpulan'] as const;
+    const keys = PEMBAHASAN_KEYS;
 
     const missingKeys = keys.filter((key) => !saved.some((s) => s.grafikKey === key));
     const rekapMap = missingKeys.length > 0 ? await getRekapGrafikMap() : null;
@@ -182,42 +73,44 @@ export async function POST(request: Request) {
 
     const rekapMap = await getRekapGrafikMap();
     const keysToProcess =
-      targetKey === 'all'
-        ? (['grafik1', 'grafik2', 'grafik3', 'grafik4', 'grafik5', 'kesimpulan'] as const)
-        : ([targetKey] as const);
+      targetKey === 'all' ? ([...PEMBAHASAN_KEYS] as string[]) : ([targetKey] as string[]);
 
     const updatedMap: Record<string, any> = {};
 
-    await Promise.all(
-      keysToProcess.map(async (key) => {
-        const rekap = key === 'kesimpulan' ? undefined : (rekapMap as any)[key];
-        if (key !== 'kesimpulan' && !rekap) return;
+    // Proses berurutan + jeda ringan agar aman terhadap rate limit Gemini
+    for (let i = 0; i < keysToProcess.length; i++) {
+      const key = keysToProcess[i];
+      const rekap = key === 'kesimpulan' ? undefined : (rekapMap as any)[key];
+      if (key !== 'kesimpulan' && !rekap) continue;
 
-        const hasil = await buatPembahasanGrafik(
-          key,
-          rekap,
-          key === 'kesimpulan' ? { totalPeserta, rekapMap } : undefined
-        );
-        const payload = {
-          judul: hasil.judul,
-          poin1: hasil.poin1,
-          poin2: hasil.poin2,
-          poin3: hasil.poin3,
-          poin4: hasil.poin4,
-          teksLengkap: hasil.teksLengkap,
-          sumber: hasil.sumber,
-        };
-        const saved = await prisma.pembahasan.upsert({
-          where: { grafikKey: key },
-          update: payload,
-          create: {
-            grafikKey: key,
-            ...payload,
-          },
-        });
-        updatedMap[key] = saved;
-      })
-    );
+      if (i > 0) {
+        await new Promise((resolve) => setTimeout(resolve, 800));
+      }
+
+      const hasil = await buatPembahasanGrafik(
+        key,
+        rekap,
+        key === 'kesimpulan' ? { totalPeserta, rekapMap } : undefined
+      );
+      const payload = {
+        judul: hasil.judul,
+        poin1: hasil.poin1,
+        poin2: hasil.poin2,
+        poin3: hasil.poin3,
+        poin4: hasil.poin4,
+        teksLengkap: hasil.teksLengkap,
+        sumber: hasil.sumber,
+      };
+      const saved = await prisma.pembahasan.upsert({
+        where: { grafikKey: key },
+        update: payload,
+        create: {
+          grafikKey: key,
+          ...payload,
+        },
+      });
+      updatedMap[key] = saved;
+    }
 
     return NextResponse.json({
       success: true,
