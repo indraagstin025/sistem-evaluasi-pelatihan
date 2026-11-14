@@ -38,7 +38,7 @@ export default function StatCards({ ringkasan }: StatCardsProps) {
   const subSelisih =
     hasPos && hasNeg
       ? `(${maxPos >= 0 ? '+' : ''}${maxPos.toFixed(2)} / ${maxNeg.toFixed(2)})`
-      : 'Belum ada data selisih';
+      : 'Belum ada selisih';
 
   const lRentangTrend =
     validSurvei === 0
@@ -47,7 +47,7 @@ export default function StatCards({ ringkasan }: StatCardsProps) {
       ? 'Rentang Optimal (76-100)'
       : (ringkasan?.rataRataSurveiL ?? 0) >= 51
       ? 'Rentang Baik (51-75)'
-      : 'Perlu Peningkatan';
+      : 'Perlu ditingkatkan';
 
   const stats = [
     {

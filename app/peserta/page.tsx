@@ -85,7 +85,7 @@ export default function DataPesertaPage() {
       const json = await res.json();
       if (json.success) {
         setFeedback({
-          text: `Peserta "${addForm.nama.trim()}" berhasil ditambahkan dengan nilai awal KOSONG.`,
+          text: `Peserta "${addForm.nama.trim()}" sudah ditambahkan. Nilainya masih KOSONG.`,
           type: 'success',
         });
         setAddForm({
@@ -98,18 +98,18 @@ export default function DataPesertaPage() {
         setIsAddModalOpen(false);
         fetchPeserta();
       } else {
-        setFeedback({ text: json.error || 'Gagal menambahkan peserta.', type: 'error' });
+        setFeedback({ text: json.error || 'Gagal menambahkan peserta. Coba lagi.', type: 'error' });
       }
     } catch (err) {
       console.error('Error adding peserta:', err);
-      setFeedback({ text: 'Terjadi kesalahan jaringan saat menambah peserta.', type: 'error' });
+      setFeedback({ text: 'Koneksi bermasalah saat menambah peserta. Coba lagi.', type: 'error' });
     } finally {
       setIsSubmittingAdd(false);
     }
   };
 
   const handleDeletePeserta = async (p: PesertaData) => {
-    if (!confirm(`Hapus peserta "${p.nama}" beserta seluruh data survei dan wawancaranya?`)) {
+    if (!confirm(`Hapus peserta "${p.nama}" beserta semua data survei dan wawancaranya?`)) {
       return;
     }
     try {
@@ -118,14 +118,14 @@ export default function DataPesertaPage() {
       const res = await fetch(`/api/peserta/${p.id}`, { method: 'DELETE' });
       const json = await res.json();
       if (json.success) {
-        setFeedback({ text: `Peserta "${p.nama}" berhasil dihapus.`, type: 'success' });
+        setFeedback({ text: `Peserta "${p.nama}" sudah dihapus.`, type: 'success' });
         fetchPeserta();
       } else {
-        setFeedback({ text: json.error || 'Gagal menghapus peserta.', type: 'error' });
+        setFeedback({ text: json.error || 'Gagal menghapus peserta. Coba lagi.', type: 'error' });
       }
     } catch (err) {
       console.error('Error deleting peserta:', err);
-      setFeedback({ text: 'Terjadi kesalahan jaringan saat menghapus peserta.', type: 'error' });
+      setFeedback({ text: 'Koneksi bermasalah saat menghapus peserta. Coba lagi.', type: 'error' });
     } finally {
       setDeletingId(null);
     }
@@ -231,10 +231,10 @@ export default function DataPesertaPage() {
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-            Data Peserta
+            Daftar Peserta
           </h1>
           <p className="text-sm text-slate-500 mt-0.5">
-            Daftar {totalAll} peserta evaluasi pasca pelatihan PKP Angkatan VII Tahun 2023 Kabupaten Bogor
+            {totalAll} peserta pelatihan PKP Angkatan VII 2023, Kabupaten Bogor
           </p>
         </div>
 
@@ -243,7 +243,7 @@ export default function DataPesertaPage() {
           <button
             onClick={handleDownloadTemplate}
             className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition shadow-sm flex items-center gap-1.5 cursor-pointer"
-            title="Unduh format template Excel untuk data evaluasi"
+            title="Unduh contoh format Excel"
           >
             <Download className="w-3.5 h-3.5 text-slate-500" />
             Template Excel
@@ -313,7 +313,7 @@ export default function DataPesertaPage() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Cari nama peserta, NIP, instansi..."
+            placeholder="Cari nama, NIP, atau instansi..."
             className="w-full pl-9 pr-4 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition shadow-sm"
           />
         </div>
@@ -358,13 +358,13 @@ export default function DataPesertaPage() {
         {loading ? (
           <div className="py-24 text-center">
             <RefreshCw className="w-8 h-8 animate-spin text-emerald-600 mx-auto mb-3" />
-            <p className="text-xs font-semibold text-slate-500">Memuat data peserta dari database...</p>
+            <p className="text-xs font-semibold text-slate-500">Memuat daftar peserta...</p>
           </div>
         ) : filteredPeserta.length === 0 ? (
           <div className="py-20 text-center text-slate-400">
             <Users className="w-10 h-10 mx-auto mb-2 text-slate-300" />
-            <p className="text-sm font-semibold text-slate-600">Tidak ada peserta yang cocok dengan pencarian.</p>
-            <p className="text-xs text-slate-400 mt-1">Coba gunakan kata kunci lain atau bersihkan filter.</p>
+            <p className="text-sm font-semibold text-slate-600">Tidak ada peserta yang cocok.</p>
+            <p className="text-xs text-slate-400 mt-1">Coba kata kunci lain atau ubah filternya.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -403,7 +403,7 @@ export default function DataPesertaPage() {
                       <td className="py-3.5 px-4">
                         <div className="font-bold text-slate-900">{p.nama}</div>
                         <div className="text-[11px] text-slate-400 font-mono mt-0.5">
-                          {p.nip ? `NIP. ${p.nip}` : 'NIP Tidak Tercatat'}
+                          {p.nip ? `NIP. ${p.nip}` : 'NIP belum tercatat'}
                         </div>
                       </td>
 
@@ -515,10 +515,10 @@ export default function DataPesertaPage() {
         {/* Table Footer */}
         <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-2">
           <span>
-            Menampilkan {filteredPeserta.length} dari {totalAll} total peserta terdaftar
+            Menampilkan {filteredPeserta.length} dari {totalAll} peserta
           </span>
           <span className="font-medium text-slate-500">
-            {totalValid} Lengkap • {totalEmpty} Data Kosong (UR-N-02)
+            {totalValid} lengkap • {totalEmpty} masih kosong
           </span>
         </div>
       </div>
@@ -530,7 +530,7 @@ export default function DataPesertaPage() {
         onSuccess={fetchPeserta}
       />
 
-      {/* Modal Tambah Peserta Manual */}
+      {/* Modal Tambah Peserta */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden">
@@ -540,8 +540,8 @@ export default function DataPesertaPage() {
                   <UserPlus className="w-4 h-4" />
                 </div>
                 <div>
-                  <h2 className="text-sm font-bold text-slate-900">Tambah Peserta Manual</h2>
-                  <p className="text-[11px] text-slate-500">Nilai awal otomatis KOSONG (URD Bab 6.8)</p>
+                  <h2 className="text-sm font-bold text-slate-900">Tambah Peserta</h2>
+                  <p className="text-[11px] text-slate-500">Nilainya masih KOSONG sampai diisi.</p>
                 </div>
               </div>
               <button
@@ -564,7 +564,7 @@ export default function DataPesertaPage() {
                   required
                   value={addForm.nama}
                   onChange={(e) => setAddForm({ ...addForm, nama: e.target.value })}
-                  placeholder="Nama lengkap beserta gelar"
+                  placeholder="Nama lengkap peserta"
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                 />
               </div>
@@ -575,13 +575,13 @@ export default function DataPesertaPage() {
                   type="text"
                   value={addForm.nip}
                   onChange={(e) => setAddForm({ ...addForm, nip: e.target.value })}
-                  placeholder="18 digit NIP (opsional)"
+                  placeholder="NIP 18 digit (boleh dikosongkan)"
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                 />
               </div>
 
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Instansi / Perangkat Daerah</label>
+                <label className="font-bold text-slate-700 block mb-1">Instansi</label>
                 <input
                   type="text"
                   value={addForm.instansi}
@@ -598,7 +598,7 @@ export default function DataPesertaPage() {
                     type="text"
                     value={addForm.jabatanPelatihan}
                     onChange={(e) => setAddForm({ ...addForm, jabatanPelatihan: e.target.value })}
-                    placeholder="Opsional"
+                    placeholder="Boleh dikosongkan"
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                   />
                 </div>
@@ -608,7 +608,7 @@ export default function DataPesertaPage() {
                     type="text"
                     value={addForm.jabatanSaatIni}
                     onChange={(e) => setAddForm({ ...addForm, jabatanSaatIni: e.target.value })}
-                    placeholder="Opsional"
+                    placeholder="Boleh dikosongkan"
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                   />
                 </div>

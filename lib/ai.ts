@@ -61,11 +61,11 @@ export function generatePembahasanTemplate(
     return {
       grafikKey,
       judul: judul || `Grafik ${grafikKey}`,
-      poin1: 'Belum ada data peserta yang tersedia pada database.',
-      poin2: 'Silakan impor berkas Excel hasil survei dan wawancara pada menu Data Peserta.',
+      poin1: 'Belum ada data peserta.',
+      poin2: 'Silakan impor file Excel survei dan wawancara dari menu Daftar Peserta.',
       poin3: 'Seluruh distribusi rentang saat ini bernilai 0 responden.',
-      poin4: 'Narasi analisis otomatis akan menyesuaikan segera setelah data diimpor.',
-      teksLengkap: 'Belum ada data peserta yang tersedia pada database.',
+      poin4: 'Pembahasan akan dibuat otomatis setelah data diimpor.',
+      teksLengkap: 'Belum ada data peserta.',
       sumber: 'template',
     };
   }

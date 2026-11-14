@@ -140,7 +140,7 @@ export default function EksposePage() {
       if (!mountedRef.current) return;
 
       if (!res.ok || !json.success) {
-        setQueueError(json.error || 'Gagal memproses antrian AI.');
+        setQueueError(json.error || 'Gagal memproses antrean AI.');
         if (Array.isArray(json.activeJobs)) {
           setActiveJobs(json.activeJobs);
         }
@@ -168,7 +168,7 @@ export default function EksposePage() {
     } catch (err) {
       console.error('Queue worker error:', err);
       if (mountedRef.current) {
-        setQueueError('Koneksi terganggu saat memproses antrian AI.');
+        setQueueError('Koneksi bermasalah saat memproses antrean AI.');
       }
     } finally {
       workerRunningRef.current = false;
@@ -229,7 +229,7 @@ export default function EksposePage() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        alert(json.error || 'Gagal memasukkan request AI ke antrian');
+        alert(json.error || 'Gagal memasukkan ke antrean AI');
         return;
       }
 
@@ -244,7 +244,7 @@ export default function EksposePage() {
       }
     } catch (err) {
       console.error(err);
-      alert('Gagal menambahkan antrian generasi AI');
+      alert('Gagal menambahkan ke antrean AI');
     }
   };
 
@@ -319,11 +319,11 @@ export default function EksposePage() {
         }));
         setEditingKey(null);
       } else {
-        alert(json.error || 'Gagal menyimpan suntingan');
+        alert(json.error || 'Gagal menyimpan perubahan');
       }
     } catch (err) {
       console.error(err);
-      alert('Terjadi kesalahan koneksi saat menyimpan');
+      alert('Koneksi bermasalah saat menyimpan. Coba lagi.');
     } finally {
       setSavingKey(null);
     }
@@ -363,8 +363,8 @@ export default function EksposePage() {
     return (
       <div className="py-28 text-center">
         <RefreshCw className="w-9 h-9 animate-spin text-emerald-600 mx-auto mb-3" />
-        <p className="text-sm font-bold text-slate-700">Menyiapkan Tampilan Slide Presentasi Resmi Ekspose...</p>
-        <p className="text-xs text-slate-400 mt-1">Mengonfigurasi 6 slide 1:1 sesuai berkas paparan resmi BPSDM</p>
+        <p className="text-sm font-bold text-slate-700">Menyiapkan slide ekspose...</p>
+        <p className="text-xs text-slate-400 mt-1">Menyiapkan 6 slide sesuai format paparan BPSDM</p>
       </div>
     );
   }
@@ -504,7 +504,7 @@ export default function EksposePage() {
         <div>
           <div className="flex items-center gap-2">
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800">
-              Format Presentasi Resmi (1:1 Slide PPTX)
+              Format slide PPTX (1:1)
             </span>
             <span className="text-xs text-slate-400">• BPSDM Provinsi Jawa Barat</span>
           </div>
@@ -512,7 +512,7 @@ export default function EksposePage() {
             Ekspose Evaluasi Pasca Pelatihan PKP Angkatan VII
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Susunan visual 6 slide presentasi lengkap: 5 grafik batang horizontal dengan kotak pembahasan, diakhiri slide kesimpulan & rekomendasi.
+            6 slide lengkap: 5 grafik batang horizontal dengan kotak pembahasan, ditutup slide kesimpulan dan rekomendasi.
           </p>
         </div>
 
@@ -525,7 +525,7 @@ export default function EksposePage() {
                 ? 'border-emerald-300 bg-emerald-100 text-emerald-900'
                 : 'border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800'
             }`}
-            title="Masukkan seluruh slide ke antrian generasi AI secara berurutan"
+            title="Buat pembahasan semua slide dengan AI, satu per satu"
           >
             {activeJobs.length > 0 ? (
               <Loader2 className="w-3.5 h-3.5 text-emerald-700 animate-spin" />
@@ -533,8 +533,8 @@ export default function EksposePage() {
               <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
             )}
             {activeJobs.length > 0
-              ? `Antrian AI (${activeJobs.length} aktif)`
-              : 'Generate AI Semua Slide'}
+              ? `AI sedang bekerja (${activeJobs.length} slide)`
+              : 'Buat Semua dengan AI'}
           </button>
 
           <button
@@ -543,7 +543,7 @@ export default function EksposePage() {
             className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-slate-700 transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
           >
             <Download className="w-3.5 h-3.5 text-slate-500" />
-            Ekspor Rekap CSV
+            Unduh Rekap CSV
           </button>
 
           <button
@@ -588,10 +588,10 @@ export default function EksposePage() {
                 {queueError
                   ? queueError
                   : activeProcessingJob
-                    ? `AI sedang memproses ${SLIDE_QUEUE_LABELS[activeProcessingJob.grafikKey] || activeProcessingJob.grafikKey}${queuedCount > 0 ? ` • ${queuedCount} slide menunggu di antrian` : ''}`
+                    ? `AI sedang membuat ${SLIDE_QUEUE_LABELS[activeProcessingJob.grafikKey] || activeProcessingJob.grafikKey}${queuedCount > 0 ? ` • ${queuedCount} slide menunggu` : ''}`
                     : currentStatusJob?.attempts && currentStatusJob.attempts > 0
-                      ? `Rate limit sementara — menjadwalkan retry ${SLIDE_QUEUE_LABELS[currentStatusJob.grafikKey] || currentStatusJob.grafikKey} (percobaan ${currentStatusJob.attempts}/${currentStatusJob.maxAttempts})...`
-                      : `Menunggu giliran antrian AI: ${SLIDE_QUEUE_LABELS[currentStatusJob?.grafikKey || ''] || 'slide berikutnya'} (${activeJobs.length} aktif)...`}
+                      ? `AI sedang sibuk — mencoba lagi ${SLIDE_QUEUE_LABELS[currentStatusJob.grafikKey] || currentStatusJob.grafikKey} (percobaan ${currentStatusJob.attempts}/${currentStatusJob.maxAttempts})...`
+                      : `Menunggu giliran: ${SLIDE_QUEUE_LABELS[currentStatusJob?.grafikKey || ''] || 'slide berikutnya'} (${activeJobs.length} slide)...`}
               </p>
               {activeJobs.length > 0 && (
                 <div className="mt-2 h-1.5 w-full bg-emerald-200/80 rounded-full overflow-hidden">
@@ -613,7 +613,7 @@ export default function EksposePage() {
               className="px-3 py-1.5 text-xs font-bold rounded-xl border border-rose-200 bg-white hover:bg-rose-50 text-rose-700 transition flex items-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-50"
             >
               <Ban className="w-3.5 h-3.5" />
-              {cancellingQueue ? 'Membatalkan...' : `Batalkan Antrian (${queuedCount})`}
+              {cancellingQueue ? 'Membatalkan...' : `Batalkan Antrean (${queuedCount})`}
             </button>
           )}
         </div>
@@ -627,10 +627,10 @@ export default function EksposePage() {
             </div>
             <div>
               <p className="text-sm font-bold text-amber-900">
-                Basis Data Saat Ini Kosong (0 Peserta)
+                Belum Ada Data (0 Peserta)
               </p>
               <p className="text-xs text-amber-800/80 mt-1">
-                Semua data telah dihapus. Slide ekspose dan pembahasan belum ditampilkan sampai berkas Excel hasil survei/wawancara diimpor.
+                Slide ekspose dan pembahasan baru muncul setelah file Excel survei dan wawancara diimpor.
               </p>
             </div>
           </div>
@@ -638,14 +638,14 @@ export default function EksposePage() {
             href="/peserta"
             className="px-4 py-2 text-xs font-bold rounded-xl bg-amber-700 hover:bg-amber-800 text-white transition shadow-2xs shrink-0 self-start sm:self-auto text-center"
           >
-            Buka Menu Impor Excel
+            Impor File Excel
           </a>
         </div>
       ) : (
         <>
           {/* Slide Navigation Pill Quicklinks */}
           <div className="flex flex-wrap items-center gap-2 no-print bg-slate-100/80 p-2 rounded-xl text-xs font-semibold text-slate-600">
-            <span className="px-2 py-1 text-slate-400 font-bold text-[11px]">Lompat ke Slide:</span>
+            <span className="px-2 py-1 text-slate-400 font-bold text-[11px]">Ke slide:</span>
             {slideList.map((s, idx) => (
               <a
                 key={s.key}
@@ -761,7 +761,7 @@ export default function EksposePage() {
                     <table className="w-full text-[11px] border-collapse">
                       <thead>
                         <tr className="bg-slate-100/90 border-b border-slate-200 text-slate-700 font-bold">
-                          <th className="py-1.5 px-2.5 text-left">Instrumen / Sumber</th>
+                          <th className="py-1.5 px-2.5 text-left">Sumber</th>
                           {presentationCategories.map((kat) => (
                             <th key={kat} className="py-1.5 px-2 text-center font-mono">
                               {kat}
@@ -822,7 +822,7 @@ export default function EksposePage() {
                           </h3>
                         </div>
 
-                        {/* Tombol Aksi Mini (Sunting / AI) */}
+                        {/* Tombol Aksi Mini (Ubah / AI) */}
                         <div className="flex items-center gap-1 no-print absolute right-8 top-auto">
                           {!isEditing ? (
                             <>
@@ -831,10 +831,10 @@ export default function EksposePage() {
                                 disabled={isItemLoading || isItemSaving}
                                 title={
                                   slideQueue.isProcessing
-                                    ? 'Sedang diproses AI...'
+                                    ? 'AI sedang membuat pembahasan...'
                                     : slideQueue.isQueued
-                                      ? `Menunggu antrian (#${slideQueue.queuePos})`
-                                      : 'Refresh narasi AI'
+                                      ? `Menunggu giliran (ke-${slideQueue.queuePos})`
+                                      : 'Buat ulang dengan AI'
                                 }
                                 className="p-1 rounded bg-white/70 hover:bg-white text-slate-700 border border-slate-300 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                               >
@@ -849,7 +849,7 @@ export default function EksposePage() {
                               <button
                                 onClick={() => handleStartEdit(slide.key, pItem)}
                                 disabled={isItemLoading || isItemSaving}
-                                title="Sunting teks pembahasan"
+                                title="Ubah teks pembahasan"
                                 className="p-1 rounded bg-white/70 hover:bg-white text-slate-700 border border-slate-300 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 <Edit3 className="w-3 h-3" />
@@ -893,10 +893,10 @@ export default function EksposePage() {
                               )}
                               <span>
                                 {slideQueue.isProcessing
-                                  ? 'AI sedang menganalisis data slide ini...'
+                                  ? 'AI sedang membaca data slide ini...'
                                   : slideQueue.isRetrying
-                                    ? `Rate limit sementara — menjadwalkan retry (${slideQueue.job?.attempts}/${slideQueue.job?.maxAttempts})...`
-                                    : `Menunggu antrian (#${slideQueue.queuePos}) untuk diproses AI...`}
+                                    ? `AI sedang sibuk — mencoba lagi (${slideQueue.job?.attempts}/${slideQueue.job?.maxAttempts})...`
+                                    : `Menunggu giliran (ke-${slideQueue.queuePos})...`}
                               </span>
                             </div>
                             <div className="space-y-2.5 animate-pulse">
@@ -919,7 +919,7 @@ export default function EksposePage() {
                         ) : (
                           <div className="py-6 text-center space-y-2.5 no-print">
                             <p className="text-xs text-slate-600">
-                              Pembahasan AI belum dibuat untuk slide ini.
+                              Pembahasan untuk slide ini belum dibuat.
                             </p>
                             <button
                               onClick={() => handleRegenerate(slide.key)}
@@ -927,7 +927,7 @@ export default function EksposePage() {
                               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold transition cursor-pointer disabled:opacity-50"
                             >
                               <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-                              Generate Pembahasan AI
+                              Buat Pembahasan dengan AI
                             </button>
                           </div>
                         )
@@ -977,10 +977,10 @@ export default function EksposePage() {
                       <span>
                         Sumber:{' '}
                         {pItem?.sumber === 'ai'
-                          ? 'Model AI (Gemini)'
+                          ? 'AI (Gemini)'
                           : pItem?.sumber === 'manual'
-                          ? 'Disunting Manual'
-                          : 'Templat Baku (Slide PPT)'}
+                          ? 'Diubah manual'
+                          : 'Template (slide PPT)'}
                       </span>
                       <span className="font-semibold text-emerald-800">BPSDM Jabar</span>
                     </div>
@@ -1046,10 +1046,10 @@ export default function EksposePage() {
                         )}
                         <span>
                           {kesimpulanQueue.isProcessing
-                            ? 'AI sedang menyusun pembahasan kesimpulan...'
+                            ? 'AI sedang menyusun kesimpulan...'
                             : kesimpulanQueue.isRetrying
-                              ? `Rate limit sementara — menjadwalkan retry (${kesimpulanQueue.job?.attempts}/${kesimpulanQueue.job?.maxAttempts})...`
-                              : `Menunggu antrian (#${kesimpulanQueue.queuePos}) untuk menyusun kesimpulan...`}
+                              ? `AI sedang sibuk — mencoba lagi (${kesimpulanQueue.job?.attempts}/${kesimpulanQueue.job?.maxAttempts})...`
+                              : `Menunggu giliran (ke-${kesimpulanQueue.queuePos}) untuk menyusun kesimpulan...`}
                         </span>
                       </div>
                       <div className="space-y-2.5 animate-pulse">
@@ -1068,7 +1068,7 @@ export default function EksposePage() {
                     </ul>
                   ) : (
                     <div className="py-6 text-center text-xs text-slate-600 no-print">
-                      Pembahasan kesimpulan belum dibuat. Klik <strong>Generate AI</strong> untuk menyusun otomatis dari data.
+                      Pembahasan kesimpulan belum dibuat. Klik <strong>Buat dengan AI</strong> untuk menyusunnya dari data.
                     </div>
                   )
                 ) : (
@@ -1110,14 +1110,14 @@ export default function EksposePage() {
                     </h3>
                   </div>
 
-                  {/* Tombol AI & Sunting Slide 6 */}
+                  {/* Tombol AI & Ubah Slide 6 */}
                   <div className="no-print shrink-0">
                     {editingKey !== 'kesimpulan' ? (
                       <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => handleRegenerate('kesimpulan')}
                           disabled={isKesimpulanLoading || savingKey === 'kesimpulan'}
-                          title="Generate kesimpulan & rekomendasi menggunakan AI"
+                          title="Buat kesimpulan dan rekomendasi dengan AI"
                           className="px-2 py-1.5 rounded bg-white/80 hover:bg-white text-emerald-800 border border-emerald-300 transition cursor-pointer flex items-center gap-1 text-[11px] font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {kesimpulanQueue.isProcessing ? (
@@ -1128,10 +1128,10 @@ export default function EksposePage() {
                             <Sparkles className="w-3 h-3 text-emerald-600" />
                           )}
                           {kesimpulanQueue.isProcessing
-                            ? 'Generating...'
+                            ? 'Membuat...'
                             : kesimpulanQueue.isQueued
-                              ? `Antri #${kesimpulanQueue.queuePos}`
-                              : 'Generate AI'}
+                              ? `Antrean ke-${kesimpulanQueue.queuePos}`
+                              : 'Buat dengan AI'}
                         </button>
                         <button
                           onClick={() => handleStartEdit('kesimpulan', kesimpulanItem)}
@@ -1139,7 +1139,7 @@ export default function EksposePage() {
                           className="p-1.5 rounded bg-white/70 hover:bg-white text-slate-700 border border-slate-300 transition cursor-pointer flex items-center gap-1 text-[11px] font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <Edit3 className="w-3 h-3" />
-                          Sunting
+                          Ubah
                         </button>
                       </div>
                     ) : (
@@ -1179,10 +1179,10 @@ export default function EksposePage() {
                         )}
                         <span>
                           {kesimpulanQueue.isProcessing
-                            ? 'AI sedang menyusun rekomendasi strategis...'
+                            ? 'AI sedang menyusun rekomendasi...'
                             : kesimpulanQueue.isRetrying
-                              ? `Rate limit sementara — menjadwalkan retry (${kesimpulanQueue.job?.attempts}/${kesimpulanQueue.job?.maxAttempts})...`
-                              : `Menunggu antrian (#${kesimpulanQueue.queuePos}) untuk menyusun rekomendasi...`}
+                              ? `AI sedang sibuk — mencoba lagi (${kesimpulanQueue.job?.attempts}/${kesimpulanQueue.job?.maxAttempts})...`
+                              : `Menunggu giliran (ke-${kesimpulanQueue.queuePos}) untuk menyusun rekomendasi...`}
                         </span>
                       </div>
                       <div className="space-y-2.5 animate-pulse">
@@ -1202,7 +1202,7 @@ export default function EksposePage() {
                   ) : (
                     <div className="py-6 text-center space-y-3 no-print">
                       <p className="text-xs text-slate-700 leading-relaxed">
-                        Rekomendasi belum dihasilkan oleh AI. Silakan generate agar AI menyusun rekomendasi berdasarkan data peserta aktual.
+                        Rekomendasi belum dibuat. Buat dengan AI supaya disusun dari data peserta.
                       </p>
                       <button
                         onClick={() => handleRegenerate('kesimpulan')}
@@ -1210,7 +1210,7 @@ export default function EksposePage() {
                         className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-2xs cursor-pointer disabled:opacity-50"
                       >
                         <Sparkles className="w-3.5 h-3.5" />
-                        Generate Rekomendasi AI
+                        Buat Rekomendasi dengan AI
                       </button>
                     </div>
                   )
@@ -1227,13 +1227,13 @@ export default function EksposePage() {
                     </div>
                     <div>
                       <label className="text-[10px] font-bold text-slate-700 block mb-1">
-                        Rekomendasi 2 &amp; 3 (pisahkan tiap poin dengan baris baru):
+                        Rekomendasi 2 dan 3 (satu poin satu baris):
                       </label>
                       <textarea
                         rows={5}
                         value={editForm.poin4}
                         onChange={(e) => setEditForm({ ...editForm, poin4: e.target.value })}
-                        placeholder="Tuliskan poin rekomendasi berikutnya pada tiap baris..."
+                        placeholder="Tulis satu rekomendasi per baris..."
                         className="w-full p-2 text-xs rounded border border-slate-300 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
                       />
                     </div>

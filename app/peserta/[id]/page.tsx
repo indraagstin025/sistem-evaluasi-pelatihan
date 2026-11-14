@@ -225,11 +225,11 @@ export default function InputNilaiDetailPage({ params }: { params: { id: string 
         body: JSON.stringify(wawancaraPayload),
       });
 
-      setMessage({ text: 'Nilai dan evaluasi peserta berhasil disimpan ke database.', type: 'success' });
+      setMessage({ text: 'Nilai peserta sudah disimpan.', type: 'success' });
       fetchDetail();
     } catch (err: any) {
       console.error(err);
-      setMessage({ text: 'Terjadi kesalahan saat menyimpan data.', type: 'error' });
+      setMessage({ text: 'Koneksi bermasalah saat menyimpan. Coba lagi.', type: 'error' });
     } finally {
       setSaving(false);
     }
@@ -249,21 +249,21 @@ export default function InputNilaiDetailPage({ params }: { params: { id: string 
       const json = await res.json();
       if (json.success) {
         setIsEditingProfil(false);
-        setMessage({ text: 'Profil peserta berhasil diperbarui.', type: 'success' });
+        setMessage({ text: 'Profil peserta sudah diperbarui.', type: 'success' });
         fetchDetail();
       } else {
-        setMessage({ text: json.error || 'Gagal memperbarui profil peserta.', type: 'error' });
+        setMessage({ text: json.error || 'Gagal memperbarui profil. Coba lagi.', type: 'error' });
       }
     } catch (err) {
       console.error(err);
-      setMessage({ text: 'Terjadi kesalahan saat menyimpan profil.', type: 'error' });
+      setMessage({ text: 'Koneksi bermasalah saat menyimpan profil. Coba lagi.', type: 'error' });
     } finally {
       setSavingProfil(false);
     }
   };
 
   const handleDeletePeserta = async () => {
-    if (!confirm(`Hapus permanen peserta "${peserta?.nama}" beserta seluruh data nilainya?`)) {
+    if (!confirm(`Hapus peserta "${peserta?.nama}" secara permanen beserta semua datanya?`)) {
       return;
     }
     try {
@@ -277,14 +277,14 @@ export default function InputNilaiDetailPage({ params }: { params: { id: string 
       }
     } catch (err) {
       console.error(err);
-      setMessage({ text: 'Terjadi kesalahan saat menghapus peserta.', type: 'error' });
+      setMessage({ text: 'Koneksi bermasalah saat menghapus peserta. Coba lagi.', type: 'error' });
     } finally {
       setDeletingPeserta(false);
     }
   };
 
   const handleClearWawancara = () => {
-    if (confirm('Kosongkan seluruh nilai wawancara untuk peserta ini? Statusnya akan menjadi KOSONG sesuai aturan URD.')) {
+    if (confirm('Kosongkan semua nilai wawancara peserta ini? Statusnya akan jadi KOSONG.')) {
       setWawancara({
         menengah: '',
         jangkaPanjang: '',
@@ -306,7 +306,7 @@ export default function InputNilaiDetailPage({ params }: { params: { id: string 
     return (
       <div className="py-24 text-center">
         <RefreshCw className="w-8 h-8 animate-spin text-emerald-600 mx-auto mb-3" />
-        <p className="text-xs font-semibold text-slate-500">Memuat profil dan data nilai peserta...</p>
+        <p className="text-xs font-semibold text-slate-500">Memuat data peserta...</p>
       </div>
     );
   }
@@ -316,7 +316,7 @@ export default function InputNilaiDetailPage({ params }: { params: { id: string 
       <div className="py-20 text-center">
         <p className="text-sm font-bold text-slate-700">Peserta tidak ditemukan.</p>
         <Link href="/peserta" className="text-xs text-emerald-600 font-bold underline mt-2 inline-block">
-          Kembali ke Data Peserta
+          Kembali ke Daftar Peserta
         </Link>
       </div>
     );
@@ -336,14 +336,14 @@ export default function InputNilaiDetailPage({ params }: { params: { id: string 
           <div>
             <h1 className="text-xl font-black text-slate-900 tracking-tight">{peserta.nama}</h1>
             <p className="text-xs text-slate-500">
-              {peserta.nip ? `NIP. ${peserta.nip}` : 'NIP Tidak Tercatat'} • {peserta.instansi || '-'}
+              {peserta.nip ? `NIP. ${peserta.nip}` : 'NIP belum tercatat'} • {peserta.instansi || '-'}
             </p>
             {(peserta.jabatanSaatIni || peserta.jabatanPelatihan || l3Summary.count > 0) && (
               <div className="flex flex-wrap items-center gap-2 mt-1 text-[11px] text-slate-500">
                 {peserta.jabatanSaatIni && <span>Jabatan: {peserta.jabatanSaatIni}</span>}
                 {l3Summary.count > 0 && (
                   <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium border border-slate-200">
-                    {l3Summary.count} butir Perubahan Perilaku (L3) tersimpan • Sumber: {l3Summary.sumber}
+                    {l3Summary.count} jawaban perubahan perilaku tersimpan • Sumber: {l3Summary.sumber}
                   </span>
                 )}
               </div>
@@ -367,7 +367,7 @@ export default function InputNilaiDetailPage({ params }: { params: { id: string 
             className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-amber-200 text-amber-800 hover:bg-amber-50 transition flex items-center gap-1.5 cursor-pointer"
           >
             <Trash2 className="w-3.5 h-3.5" />
-            Kosongkan Wawancara
+            Kosongkan Nilai Wawancara
           </button>
 
           <button
@@ -391,7 +391,7 @@ export default function InputNilaiDetailPage({ params }: { params: { id: string 
           <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
             <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <UserCog className="w-4 h-4 text-emerald-600" />
-              Ubah Profil Peserta
+              Ubah Profil
             </h2>
           </div>
 
@@ -509,7 +509,7 @@ export default function InputNilaiDetailPage({ params }: { params: { id: string 
           <div className="text-2xl font-black text-slate-900 mt-1">
             {liveTotalForm !== null ? liveTotalForm.toFixed(2) : <span className="text-amber-600 text-base">KOSONG</span>}
           </div>
-          <span className="text-[10px] text-slate-400 mt-0.5 block">5 Kriteria Berbobot</span>
+          <span className="text-[10px] text-slate-400 mt-0.5 block">5 kriteria berbobot</span>
         </div>
 
         <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm">
@@ -523,7 +523,7 @@ export default function InputNilaiDetailPage({ params }: { params: { id: string 
               <span className="text-slate-400 text-base">-</span>
             )}
           </div>
-          <span className="text-[10px] text-slate-400 mt-0.5 block">Deviasi Persepsi</span>
+          <span className="text-[10px] text-slate-400 mt-0.5 block">Selisih Penilaian</span>
         </div>
       </div>
 
@@ -545,9 +545,9 @@ export default function InputNilaiDetailPage({ params }: { params: { id: string 
 
           <div className="space-y-4">
             {[
-              { key: 'L4_01' as const, label: 'L4_01: Target Jangka Panjang' },
-              { key: 'L4_02' as const, label: 'L4_02: Seluruh Tujuan Tercapai' },
-              { key: 'L4_03' as const, label: 'L4_03: Manfaat Aksi Perubahan' },
+              { key: 'L4_01' as const, label: 'Butir 1: Target Jangka Panjang' },
+              { key: 'L4_02' as const, label: 'Butir 2: Seluruh Tujuan Tercapai' },
+              { key: 'L4_03' as const, label: 'Butir 3: Manfaat Aksi Perubahan' },
             ].map((item) => (
               <div key={item.key}>
                 <div className="flex items-center justify-between gap-2 mb-1">
@@ -586,7 +586,7 @@ export default function InputNilaiDetailPage({ params }: { params: { id: string 
               Wawancara Evaluator (Skala 0–100)
             </h2>
             <p className="text-xs text-slate-500 mt-1">
-              Penilaian lapangan assessor terhadap 5 kriteria Aksi Perubahan
+              Penilaian evaluator terhadap 5 kriteria hasil Aksi Perubahan
             </p>
           </div>
 
@@ -615,7 +615,7 @@ export default function InputNilaiDetailPage({ params }: { params: { id: string 
               {
                 key: 'komunikasi' as const,
                 label: '5. Teknik Komunikasi (Bobot 10%)',
-                placeholder: 'Nilai 0 - 100 (dari sel H33 Form Penilaian)',
+                placeholder: 'Nilai 0 - 100 (dari Form Penilaian)',
               },
             ].map((item) => (
               <div key={item.key} className="space-y-1.5">
@@ -643,7 +643,7 @@ export default function InputNilaiDetailPage({ params }: { params: { id: string 
                   rows={2}
                   value={deskripsi[item.key]}
                   onChange={(e) => setDeskripsi({ ...deskripsi, [item.key]: e.target.value })}
-                  placeholder="Catatan / deskripsi evaluator (opsional)"
+                  placeholder="Catatan evaluator (boleh dikosongkan)"
                   className="w-full px-3 py-1.5 text-[11px] rounded-lg border border-slate-200 bg-slate-50/50 text-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                 />
               </div>

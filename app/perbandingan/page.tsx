@@ -140,7 +140,7 @@ export default function PerbandinganPage() {
     return (
       <div className="py-24 text-center">
         <RefreshCw className="w-8 h-8 animate-spin text-emerald-600 mx-auto mb-3" />
-        <p className="text-xs font-semibold text-slate-500">Memuat analisis perbandingan nilai...</p>
+        <p className="text-xs font-semibold text-slate-500">Memuat perbandingan nilai...</p>
       </div>
     );
   }
@@ -162,7 +162,7 @@ export default function PerbandinganPage() {
             Perbandingan Nilai L & M
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Langkah 2: Komparasi hasil survei mandiri alumni (L) vs wawancara evaluator (M) per peserta
+            Bandingkan hasil survei alumni (L) dengan hasil wawancara evaluator (M) untuk tiap peserta
           </p>
         </div>
 
@@ -171,7 +171,7 @@ export default function PerbandinganPage() {
           className="px-4 py-2 text-xs font-bold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition shadow-sm flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
         >
           <Download className="w-3.5 h-3.5 text-slate-500" />
-          Ekspor CSV Perbandingan
+          Unduh CSV
         </button>
       </header>
 
@@ -216,11 +216,11 @@ export default function PerbandinganPage() {
         <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm">
           <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Distribusi Selisih</p>
           <p className="text-2xl font-black text-slate-800 mt-1 leading-tight tracking-tight">
-            {countPos} <span className="text-emerald-600 text-lg">Pos</span> • {countNeg}{' '}
-            <span className="text-rose-600 text-lg">Neg</span> • {countKosong}{' '}
-            <span className="text-amber-600 text-lg">Kos</span>
+            {countPos} <span className="text-emerald-600 text-lg">Positif</span> • {countNeg}{' '}
+            <span className="text-rose-600 text-lg">Negatif</span> • {countKosong}{' '}
+            <span className="text-amber-600 text-lg">Kosong</span>
           </p>
-          <p className="text-[11px] text-slate-400 mt-1">Dari {ringkasan?.totalPeserta} total peserta terdaftar</p>
+          <p className="text-[11px] text-slate-400 mt-1">Dari {ringkasan?.totalPeserta} peserta</p>
         </div>
       </div>
 
@@ -229,15 +229,15 @@ export default function PerbandinganPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
           <div>
             <h2 className="text-sm sm:text-base font-bold text-slate-900">
-              Grafik Deviasi Selisih (Nilai M - Nilai L) Per Peserta (PKP 2023)
+              Grafik Selisih Nilai (M − L) per Peserta (PKP 2023)
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              <span className="text-emerald-600 font-bold">Hijau (+):</span> Evaluator menilai lebih tinggi &nbsp;|&nbsp;{' '}
-              <span className="text-rose-600 font-bold">Merah (-):</span> Alumni menilai mandiri lebih tinggi
+              <span className="text-emerald-600 font-bold">Hijau (+):</span> evaluator menilai lebih tinggi &nbsp;|&nbsp;{' '}
+              <span className="text-rose-600 font-bold">Merah (-):</span> alumni menilai lebih tinggi
             </p>
           </div>
           <span className="text-xs font-mono font-bold text-slate-400 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200 self-start sm:self-auto">
-            0.00 (Titik Seimbang M = L)
+            0.00 (seimbang: M = L)
           </span>
         </div>
 
@@ -263,7 +263,7 @@ export default function PerbandinganPage() {
               </div>
             ) : (
               <span className="text-[11px] text-slate-400 italic">
-                Arahkan kursor pada batang grafik untuk melihat rincian peserta
+                Arahkan kursor ke batang grafik untuk melihat detail peserta
               </span>
             )}
           </div>
@@ -343,7 +343,7 @@ export default function PerbandinganPage() {
       {/* 4 Peserta dengan Selisih Ekstrem */}
       <div className="space-y-3">
         <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-          Peserta dengan Selisih Ekstrem (Bahan Evaluasi Khusus URD Lampiran A.3):
+          Peserta dengan Selisih Terbesar:
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {extremaList.map((p, idx) => {
@@ -378,9 +378,9 @@ export default function PerbandinganPage() {
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden space-y-4 p-6">
         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
           <div>
-            <h2 className="text-base font-bold text-slate-900">Tabel Perbandingan Seluruh Peserta (UR-F-04)</h2>
+            <h2 className="text-base font-bold text-slate-900">Tabel Perbandingan Semua Peserta</h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Urutkan kolom selisih, nilai survei, atau wawancara untuk menganalisis deviasi
+              Klik judul kolom untuk mengurutkan berdasarkan selisih atau nilai
             </p>
           </div>
 

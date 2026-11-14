@@ -48,7 +48,7 @@ export default function BottomCards({ ringkasan }: BottomCardsProps) {
       <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-2xs flex flex-col justify-between">
         <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
           <Clock className="w-5 h-5 text-emerald-600" />
-          <h3 className="text-sm font-bold text-slate-900">Status Kelengkapan Data</h3>
+          <h3 className="text-sm font-bold text-slate-900">Kelengkapan Data</h3>
         </div>
 
         <div className="flex items-center gap-6 py-4">
@@ -120,7 +120,7 @@ export default function BottomCards({ ringkasan }: BottomCardsProps) {
         </div>
 
         <p className="text-[11px] text-slate-400 pt-3 border-t border-slate-100">
-          Data kosong (null) diabaikan dari pembagi wawancara sesuai URD Bab 6.8.
+          Nilai yang kosong tidak ikut dihitung dalam rata-rata wawancara.
         </p>
       </div>
 
@@ -128,7 +128,7 @@ export default function BottomCards({ ringkasan }: BottomCardsProps) {
       <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-2xs flex flex-col justify-between">
         <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
           <Trophy className="w-5 h-5 text-emerald-600" />
-          <h3 className="text-sm font-bold text-slate-900">Rekapitulasi Nilai Rata-rata</h3>
+          <h3 className="text-sm font-bold text-slate-900">Rata-rata Nilai</h3>
         </div>
 
         <div className="space-y-3 py-2 text-xs">
@@ -143,19 +143,19 @@ export default function BottomCards({ ringkasan }: BottomCardsProps) {
           </div>
 
           <div className="flex justify-between items-center p-3 rounded-xl bg-emerald-50/80 border border-emerald-100 mt-2">
-            <span className="text-emerald-950 font-bold">Total Rata-rata Gabungan</span>
+            <span className="text-emerald-950 font-bold">Rata-rata Gabungan</span>
             <span className="font-mono font-black text-emerald-700 text-base">{avgBoth}</span>
           </div>
         </div>
 
         <p className="text-[11px] text-slate-400 pt-3 border-t border-slate-100">
           {total === 0
-            ? 'Belum ada data peserta untuk dihitung.'
+            ? 'Belum ada data untuk dihitung.'
             : Number(avgBoth) >= 76
-            ? 'Kategori nilai rata-rata berada pada Rentang Optimal (76–100).'
+            ? 'Rata-rata nilainya masuk rentang optimal (76–100).'
             : Number(avgBoth) >= 51
-            ? 'Kategori nilai rata-rata berada pada Rentang Baik (51–75).'
-            : 'Kategori nilai rata-rata perlu peningkatan (< 51).'}
+            ? 'Rata-rata nilainya masuk rentang baik (51–75).'
+            : 'Rata-rata nilainya masih perlu ditingkatkan (< 51).'}
         </p>
       </div>
 
@@ -163,7 +163,7 @@ export default function BottomCards({ ringkasan }: BottomCardsProps) {
       <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-2xs flex flex-col justify-between">
         <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
           <Zap className="w-5 h-5 text-amber-500" />
-          <h3 className="text-sm font-bold text-slate-900">Selisih Deviasi Terbesar</h3>
+          <h3 className="text-sm font-bold text-slate-900">Selisih Terbesar</h3>
         </div>
 
         <div className="grid grid-cols-2 gap-3 py-2">
@@ -176,7 +176,7 @@ export default function BottomCards({ ringkasan }: BottomCardsProps) {
               {hasPos ? `${maxPos >= 0 ? '+' : ''}${maxPos.toFixed(2)}` : '0.00'}
             </span>
             <span className="text-[10px] text-emerald-600 font-medium mt-1 block truncate">
-              {ringkasan?.selisihTerbesarPositif?.nama || (total === 0 ? 'Belum ada data' : 'Evaluator > Survei')}
+              {ringkasan?.selisihTerbesarPositif?.nama || (total === 0 ? 'Belum ada data' : 'Wawancara lebih tinggi')}
             </span>
           </div>
 
@@ -189,13 +189,13 @@ export default function BottomCards({ ringkasan }: BottomCardsProps) {
               {hasNeg ? (maxNeg > 0 ? `-${maxNeg.toFixed(2)}` : maxNeg.toFixed(2)) : '0.00'}
             </span>
             <span className="text-[10px] text-rose-600 font-medium mt-1 block truncate">
-              {ringkasan?.selisihTerbesarNegatif?.nama || (total === 0 ? 'Belum ada data' : 'Survei > Evaluator')}
+              {ringkasan?.selisihTerbesarNegatif?.nama || (total === 0 ? 'Belum ada data' : 'Survei lebih tinggi')}
             </span>
           </div>
         </div>
 
         <p className="text-[11px] text-slate-400 pt-3 border-t border-slate-100">
-          Deviasi persepsi antara pengakuan alumni vs observasi evaluator.
+          Perbedaan antara penilaian alumni dan penilaian evaluator.
         </p>
       </div>
     </div>

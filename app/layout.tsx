@@ -4,7 +4,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Sistem Evaluasi Pasca Pelatihan - BPSDM',
-  description: 'Dashboard Evaluasi Pasca Pelatihan Kepemimpinan Pengawas (PKP) BPSDM',
+  description: 'Dashboard evaluasi pasca pelatihan PKP di BPSDM',
 };
 
 export default function RootLayout({

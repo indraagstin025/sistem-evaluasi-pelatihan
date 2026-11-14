@@ -130,7 +130,7 @@ export default function ImportExcelModal({
 
   const handleStartImport = async () => {
     if (!isReady) {
-      setErrorMessage('Sistem membutuhkan minimal 1 Berkas Survei (Olah Data) sebagai data induk peserta.');
+      setErrorMessage('Minimal perlu 1 file survei (Olah Data) sebagai data utama peserta.');
       return;
     }
 
@@ -159,19 +159,19 @@ export default function ImportExcelModal({
       if (json.success) {
         setSuccessMessage(
           activeInterviewFile
-            ? 'Berhasil mengimpor Berkas Survei dan Form Penilaian Wawancara.'
-            : 'Berhasil mengimpor Berkas Survei (Nilai wawancara dinyatakan KOSONG sesuai aturan URD).'
+            ? 'File survei dan Form Penilaian Wawancara berhasil diimpor.'
+            : 'File survei berhasil diimpor. Nilai wawancara berstatus KOSONG.'
         );
         setTimeout(() => {
           onSuccess();
           onClose();
         }, 1200);
       } else {
-        setErrorMessage(json.error || 'Gagal memproses berkas Excel.');
+        setErrorMessage(json.error || 'Gagal memproses file Excel.');
       }
     } catch (err: any) {
       console.error('Import error:', err);
-      setErrorMessage('Terjadi kesalahan jaringan saat mengunggah berkas.');
+      setErrorMessage('Koneksi bermasalah saat mengunggah file. Coba lagi.');
     } finally {
       setIsProcessing(false);
     }
@@ -187,8 +187,8 @@ export default function ImportExcelModal({
               <FileSpreadsheet className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900">Impor Berkas Evaluasi (Excel)</h2>
-              <p className="text-xs text-slate-500">Langkah 1: Masukkan berkas Olah Data dan Form Penilaian</p>
+              <h2 className="text-lg font-bold text-slate-900">Impor File Excel</h2>
+              <p className="text-xs text-slate-500">Siapkan file Olah Data dan Form Penilaian</p>
             </div>
           </div>
           <button
@@ -230,10 +230,10 @@ export default function ImportExcelModal({
             </div>
             <div>
               <p className="text-sm font-semibold text-slate-800">
-                Tarik & lepas file Excel ke sini, atau <span className="text-emerald-600 underline">pilih file</span>
+                Tarik file Excel ke sini, atau <span className="text-emerald-600 underline">pilih file</span>
               </p>
               <p className="text-xs text-slate-500 mt-1">
-                Bebas memasukkan 1 atau 2 file (.xlsx, .xls) — sistem otomatis mengenali jenisnya
+                Boleh 1 atau 2 file (.xlsx, .xls) — jenis filenya dikenali otomatis
               </p>
             </div>
           </div>
@@ -242,7 +242,7 @@ export default function ImportExcelModal({
           {files.length > 0 && (
             <div className="space-y-2.5">
               <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                Berkas Terpilih ({files.length}/2)
+                File yang Dipilih ({files.length}/2)
               </p>
               <div className="space-y-2">
                 {files.map((item, idx) => (
@@ -277,10 +277,10 @@ export default function ImportExcelModal({
                             }`}
                           >
                             {item.type === 'olah_data'
-                              ? 'Survei Alumni (Olah Data)'
+                              ? 'Survei (Olah Data)'
                               : item.type === 'form_penilaian'
-                              ? 'Wawancara Assessor'
-                              : 'Format Belum Dikenali'}
+                              ? 'Wawancara'
+                              : 'Format Belum Dikenal'}
                           </span>
                         </div>
                         <p className="text-[11px] text-slate-400 mt-0.5">
@@ -293,7 +293,7 @@ export default function ImportExcelModal({
                       onClick={() => handleRemoveFile(idx)}
                       disabled={isProcessing}
                       className="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition"
-                      title="Hapus berkas"
+                      title="Hapus file"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -309,8 +309,8 @@ export default function ImportExcelModal({
               <div className="flex items-start gap-2">
                 <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                 <p>
-                  <strong>Kedua berkas terdeteksi sebagai Berkas Survei.</strong> Silakan tentukan berkas mana yang
-                  ingin dijadikan data survei utama:
+                  <strong>Kedua file terdeteksi sebagai file survei.</strong> Pilih mana yang
+                  mau dipakai sebagai data survei utama:
                 </p>
               </div>
               <div className="pl-6 space-y-1">
@@ -334,8 +334,8 @@ export default function ImportExcelModal({
             <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <p>
-                <strong>Kedua berkas adalah Form Penilaian Wawancara.</strong> Sistem membutuhkan berkas Olah Data
-                Survei sebagai data induk peserta (Nama, NIP, Instansi). Mohon masukkan berkas Olah Data Survei.
+                <strong>Kedua file adalah Form Penilaian Wawancara.</strong> Masih butuh file Olah Data
+                Survei sebagai data utama peserta (nama, NIP, instansi). Silakan tambahkan file Olah Data Survei.
               </p>
             </div>
           )}
@@ -344,8 +344,8 @@ export default function ImportExcelModal({
             <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <p>
-                <strong>Hanya Berkas Wawancara yang dimasukkan.</strong> Mohon masukkan juga berkas Olah Data Survei
-                agar daftar peserta dapat dimuat.
+                <strong>Baru ada file wawancara.</strong> Tambahkan juga file Olah Data Survei
+                supaya daftar peserta bisa dimuat.
               </p>
             </div>
           )}
@@ -354,8 +354,8 @@ export default function ImportExcelModal({
             <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-900 flex items-start gap-2">
               <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
               <p>
-                <strong>Berkas Form Penilaian Wawancara tidak disertakan.</strong> Sistem tetap dapat memproses nilai
-                survei (L), namun nilai wawancara (M) dan Total Form secara jujur akan berstatus <strong>KOSONG</strong>.
+                <strong>File Form Penilaian Wawancara tidak disertakan.</strong> Nilai survei (L) tetap bisa diproses,
+                tapi nilai wawancara (M) dan Total Form akan berstatus <strong>KOSONG</strong>.
               </p>
             </div>
           )}
@@ -364,8 +364,8 @@ export default function ImportExcelModal({
             <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 flex items-start gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
               <p>
-                <strong>Kedua instrumen lengkap!</strong> Berkas Olah Data Survei dan Form Penilaian Wawancara siap
-                diproses untuk komparasi nilai L, M, dan Total Form.
+                <strong>Kedua file lengkap!</strong> File Olah Data Survei dan Form Penilaian Wawancara siap
+                diproses untuk membandingkan nilai L, M, dan Total Form.
               </p>
             </div>
           )}
@@ -407,12 +407,12 @@ export default function ImportExcelModal({
             {isProcessing ? (
               <>
                 <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                Memproses Berkas...
+                Memproses file...
               </>
             ) : (
               <>
                 <FileSpreadsheet className="w-3.5 h-3.5" />
-                Mulai Impor & Proses Perbandingan
+                Mulai Impor
               </>
             )}
           </button>

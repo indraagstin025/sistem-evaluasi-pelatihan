@@ -15,7 +15,7 @@ export default function Sidebar() {
 
   const navItems = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-    { name: 'Data Peserta', href: '/peserta', icon: Users },
+    { name: 'Daftar Peserta', href: '/peserta', icon: Users },
     { name: 'Input Nilai', href: '/input-nilai', icon: FileEdit },
     { name: 'Perbandingan', href: '/perbandingan', icon: BarChart2 },
     { name: 'Ekspose', href: '/ekspose', icon: PieChart },

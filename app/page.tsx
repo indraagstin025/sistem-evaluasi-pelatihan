@@ -41,7 +41,7 @@ export default function DashboardPage() {
   }, []);
 
   const handleResetData = async () => {
-    if (!confirm('PERINGATAN: Kosongkan seluruh data di database?\n\nSeluruh tabel peserta, survei, dan wawancara akan dibersihkan.')) {
+    if (!confirm('Hapus semua data?\n\nSeluruh data peserta, survei, dan wawancara akan ikut terhapus.')) {
       return;
     }
     try {
@@ -50,14 +50,14 @@ export default function DashboardPage() {
       const res = await fetch('/api/peserta', { method: 'DELETE' });
       const json = await res.json();
       if (json.success) {
-        setActionMessage('Database telah berhasil dikosongkan.');
+        setActionMessage('Semua data sudah dihapus.');
         fetchData();
       } else {
-        alert(json.error || 'Gagal mengosongkan data');
+        alert(json.error || 'Gagal menghapus data');
       }
     } catch (err) {
       console.error(err);
-      alert('Terjadi kesalahan koneksi');
+      alert('Koneksi bermasalah, silakan coba lagi.');
     } finally {
       setActionLoading(false);
     }
@@ -68,7 +68,7 @@ export default function DashboardPage() {
       {/* 1. Header & Dropdown Dataset */}
       <Topbar
         title="Dashboard"
-        subtitle="Ringkasan data dan kondisi evaluasi pasca pelatihan PKP Angkatan VII 2023"
+        subtitle="Ringkasan hasil evaluasi pasca pelatihan PKP Angkatan VII 2023"
       />
 
       {/* Action Bar: Kartu Aksi Cepat Impor & Manajemen Data */}
@@ -78,13 +78,13 @@ export default function DashboardPage() {
             <Database className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Sumber Data Aktif</h2>
+            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Sumber data</h2>
             <p className="text-sm font-black text-slate-800">
               {loading && !data
-                ? 'Memuat data dari database...'
+                ? 'Memuat data...'
                 : data?.ringkasan?.totalPeserta === 0
-                ? 'Database Kosong (Siap Impor Berkas)'
-                : `${data?.ringkasan?.totalPeserta || 0} Peserta Terdaftar`}
+                ? 'Belum ada data (siap diimpor)'
+                : `${data?.ringkasan?.totalPeserta || 0} peserta terdaftar`}
             </p>
           </div>
         </div>
@@ -95,10 +95,10 @@ export default function DashboardPage() {
             onClick={handleResetData}
             disabled={actionLoading}
             className="px-3 py-1.5 text-xs font-bold rounded-xl border border-rose-200 bg-white hover:bg-rose-50 text-rose-700 transition shadow-2xs flex items-center gap-1.5 cursor-pointer"
-            title="Kosongkan database"
+            title="Hapus semua data"
           >
             <Trash2 className="w-3.5 h-3.5" />
-            Reset Data
+            Hapus Semua Data
           </button>
 
           <button

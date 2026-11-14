@@ -22,5 +22,6 @@ npm-debug.log*
 *.tsbuildinfo
 next-env.d.ts
 .vercel
+.idea/
 .DS_Store
 Thumbs.db

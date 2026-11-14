@@ -38,7 +38,7 @@ export async function POST(request: Request) {
 
     if (!file && !formFile) {
       return NextResponse.json(
-        { success: false, error: 'Tidak ada berkas yang diunggah.' },
+        { success: false, error: 'Tidak ada file yang diunggah.' },
         { status: 400 }
       );
     }
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
 
     if (!file) {
       return NextResponse.json(
-        { success: false, error: 'Berkas utama tidak ditemukan.' },
+        { success: false, error: 'File utama tidak ditemukan.' },
         { status: 400 }
       );
     }
@@ -79,7 +79,7 @@ export async function POST(request: Request) {
         return NextResponse.json(
           {
             success: false,
-            error: 'Kedua berkas yang diunggah terdeteksi sebagai Berkas Survei (Olah Data). Silakan unggah salah satu berkas survei saja, atau lampirkan berkas Form Penilaian Wawancara.'
+            error: 'Kedua file yang diunggah terdeteksi sebagai file survei (Olah Data). Unggah satu file survei saja, atau lampirkan Form Penilaian Wawancara.'
           },
           { status: 400 }
         );
@@ -90,7 +90,7 @@ export async function POST(request: Request) {
         return NextResponse.json(
           {
             success: false,
-            error: 'Kedua berkas yang diunggah terdeteksi sebagai Form Penilaian Wawancara. Sistem membutuhkan berkas Olah Data Survei sebagai data induk peserta.'
+            error: 'Kedua file yang diunggah terdeteksi sebagai Form Penilaian Wawancara. Masih butuh file Olah Data Survei sebagai data utama peserta.'
           },
           { status: 400 }
         );
@@ -116,7 +116,7 @@ export async function POST(request: Request) {
         return NextResponse.json(
           {
             success: false,
-            error: 'Berkas yang diunggah adalah Form Penilaian Wawancara. Sistem membutuhkan berkas Olah Data Survei sebagai berkas data induk peserta.'
+            error: 'File yang diunggah adalah Form Penilaian Wawancara. Masih butuh file Olah Data Survei sebagai data utama peserta.'
           },
           { status: 400 }
         );
@@ -125,7 +125,7 @@ export async function POST(request: Request) {
 
     if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
       return NextResponse.json(
-        { success: false, error: 'Berkas Excel / CSV tidak memiliki sheet yang dapat dibaca.' },
+        { success: false, error: 'File Excel / CSV tidak punya sheet yang bisa dibaca.' },
         { status: 400 }
       );
     }
@@ -481,7 +481,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       importedCount,
-      message: `Berhasil mengimpor ${importedCount} data peserta lengkap dengan Jabatan Saat Ini dan Instansi dari file ${file.name}.`,
+      message: `Berhasil mengimpor ${importedCount} peserta beserta jabatan dan instansinya dari file ${file.name}.`,
     });
   } catch (error: any) {
     console.error('Error import file Excel/CSV:', error);

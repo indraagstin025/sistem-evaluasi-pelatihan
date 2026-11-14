@@ -208,7 +208,7 @@ export async function hitungHasil(pesertaId: string) {
     throw new Error(`Peserta dengan ID ${pesertaId} tidak ditemukan.`);
   }
 
-  // Ambil survei alumni Level 4 (L4_01, L4_02, L4_03)
+  // Ambil survei alumni hasil Aksi Perubahan (L4_01, L4_02, L4_03)
   const s_panjang = peserta.survey.find(s => s.kode === 'L4_01' && s.responden === 'alumni')?.skor;
   const s_tujuan = peserta.survey.find(s => s.kode === 'L4_02' && s.responden === 'alumni')?.skor;
   const s_manfaat = peserta.survey.find(s => s.kode === 'L4_03' && s.responden === 'alumni')?.skor;

@@ -139,7 +139,7 @@ export default function InputNilaiPage() {
       });
 
       setMessage({
-        text: `Data evaluasi untuk "${selectedPeserta?.nama}" berhasil disimpan & dihitung ulang di database.`,
+        text: `Nilai untuk "${selectedPeserta?.nama}" sudah disimpan dan dihitung ulang.`,
         type: 'success',
       });
       // Refresh list in background
@@ -148,7 +148,7 @@ export default function InputNilaiPage() {
       if (json.success) setPesertaList(json.data);
     } catch (err: any) {
       console.error(err);
-      setMessage({ text: 'Terjadi kesalahan saat menyimpan data.', type: 'error' });
+      setMessage({ text: 'Koneksi bermasalah saat menyimpan. Coba lagi.', type: 'error' });
     } finally {
       setSaving(false);
     }
@@ -160,10 +160,10 @@ export default function InputNilaiPage() {
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight leading-tight">
-            Input Nilai Evaluasi
+            Isi Nilai Evaluasi
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Pencatatan nilai survei hasil Aksi Perubahan (L) dan lima kriteria wawancara evaluator (M & Total Form)
+            Isi nilai survei hasil Aksi Perubahan (L) dan lima kriteria wawancara evaluator (M dan Total Form)
           </p>
         </div>
 
@@ -171,7 +171,7 @@ export default function InputNilaiPage() {
           href="/peserta"
           className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 self-start sm:self-auto"
         >
-          Lihat Semua Peserta <ArrowRight className="w-3.5 h-3.5" />
+          Lihat Daftar Peserta <ArrowRight className="w-3.5 h-3.5" />
         </Link>
       </header>
 
@@ -179,7 +179,7 @@ export default function InputNilaiPage() {
       <div className="bg-emerald-50 border border-emerald-200/80 rounded-2xl px-5 py-3 text-xs font-medium text-emerald-900 leading-relaxed flex items-center gap-2">
         <Calculator className="w-4 h-4 text-emerald-700 shrink-0" />
         <span>
-          <strong>Rumus Acuan:</strong> Nilai L = Rata-rata 3 butir survei × 25 &nbsp;|&nbsp; Nilai M = Rata-rata 3 butir wawancara tanpa bobot &nbsp;|&nbsp; Total Form = Jumlah 5 kriteria berbobot (URD Bab 6)
+          <strong>Cara hitungnya:</strong> Nilai L = rata-rata 3 butir survei × 25 &nbsp;|&nbsp; Nilai M = rata-rata 3 butir wawancara (tanpa bobot) &nbsp;|&nbsp; Total Form = jumlah 5 kriteria berbobot
         </span>
       </div>
 
@@ -187,7 +187,7 @@ export default function InputNilaiPage() {
       <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex-1">
           <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-            Pilih Peserta Evaluasi:
+            Pilih peserta:
           </label>
           <select
             value={selectedId}
@@ -208,14 +208,14 @@ export default function InputNilaiPage() {
 
         {selectedPeserta && (
           <div className="shrink-0 text-right md:border-l md:border-slate-100 md:pl-4">
-            <span className="text-[11px] font-bold text-slate-400 block">Status Data Wawancara:</span>
+            <span className="text-[11px] font-bold text-slate-400 block">Status wawancara:</span>
             {liveM === null ? (
               <span className="text-xs font-black text-amber-700 bg-amber-100 px-2.5 py-0.5 rounded-full inline-block mt-0.5">
                 KOSONG
               </span>
             ) : (
               <span className="text-xs font-black text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full inline-block mt-0.5">
-                Lengkap Terisi
+                Sudah Lengkap
               </span>
             )}
           </div>
@@ -253,7 +253,7 @@ export default function InputNilaiPage() {
                 Survei Hasil Aksi Perubahan (Alumni)
               </h2>
               <p className="text-xs text-slate-500 mt-1">
-                Skor kuesioner skala 1 sampai 4 (Sangat Sesuai = 4, Sesuai = 3, Kurang Sesuai = 2, Tidak Sesuai = 1)
+                Skala 1 sampai 4: Sangat Sesuai = 4, Sesuai = 3, Kurang Sesuai = 2, Tidak Sesuai = 1
               </p>
             </div>
 
@@ -309,7 +309,7 @@ export default function InputNilaiPage() {
 
             {/* Nilai L Card */}
             <div className="pt-3 border-t border-slate-100 flex items-center justify-between bg-emerald-50/50 p-3 rounded-xl border border-emerald-100">
-              <span className="text-xs font-bold text-emerald-900">Nilai L (Rata-rata × 25):</span>
+              <span className="text-xs font-bold text-emerald-900">Nilai L (rata-rata × 25):</span>
               <span className="text-base font-black text-emerald-800 font-mono">
                 {liveL !== null ? liveL.toFixed(2) : 'KOSONG'}
               </span>
@@ -326,7 +326,7 @@ export default function InputNilaiPage() {
                 Wawancara Evaluator (Skala 0–100)
               </h2>
               <p className="text-xs text-slate-500 mt-1">
-                Penilaian assessor lapangan terhadap 5 kriteria Aksi Perubahan
+                Penilaian evaluator terhadap 5 kriteria hasil Aksi Perubahan
               </p>
             </div>
 
@@ -401,7 +401,7 @@ export default function InputNilaiPage() {
                   max="100"
                   value={k5}
                   onChange={(e) => setK5(e.target.value === '' ? '' : Number(e.target.value))}
-                  placeholder="Nilai 0 - 100 (dari sel H33 Form Penilaian)"
+                  placeholder="Nilai 0 - 100 (dari Form Penilaian)"
                   className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                 />
               </div>
@@ -447,7 +447,7 @@ export default function InputNilaiPage() {
             ) : (
               <>
                 <Save className="w-4 h-4" />
-                Simpan Nilai Peserta
+                Simpan Nilai
               </>
             )}
           </button>
