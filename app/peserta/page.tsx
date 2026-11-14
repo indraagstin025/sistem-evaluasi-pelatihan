@@ -12,6 +12,9 @@ import {
   AlertTriangle,
   CheckCircle2,
   Users,
+  UserPlus,
+  Trash2,
+  X,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import ImportExcelModal from '@/components/ImportExcelModal';
@@ -36,6 +39,17 @@ export default function DataPesertaPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<'all' | 'valid' | 'empty'>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isSubmittingAdd, setIsSubmittingAdd] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [addForm, setAddForm] = useState({
+    nama: '',
+    nip: '',
+    jabatanPelatihan: '',
+    jabatanSaatIni: '',
+    instansi: '',
+  });
 
   const fetchPeserta = async () => {
     try {
@@ -55,6 +69,67 @@ export default function DataPesertaPage() {
   useEffect(() => {
     fetchPeserta();
   }, []);
+
+  const handleAddPeserta = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!addForm.nama.trim()) return;
+
+    try {
+      setIsSubmittingAdd(true);
+      setFeedback(null);
+      const res = await fetch('/api/peserta', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(addForm),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setFeedback({
+          text: `Peserta "${addForm.nama.trim()}" berhasil ditambahkan dengan nilai awal KOSONG.`,
+          type: 'success',
+        });
+        setAddForm({
+          nama: '',
+          nip: '',
+          jabatanPelatihan: '',
+          jabatanSaatIni: '',
+          instansi: '',
+        });
+        setIsAddModalOpen(false);
+        fetchPeserta();
+      } else {
+        setFeedback({ text: json.error || 'Gagal menambahkan peserta.', type: 'error' });
+      }
+    } catch (err) {
+      console.error('Error adding peserta:', err);
+      setFeedback({ text: 'Terjadi kesalahan jaringan saat menambah peserta.', type: 'error' });
+    } finally {
+      setIsSubmittingAdd(false);
+    }
+  };
+
+  const handleDeletePeserta = async (p: PesertaData) => {
+    if (!confirm(`Hapus peserta "${p.nama}" beserta seluruh data survei dan wawancaranya?`)) {
+      return;
+    }
+    try {
+      setDeletingId(p.id);
+      setFeedback(null);
+      const res = await fetch(`/api/peserta/${p.id}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (json.success) {
+        setFeedback({ text: `Peserta "${p.nama}" berhasil dihapus.`, type: 'success' });
+        fetchPeserta();
+      } else {
+        setFeedback({ text: json.error || 'Gagal menghapus peserta.', type: 'error' });
+      }
+    } catch (err) {
+      console.error('Error deleting peserta:', err);
+      setFeedback({ text: 'Terjadi kesalahan jaringan saat menghapus peserta.', type: 'error' });
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   // Filter
   const filteredPeserta = pesertaList.filter((p) => {
@@ -183,6 +258,17 @@ export default function DataPesertaPage() {
           </button>
 
           <button
+            onClick={() => {
+              setFeedback(null);
+              setIsAddModalOpen(true);
+            }}
+            className="px-3.5 py-2 text-xs font-bold rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 transition shadow-sm flex items-center gap-1.5 cursor-pointer"
+          >
+            <UserPlus className="w-3.5 h-3.5 text-emerald-700" />
+            Tambah Peserta
+          </button>
+
+          <button
             onClick={() => setIsModalOpen(true)}
             className="px-4 py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition shadow-sm shadow-emerald-200 flex items-center gap-2 cursor-pointer"
           >
@@ -191,6 +277,32 @@ export default function DataPesertaPage() {
           </button>
         </div>
       </div>
+
+      {feedback && (
+        <div
+          className={`p-3.5 rounded-xl text-xs font-medium flex items-center justify-between gap-2 ${
+            feedback.type === 'success'
+              ? 'bg-emerald-50 border border-emerald-200 text-emerald-800'
+              : 'bg-rose-50 border border-rose-200 text-rose-800'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {feedback.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            ) : (
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+            )}
+            <span>{feedback.text}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setFeedback(null)}
+            className="text-slate-400 hover:text-slate-600 p-1 rounded cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Filter and Search Bar */}
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
@@ -365,17 +477,32 @@ export default function DataPesertaPage() {
                       </td>
 
                       <td className="py-3.5 px-4 text-right">
-                        <Link
-                          href={`/peserta/${p.id}`}
-                          className={`inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-lg transition ${
-                            isKosong
-                              ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-sm shadow-amber-200'
-                              : 'bg-slate-100 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700'
-                          }`}
-                        >
-                          <Edit3 className="w-3 h-3" />
-                          {isKosong ? 'Isi Nilai' : 'Edit'}
-                        </Link>
+                        <div className="inline-flex items-center gap-1.5">
+                          <Link
+                            href={`/peserta/${p.id}`}
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-lg transition ${
+                              isKosong
+                                ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-sm shadow-amber-200'
+                                : 'bg-slate-100 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700'
+                            }`}
+                          >
+                            <Edit3 className="w-3 h-3" />
+                            {isKosong ? 'Isi Nilai' : 'Edit'}
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => handleDeletePeserta(p)}
+                            disabled={deletingId === p.id}
+                            title={`Hapus peserta ${p.nama}`}
+                            className="p-1.5 rounded-lg bg-slate-100 hover:bg-rose-50 text-slate-500 hover:text-rose-600 transition cursor-pointer disabled:opacity-50"
+                          >
+                            {deletingId === p.id ? (
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -402,6 +529,117 @@ export default function DataPesertaPage() {
         onClose={() => setIsModalOpen(false)}
         onSuccess={fetchPeserta}
       />
+
+      {/* Modal Tambah Peserta Manual */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden">
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-emerald-50/40">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center">
+                  <UserPlus className="w-4 h-4" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900">Tambah Peserta Manual</h2>
+                  <p className="text-[11px] text-slate-500">Nilai awal otomatis KOSONG (URD Bab 6.8)</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddModalOpen(false)}
+                disabled={isSubmittingAdd}
+                className="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddPeserta} className="p-5 space-y-3.5 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">
+                  Nama Peserta <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={addForm.nama}
+                  onChange={(e) => setAddForm({ ...addForm, nama: e.target.value })}
+                  placeholder="Nama lengkap beserta gelar"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">NIP</label>
+                <input
+                  type="text"
+                  value={addForm.nip}
+                  onChange={(e) => setAddForm({ ...addForm, nip: e.target.value })}
+                  placeholder="18 digit NIP (opsional)"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Instansi / Perangkat Daerah</label>
+                <input
+                  type="text"
+                  value={addForm.instansi}
+                  onChange={(e) => setAddForm({ ...addForm, instansi: e.target.value })}
+                  placeholder="Nama instansi"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Jabatan Saat Pelatihan</label>
+                  <input
+                    type="text"
+                    value={addForm.jabatanPelatihan}
+                    onChange={(e) => setAddForm({ ...addForm, jabatanPelatihan: e.target.value })}
+                    placeholder="Opsional"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Jabatan Saat Ini</label>
+                  <input
+                    type="text"
+                    value={addForm.jabatanSaatIni}
+                    onChange={(e) => setAddForm({ ...addForm, jabatanSaatIni: e.target.value })}
+                    placeholder="Opsional"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsAddModalOpen(false)}
+                  disabled={isSubmittingAdd}
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingAdd || !addForm.nama.trim()}
+                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                >
+                  {isSubmittingAdd ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <UserPlus className="w-3.5 h-3.5" />
+                  )}
+                  {isSubmittingAdd ? 'Menyimpan...' : 'Simpan Peserta'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

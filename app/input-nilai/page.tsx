@@ -139,7 +139,7 @@ export default function InputNilaiPage() {
       });
 
       setMessage({
-        text: `Data evaluasi untuk "${selectedPeserta?.nama}" berhasil disimpan & dihitung ulang di SQLite.`,
+        text: `Data evaluasi untuk "${selectedPeserta?.nama}" berhasil disimpan & dihitung ulang di database.`,
         type: 'success',
       });
       // Refresh list in background

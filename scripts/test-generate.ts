@@ -4,12 +4,15 @@ import path from 'path';
 const envPath = path.join(process.cwd(), '.env');
 const envContent = fs.readFileSync(envPath, 'utf-8');
 let apiKey = '';
+let geminiModel = 'deep-research-preview-04-2026';
 
 for (const line of envContent.split(/\r?\n/)) {
   const trimmed = line.trim();
   if (trimmed.startsWith('GEMINI_API_KEY=')) {
     apiKey = trimmed.split('=')[1].replace(/["']/g, '').trim();
-    break;
+  } else if (trimmed.startsWith('GEMINI_MODEL=')) {
+    const val = trimmed.split('=')[1].replace(/["']/g, '').trim();
+    if (val) geminiModel = val;
   }
 }
 
@@ -83,7 +86,7 @@ Wajib format JSON:
 }
 
 async function run() {
-  await testJsonGeneration('gemini-3.5-flash');
+  await testJsonGeneration(geminiModel);
 }
 
 run();

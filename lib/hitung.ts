@@ -11,6 +11,28 @@ export function isValidNumber(val: any): val is number {
 }
 
 /**
+ * Mengubah jawaban teks survei skala Likert (URD Bab 6.1) atau angka 1-4 menjadi skor numerik.
+ * Sangat Sesuai = 4, Sesuai = 3, Kurang Sesuai = 2, Tidak Sesuai = 1.
+ */
+export function konversiSkorLikert(jawaban: unknown): number | null {
+  if (jawaban === null || jawaban === undefined || jawaban === "") return null;
+  if (typeof jawaban === "number" && !Number.isNaN(jawaban)) {
+    return jawaban >= 1 && jawaban <= 4 ? jawaban : null;
+  }
+  const text = String(jawaban).trim().toLowerCase();
+  if (!text) return null;
+  if (text === "sangat sesuai") return 4;
+  if (text === "sesuai") return 3;
+  if (text === "kurang sesuai") return 2;
+  if (text === "tidak sesuai") return 1;
+  const parsed = Number(text);
+  if (!Number.isNaN(parsed) && parsed >= 1 && parsed <= 4) {
+    return parsed;
+  }
+  return null;
+}
+
+/**
  * RUMUS 1: Rata-Rata Survei (L)
  * L = AVERAGE(3 skor survei alumni kode L4_01, L4_02, L4_03) x 25
  */

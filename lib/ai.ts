@@ -170,7 +170,7 @@ export function verifikasiHasilAI(
 }
 
 /**
- * Helper untuk mem-parsing respons JSON dari model AI (DeepSeek / Gemini)
+ * Helper untuk mem-parsing respons JSON dari model Google Gemini
  * Menangani kasus jika output dibungkus markdown code fences (```json ... ```)
  */
 function parseAiJsonResponse(rawText: string): any {
@@ -190,13 +190,15 @@ function parseAiJsonResponse(rawText: string): any {
 interface AiProviderConfig {
   geminiApiKey?: string;
   geminiModel: string;
-  orcaApiKey?: string;
-  orcaBaseUrl: string;
-  orcaModel: string;
 }
 
+const GEMINI_FALLBACK_MODELS = [
+  'models/gemini-2.5-flash',
+  'models/gemini-3.5-flash-lite',
+] as const;
+
 /**
- * Helper terpadu memanggil penyedia AI (Gemini / OrcaRouter) dan memvalidasi JSON 4 poin.
+ * Helper terpadu memanggil Google Gemini API dan memvalidasi JSON 4 poin.
  */
 async function requestAiPembahasan(
   prompt: string,
@@ -232,12 +234,9 @@ async function requestAiPembahasan(
   };
 
   if (config.geminiApiKey && config.geminiApiKey.trim() !== '') {
-    const modelsToTry = [
-      config.geminiModel,
-      config.geminiModel !== 'models/gemini-3.5-flash-lite'
-        ? 'models/gemini-3.5-flash-lite'
-        : null,
-    ].filter(Boolean) as string[];
+    const modelsToTry = Array.from(
+      new Set([config.geminiModel, ...GEMINI_FALLBACK_MODELS])
+    );
 
     for (const m of modelsToTry) {
       try {
@@ -259,7 +258,7 @@ async function requestAiPembahasan(
           const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
           const result = formatResult(parseAiJsonResponse(rawText));
           if (result) return result;
-          console.warn(`Verifikasi hasil Gemini (${m}) untuk ${grafikKey} tidak sesuai, mencoba fallback lain`);
+          console.warn(`Verifikasi hasil Gemini (${m}) untuk ${grafikKey} tidak sesuai, mencoba model fallback Gemini lain`);
         } else {
           const errText = await response.text();
           console.warn(`Gemini API (${m}) returned ${response.status}:`, errText);
@@ -270,47 +269,13 @@ async function requestAiPembahasan(
     }
   }
 
-  if (config.orcaApiKey && config.orcaApiKey.trim() !== '') {
-    try {
-      const url = `${config.orcaBaseUrl.replace(/\/+$/, '')}/chat/completions`;
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${config.orcaApiKey.trim()}`,
-        },
-        body: JSON.stringify({
-          model: config.orcaModel,
-          messages: [
-            {
-              role: 'system',
-              content:
-                'Anda adalah analis evaluasi pasca pelatihan di BPSDM Provinsi Jawa Barat. Selalu balas dalam format JSON valid.',
-            },
-            { role: 'user', content: prompt },
-          ],
-          temperature: 0.2,
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const rawText = data?.choices?.[0]?.message?.content;
-        const result = formatResult(parseAiJsonResponse(rawText));
-        if (result) return result;
-      }
-    } catch (err) {
-      console.error('Error memanggil OrcaRouter DeepSeek API:', err);
-    }
-  }
-
   return null;
 }
 
 /**
  * GENERATOR PEMBAHASAN AI / FALLBACK TEMPLATE
- * Memprioritaskan Google Gemini API (GEMINI_API_KEY).
- * Mendukung OrcaRouter (DeepSeek) sebagai alternatif.
+ * Menggunakan Google Gemini API (GEMINI_API_KEY, default model deep-research-preview-04-2026)
+ * dengan fallback internal sesama model Gemini bila terkena batas kuota.
  * Jika tidak ada kunci API atau verifikasi gagal, otomatis menggunakan templat resmi (KP-05).
  */
 export async function buatPembahasanGrafik(
@@ -318,29 +283,13 @@ export async function buatPembahasanGrafik(
   rekap?: RekapGrafikData,
   kesimpulanCtx?: KesimpulanContext
 ): Promise<PembahasanItem> {
-  const rawGeminiModel = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
+  const rawGeminiModel = process.env.GEMINI_MODEL || 'deep-research-preview-04-2026';
   const config: AiProviderConfig = {
     geminiApiKey: process.env.GEMINI_API_KEY,
     geminiModel: rawGeminiModel.startsWith('models/') ? rawGeminiModel : `models/${rawGeminiModel}`,
-    orcaApiKey:
-      process.env.ORCAROUTER_API_KEY ||
-      process.env.DEEPSEEK_API_KEY ||
-      process.env.OPENROUTER_API_KEY ||
-      process.env.AI_API_KEY,
-    orcaBaseUrl:
-      process.env.ORCAROUTER_BASE_URL ||
-      process.env.DEEPSEEK_BASE_URL ||
-      'https://api.orcarouter.ai/v1',
-    orcaModel:
-      process.env.ORCAROUTER_MODEL ||
-      process.env.DEEPSEEK_MODEL ||
-      'orcarouter/deepseek/deepseek-chat',
   };
 
-  if (
-    (!config.geminiApiKey || config.geminiApiKey.trim() === '') &&
-    (!config.orcaApiKey || config.orcaApiKey.trim() === '')
-  ) {
+  if (!config.geminiApiKey || config.geminiApiKey.trim() === '') {
     return generatePembahasanTemplate(grafikKey, rekap);
   }
 

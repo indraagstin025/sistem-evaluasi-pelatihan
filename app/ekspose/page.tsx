@@ -547,7 +547,7 @@ export default function EksposePage() {
                     </p>
                   </div>
 
-                  <div className="relative w-full h-[320px] sm:h-[350px]">
+                  <div className="relative w-full h-[290px] sm:h-[310px]">
                     <Bar
                       data={chartData}
                       options={getHorizontalChartOptions(maxVal)}
@@ -555,11 +555,57 @@ export default function EksposePage() {
                     />
                   </div>
 
-                  {/* Ringkasan Angka Valid */}
-                  <div className="mt-2 text-right">
-                    <span className="text-[11px] text-slate-400 font-medium">
-                      N={g.totalB} responden wawancara • N={g.totalA} responden survei
-                    </span>
+                  {/* Tabel Rekapitulasi Angka Per Rentang (UR-F-05) */}
+                  <div className="mt-3 overflow-x-auto rounded-lg border border-slate-200/90 bg-slate-50/40">
+                    <table className="w-full text-[11px] border-collapse">
+                      <thead>
+                        <tr className="bg-slate-100/90 border-b border-slate-200 text-slate-700 font-bold">
+                          <th className="py-1.5 px-2.5 text-left">Instrumen / Sumber</th>
+                          {presentationCategories.map((kat) => (
+                            <th key={kat} className="py-1.5 px-2 text-center font-mono">
+                              {kat}
+                            </th>
+                          ))}
+                          <th className="py-1.5 px-2.5 text-center font-mono bg-slate-200/60 text-slate-900">
+                            Total (N)
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200/70 bg-white">
+                        <tr>
+                          <td className="py-1.5 px-2.5 font-semibold text-slate-800">
+                            <div className="flex items-center gap-1.5">
+                              <span className="w-2.5 h-2.5 rounded-xs bg-[#ED7D31] shrink-0" />
+                              <span>{g.labelB}</span>
+                            </div>
+                          </td>
+                          {reversedB.map((val, cIdx) => (
+                            <td key={cIdx} className="py-1.5 px-2 text-center font-mono text-slate-700">
+                              {val}
+                            </td>
+                          ))}
+                          <td className="py-1.5 px-2.5 text-center font-mono font-bold text-slate-900 bg-slate-50">
+                            {g.totalB}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="py-1.5 px-2.5 font-semibold text-slate-800">
+                            <div className="flex items-center gap-1.5">
+                              <span className="w-2.5 h-2.5 rounded-xs bg-[#4472C4] shrink-0" />
+                              <span>{g.labelA}</span>
+                            </div>
+                          </td>
+                          {reversedA.map((val, cIdx) => (
+                            <td key={cIdx} className="py-1.5 px-2 text-center font-mono text-slate-700">
+                              {val}
+                            </td>
+                          ))}
+                          <td className="py-1.5 px-2.5 text-center font-mono font-bold text-slate-900 bg-slate-50">
+                            {g.totalA}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 </div>
 

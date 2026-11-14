@@ -3,7 +3,9 @@ import {
   hapusSemuaDataPeserta,
   simpanBatchPesertaDenganDetail,
   type PesertaDetailInput,
+  type SurveyExtraItem,
 } from '@/lib/peserta-db';
+import { konversiSkorLikert } from '@/lib/hitung';
 import * as XLSX from 'xlsx';
 
 export const dynamic = 'force-dynamic';
@@ -135,10 +137,11 @@ export async function POST(request: Request) {
     };
 
     // =========================================================================
-    // 0. BANGUN LOOKUP TEKNIK KOMUNIKASI DARI FORM PENILAIAN (opsional)
+    // 0. BANGUN LOOKUP TEKNIK KOMUNIKASI DARI FORM PENILAIAN (opsional - H33 & J34)
     // =========================================================================
     const komunikasiByNamaDepan: Record<string, number> = {};
     const komunikasiByUrutan: (number | null)[] = [];
+    let hasFormPenilaianSheets = false;
 
     if (formWb) {
       try {
@@ -146,14 +149,19 @@ export async function POST(request: Request) {
           if (/^(data|deksripsi|evidence)$/i.test(sheetName.trim())) continue;
           const m = sheetName.trim().match(/^\d+\.\s*(.+)$/);
           if (!m) continue;
+          hasFormPenilaianSheets = true;
           const sheet = formWb.Sheets[sheetName];
-          const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-          let nilai: number | null = null;
-          for (const r of rows) {
-            const label = String(r?.[1] ?? '');
-            if (!label.toLowerCase().includes('teknik komunikasi')) continue;
-            nilai = parseNum(r[5]);
-            break;
+          // Prioritaskan sel H33 sesuai URD UR-F-02; sel J34 dibaca sebagai referensi nilai total form
+          let nilai: number | null = parseNum(sheet['H33']?.v);
+          void parseNum(sheet['J34']?.v);
+          if (nilai === null) {
+            const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+            for (const r of rows) {
+              const label = String(r?.[1] ?? '');
+              if (!label.toLowerCase().includes('teknik komunikasi')) continue;
+              nilai = parseNum(r[5]);
+              break;
+            }
           }
           komunikasiByUrutan.push(nilai);
           if (nilai === null) continue;
@@ -173,14 +181,23 @@ export async function POST(request: Request) {
     };
 
     // =========================================================================
-    // 1. BANGUN METADATA LOOKUP DARI SHEET LAIN (Jawaban, Data Peserta, data)
+    // 1. BANGUN METADATA & L3 PERILAKU LOOKUP (Jawaban, Data Peserta, data)
     // =========================================================================
+    interface L4JawabanTeks {
+      L4_01?: string | null;
+      L4_02?: string | null;
+      L4_03?: string | null;
+    }
+
     interface PesertaMeta {
       nama?: string;
       nip?: string;
       jabatanPelatihan?: string;
       jabatanSaatIni?: string;
       instansi?: string;
+      metode?: string;
+      l4JawabanTeks?: L4JawabanTeks;
+      l3Items?: SurveyExtraItem[];
     }
 
     const metadataLookup: Record<string, PesertaMeta> = {};
@@ -191,7 +208,12 @@ export async function POST(request: Request) {
       jabatanSaatIni: string,
       instansi: string,
       jabatanPelatihan: string = '',
-      priority: boolean = false
+      priority: boolean = false,
+      extras?: {
+        metode?: string;
+        l4JawabanTeks?: L4JawabanTeks;
+        l3Items?: SurveyExtraItem[];
+      }
     ) => {
       const cleanNip = (nipRaw || '').replace(/[^0-9]/g, '').trim();
       const cleanNama = (namaRaw || '').toLowerCase().trim();
@@ -207,6 +229,9 @@ export async function POST(request: Request) {
             ? (instansi ? String(instansi).trim() : existing.instansi)
             : (existing.instansi || (instansi ? String(instansi).trim() : undefined)),
           jabatanPelatihan: jabatanPelatihan ? String(jabatanPelatihan).trim() : existing.jabatanPelatihan,
+          metode: extras?.metode || existing.metode,
+          l4JawabanTeks: extras?.l4JawabanTeks || existing.l4JawabanTeks,
+          l3Items: extras?.l3Items && extras.l3Items.length > 0 ? extras.l3Items : existing.l3Items,
         };
       };
 
@@ -236,11 +261,21 @@ export async function POST(request: Request) {
       }
     }
 
-    // Scan sheet "Jawaban" (Prioritas Tinggi: Jabatan Saat Ini & Instansi Saat Survey)
+    // Scan sheet "Jawaban" (Prioritas Tinggi: Jabatan, Instansi, Metode, dan 30 Butir Perilaku L3_01..L3_30)
     const sheetJawabanName = workbook.SheetNames.find(s => s.trim().toLowerCase() === 'jawaban');
     if (sheetJawabanName) {
       const sheet = workbook.Sheets[sheetJawabanName];
       const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+      const headerRow = rows[1] || [];
+      const hasPerilakuCols =
+        String(headerRow[7] ?? '').trim().startsWith('1.') ||
+        String(headerRow[36] ?? '').trim().startsWith('30.');
+
+      const strOrNull = (val: any): string | null =>
+        val !== undefined && val !== null && String(val).trim() !== ''
+          ? String(val).trim()
+          : null;
+
       for (let i = 2; i < rows.length; i++) {
         const r = rows[i];
         if (!r || !r[1]) continue;
@@ -251,7 +286,36 @@ export async function POST(request: Request) {
         const instansi = r[3] ? String(r[3]).trim() : '';
         const jabatanPelatihan = r[4] ? String(r[4]).trim() : '';
         const jabatanSaatIni = r[5] ? String(r[5]).trim() : '';
-        registerMeta(nama, nip, jabatanSaatIni, instansi, jabatanPelatihan, true);
+        const metode = r[6] ? String(r[6]).trim() : undefined;
+
+        const l3Items: SurveyExtraItem[] = [];
+        if (hasPerilakuCols) {
+          for (let qIdx = 0; qIdx < 30; qIdx++) {
+            const rawAns = r[7 + qIdx];
+            const jawabanTeks = strOrNull(rawAns);
+            const skor = konversiSkorLikert(rawAns);
+            if (jawabanTeks === null && skor === null) continue;
+            l3Items.push({
+              kode: `L3_${String(qIdx + 1).padStart(2, '0')}`,
+              responden: 'alumni',
+              jawabanTeks,
+              skor,
+              sumber: 'Jawaban',
+            });
+          }
+        }
+
+        const l4JawabanTeks: L4JawabanTeks = {
+          L4_01: strOrNull(r[39]),
+          L4_02: strOrNull(r[41]),
+          L4_03: strOrNull(r[43]),
+        };
+
+        registerMeta(nama, nip, jabatanSaatIni, instansi, jabatanPelatihan, true, {
+          metode,
+          l4JawabanTeks,
+          l3Items,
+        });
       }
     }
 
@@ -315,9 +379,9 @@ export async function POST(request: Request) {
         const instansi = meta?.instansi || null;
         const jabatanPelatihan = meta?.jabatanPelatihan || null;
 
-        // Komunikasi diambil dari Form Penilaian (H33) bila dilampirkan;
+        // Komunikasi diambil dari Form Penilaian (sel H33) bila dilampirkan;
         // bila tidak, null — TotalForm jadi null (jujur kosong) daripada angka salah.
-        const w_komunikasi = cariKomunikasi(nama, i - 1);
+        const w_komunikasi = cariKomunikasi(nama, batchItems.length);
 
         batchItems.push({
           nama,
@@ -328,8 +392,13 @@ export async function POST(request: Request) {
           pelatihan: 'PKP',
           angkatan: 'VII',
           tahun: 2023,
-          metode: 'Blended Learning',
-          sumber: 'Excel (Ekspose)',
+          metode: meta?.metode || 'Blended Learning',
+          sumber: 'Ekspose',
+          sumberSurvey: 'Ekspose',
+          sumberWawancara: 'Ekspose',
+          sumberKomunikasi: hasFormPenilaianSheets ? 'Form' : 'Ekspose',
+          l4JawabanTeks: meta?.l4JawabanTeks,
+          tambahanSurvey: meta?.l3Items,
           s_panjang: parseNum(row[2]),
           s_tujuan: parseNum(row[5]),
           s_manfaat: parseNum(row[8]),
@@ -385,14 +454,19 @@ export async function POST(request: Request) {
           jabatanSaatIni,
           instansi,
           jabatanPelatihan,
-          pelatihan: 'PKP',
-          angkatan: 'VII',
-          tahun: 2023,
-          metode: 'Blended Learning',
-          sumber: 'Impor File',
-          s_panjang: parseNum(findVal('survei_jangka_panjang', 'survei_panjang', 's_panjang', 'l4_01')),
-          s_tujuan: parseNum(findVal('survei_seluruh_tujuan', 'survei_tujuan', 's_tujuan', 'l4_02')),
-          s_manfaat: parseNum(findVal('survei_manfaat', 's_manfaat', 'l4_03')),
+          pelatihan: findVal('pelatihan') ? String(findVal('pelatihan')).trim() : 'PKP',
+          angkatan: findVal('angkatan') ? String(findVal('angkatan')).trim() : 'VII',
+          tahun: parseNum(findVal('tahun')) ?? 2023,
+          metode: meta?.metode || 'Blended Learning',
+          sumber: 'Form',
+          sumberSurvey: 'Jawaban',
+          sumberWawancara: 'Form',
+          sumberKomunikasi: 'Form',
+          l4JawabanTeks: meta?.l4JawabanTeks,
+          tambahanSurvey: meta?.l3Items,
+          s_panjang: konversiSkorLikert(findVal('survei_jangka_panjang', 'survei_panjang', 's_panjang', 'l4_01')),
+          s_tujuan: konversiSkorLikert(findVal('survei_seluruh_tujuan', 'survei_tujuan', 's_tujuan', 'l4_02')),
+          s_manfaat: konversiSkorLikert(findVal('survei_manfaat', 's_manfaat', 'l4_03')),
           w_menengah: parseNum(findVal('wawancara_jangka_menengah', 'wawancara_menengah', 'w_menengah', 'menengah')),
           w_panjang: parseNum(findVal('wawancara_jangka_panjang', 'wawancara_panjang', 'w_panjang')),
           w_tujuan: parseNum(findVal('wawancara_seluruh_tujuan', 'wawancara_tujuan', 'w_tujuan')),
