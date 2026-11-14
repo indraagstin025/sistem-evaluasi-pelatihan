@@ -16,36 +16,6 @@ for (const line of envContent.split(/\r?\n/)) {
   }
 }
 
-async function test(modelName: string) {
-  // pastikan jika modelName tidak ada prefix 'models/', tambahkan
-  const fullModel = modelName.startsWith('models/') ? modelName : `models/${modelName}`;
-  const url = `https://generativelanguage.googleapis.com/v1beta/${fullModel}:generateContent?key=${apiKey}`;
-
-  console.log(`Testing model: ${fullModel}...`);
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: 'Balas dengan 1 kata: Halo' }] }],
-      }),
-    });
-
-    console.log(`Status: ${res.status}`);
-    if (res.ok) {
-      const data = await res.json();
-      console.log('Result:', data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim());
-      return true;
-    } else {
-      console.log('Error text:', await res.text());
-      return false;
-    }
-  } catch (err: any) {
-    console.error('Fetch error:', err.message);
-    return false;
-  }
-}
-
 async function testJsonGeneration(modelName: string) {
   const fullModel = modelName.startsWith('models/') ? modelName : `models/${modelName}`;
   const url = `https://generativelanguage.googleapis.com/v1beta/${fullModel}:generateContent?key=${apiKey}`;

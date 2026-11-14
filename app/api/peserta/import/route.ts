@@ -6,6 +6,12 @@ import {
   type SurveyExtraItem,
 } from '@/lib/peserta-db';
 import { konversiSkorLikert } from '@/lib/hitung';
+import {
+  buildFormKomunikasiLookup,
+  normalisasiNama,
+  parseAngkaExcel as parseNum,
+  tentukanSumberKomunikasi,
+} from '@/lib/import-komunikasi';
 import * as XLSX from 'xlsx';
 
 export const dynamic = 'force-dynamic';
@@ -130,55 +136,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const parseNum = (v: any): number | null => {
-      if (v === undefined || v === null || v === '' || v === '#DIV/0!') return null;
-      const num = Number(v);
-      return isNaN(num) ? null : num;
-    };
-
     // =========================================================================
     // 0. BANGUN LOOKUP TEKNIK KOMUNIKASI DARI FORM PENILAIAN (opsional - H33 & J34)
     // =========================================================================
-    const komunikasiByNamaDepan: Record<string, number> = {};
-    const komunikasiByUrutan: (number | null)[] = [];
-    let hasFormPenilaianSheets = false;
-
-    if (formWb) {
-      try {
-        for (const sheetName of formWb.SheetNames) {
-          if (/^(data|deksripsi|evidence)$/i.test(sheetName.trim())) continue;
-          const m = sheetName.trim().match(/^\d+\.\s*(.+)$/);
-          if (!m) continue;
-          hasFormPenilaianSheets = true;
-          const sheet = formWb.Sheets[sheetName];
-          // Prioritaskan sel H33 sesuai URD UR-F-02; sel J34 dibaca sebagai referensi nilai total form
-          let nilai: number | null = parseNum(sheet['H33']?.v);
-          void parseNum(sheet['J34']?.v);
-          if (nilai === null) {
-            const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-            for (const r of rows) {
-              const label = String(r?.[1] ?? '');
-              if (!label.toLowerCase().includes('teknik komunikasi')) continue;
-              nilai = parseNum(r[5]);
-              break;
-            }
-          }
-          komunikasiByUrutan.push(nilai);
-          if (nilai === null) continue;
-          komunikasiByNamaDepan[m[1].trim().toLowerCase()] = nilai;
-        }
-      } catch (e) {
-        console.error('Gagal membaca file Form Penilaian:', e);
-      }
-    }
-    const cariKomunikasi = (nama: string, urutanKe: number): number | null => {
-      const namaDepan = nama.split(/[\s,]/)[0].toLowerCase();
-      if (komunikasiByNamaDepan[namaDepan] !== undefined) {
-        return komunikasiByNamaDepan[namaDepan];
-      }
-      // Fallback urutan: sheet peserta ke-i = baris ekspose ke-i.
-      return komunikasiByUrutan[urutanKe] ?? null;
-    };
+    const { hasFormPenilaianSheets, cariKomunikasi } = buildFormKomunikasiLookup(formWb);
 
     // =========================================================================
     // 1. BANGUN METADATA & L3 PERILAKU LOOKUP (Jawaban, Data Peserta, data)
@@ -340,7 +301,7 @@ export async function POST(request: Request) {
     }
 
     if (mode === 'replace') {
-      await hapusSemuaDataPeserta(false);
+      await hapusSemuaDataPeserta(true);
     }
 
     // Cek apakah ada sheet khusus bernama "ekspose" (seperti file Olah Data BPSDM)
@@ -356,6 +317,22 @@ export async function POST(request: Request) {
       // =========================================================================
       const sheet = workbook.Sheets[eksposeSheetName];
       const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+      // Hitung frekuensi nama depan di sheet ekspose agar pencocokan nama depan tetap aman
+      const eksposeFirstNameCount: Record<string, number> = {};
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || !row[0] || String(row[0]).trim() === '') continue;
+        const rawNama = String(row[0]).trim();
+        if (rawNama.toLowerCase().startsWith('rentang') || rawNama.toLowerCase().startsWith('total')) {
+          break;
+        }
+        const namaOnly = rawNama.split('|')[0]?.trim() || '';
+        const firstName = normalisasiNama(namaOnly).split(' ')[0] || '';
+        if (firstName) {
+          eksposeFirstNameCount[firstName] = (eksposeFirstNameCount[firstName] ?? 0) + 1;
+        }
+      }
 
       for (let i = 1; i < rows.length; i++) {
         const row = rows[i];
@@ -381,7 +358,7 @@ export async function POST(request: Request) {
 
         // Komunikasi diambil dari Form Penilaian (sel H33) bila dilampirkan;
         // bila tidak, null — TotalForm jadi null (jujur kosong) daripada angka salah.
-        const w_komunikasi = cariKomunikasi(nama, batchItems.length);
+        const w_komunikasi = cariKomunikasi(nama, batchItems.length, eksposeFirstNameCount);
 
         batchItems.push({
           nama,
@@ -396,7 +373,7 @@ export async function POST(request: Request) {
           sumber: 'Ekspose',
           sumberSurvey: 'Ekspose',
           sumberWawancara: 'Ekspose',
-          sumberKomunikasi: hasFormPenilaianSheets ? 'Form' : 'Ekspose',
+          sumberKomunikasi: tentukanSumberKomunikasi(w_komunikasi, hasFormPenilaianSheets),
           l4JawabanTeks: meta?.l4JawabanTeks,
           tambahanSurvey: meta?.l3Items,
           s_panjang: parseNum(row[2]),
@@ -447,6 +424,9 @@ export async function POST(request: Request) {
         const jabatanSaatIni = rowJabatan ? String(rowJabatan).trim() : (meta?.jabatanSaatIni || meta?.jabatanPelatihan || null);
         const instansi = rowInstansi ? String(rowInstansi).trim() : (meta?.instansi || null);
         const jabatanPelatihan = meta?.jabatanPelatihan || null;
+        const w_komunikasi = parseNum(
+          findVal('wawancara_teknik_komunikasi', 'wawancara_komunikasi', 'w_komunikasi', 'komunikasi')
+        );
 
         batchItems.push({
           nama: String(nama).trim(),
@@ -461,7 +441,7 @@ export async function POST(request: Request) {
           sumber: 'Form',
           sumberSurvey: 'Jawaban',
           sumberWawancara: 'Form',
-          sumberKomunikasi: 'Form',
+          sumberKomunikasi: tentukanSumberKomunikasi(w_komunikasi, true),
           l4JawabanTeks: meta?.l4JawabanTeks,
           tambahanSurvey: meta?.l3Items,
           s_panjang: konversiSkorLikert(findVal('survei_jangka_panjang', 'survei_panjang', 's_panjang', 'l4_01')),
@@ -471,7 +451,7 @@ export async function POST(request: Request) {
           w_panjang: parseNum(findVal('wawancara_jangka_panjang', 'wawancara_panjang', 'w_panjang')),
           w_tujuan: parseNum(findVal('wawancara_seluruh_tujuan', 'wawancara_tujuan', 'w_tujuan')),
           w_manfaat: parseNum(findVal('wawancara_manfaat', 'w_manfaat')),
-          w_komunikasi: parseNum(findVal('wawancara_teknik_komunikasi', 'wawancara_komunikasi', 'w_komunikasi', 'komunikasi')),
+          w_komunikasi,
         });
       }
     }

@@ -3,10 +3,12 @@ import { prisma } from './prisma';
 export const KATEGORI_RENTANG = ["0", "1-25", "26-50", "51-75", "76-100"] as const;
 export type KategoriRentang = typeof KATEGORI_RENTANG[number];
 
+export type NilaiInput = number | '' | null | undefined;
+
 /**
- * Cek apakah nilai adalah angka valid (bukan null, undefined, NaN)
+ * Cek apakah nilai adalah angka valid (bukan null, undefined, string kosong, NaN)
  */
-export function isValidNumber(val: any): val is number {
+export function isValidNumber(val: unknown): val is number {
   return val !== null && val !== undefined && val !== "" && !Number.isNaN(Number(val));
 }
 
@@ -37,9 +39,9 @@ export function konversiSkorLikert(jawaban: unknown): number | null {
  * L = AVERAGE(3 skor survei alumni kode L4_01, L4_02, L4_03) x 25
  */
 export function hitungRataSurveiL(
-  s_panjang: any,
-  s_tujuan: any,
-  s_manfaat: any
+  s_panjang: NilaiInput,
+  s_tujuan: NilaiInput,
+  s_manfaat: NilaiInput
 ): number | null {
   if (!isValidNumber(s_panjang) || !isValidNumber(s_tujuan) || !isValidNumber(s_manfaat)) {
     return null;
@@ -53,9 +55,9 @@ export function hitungRataSurveiL(
  * M = AVERAGE(wawancara jangkaPanjang, seluruhTujuan, manfaat) — tanpa bobot
  */
 export function hitungRataWawancaraM(
-  w_panjang: any,
-  w_tujuan: any,
-  w_manfaat: any
+  w_panjang: NilaiInput,
+  w_tujuan: NilaiInput,
+  w_manfaat: NilaiInput
 ): number | null {
   if (!isValidNumber(w_panjang) || !isValidNumber(w_tujuan) || !isValidNumber(w_manfaat)) {
     return null;
@@ -68,11 +70,11 @@ export function hitungRataWawancaraM(
  * TotalForm = menengah x 20% + jangkaPanjang x 20% + seluruhTujuan x 20% + manfaat x 30% + komunikasi x 10%
  */
 export function hitungTotalForm(
-  w_menengah: any,
-  w_panjang: any,
-  w_tujuan: any,
-  w_manfaat: any,
-  w_komunikasi: any
+  w_menengah: NilaiInput,
+  w_panjang: NilaiInput,
+  w_tujuan: NilaiInput,
+  w_manfaat: NilaiInput,
+  w_komunikasi: NilaiInput
 ): number | null {
   if (
     !isValidNumber(w_menengah) ||
@@ -98,7 +100,7 @@ export function hitungTotalForm(
  * PERHATIAN: skor 1 masuk "1-25", bukan 0.
  * Nilai null / kosong menghasilkan "KOSONG" dan tidak masuk rentang angka.
  */
-export function tentukanRentang(nilai: any): string {
+export function tentukanRentang(nilai: NilaiInput): string {
   if (!isValidNumber(nilai)) return "KOSONG";
   const n = Number(nilai);
   if (n <= 0) return "0";

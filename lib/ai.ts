@@ -170,6 +170,61 @@ export function verifikasiHasilAI(
 }
 
 /**
+ * PENGAMAN NARASI KESIMPULAN AI (R-7)
+ * Memastikan struktur 4 poin terisi substantif, angka total peserta tercantum
+ * akurat bila tersedia, dan tidak ada angka jumlah orang/peserta yang melampaui totalPeserta.
+ */
+export function verifikasiKesimpulanAI(
+  teks: string,
+  kesimpulanCtx?: KesimpulanContext
+): boolean {
+  if (!teks || typeof teks !== 'string') return false;
+
+  const sections = teks.includes('• ')
+    ? teks
+        .split(/\r?\n(?=• )/)
+        .map((s) => s.replace(/^•\s*/, '').trim())
+    : teks
+        .split(/\r?\n/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+  if (sections.length !== 4 || sections.some((s) => s.length < 5)) {
+    return false;
+  }
+
+  if (/(lorem ipsum|placeholder)/i.test(teks)) {
+    return false;
+  }
+
+  const totalPeserta = kesimpulanCtx?.totalPeserta;
+  if (typeof totalPeserta === 'number' && totalPeserta > 0) {
+    // Wajib menyebut total peserta aktual agar kesimpulan tertambat ke dataset aktif
+    if (!new RegExp(`\\b${totalPeserta}\\b`).test(teks)) {
+      return false;
+    }
+
+    // Tolak jika terdapat klaim jumlah orang/peserta/responden/alumni melebihi totalPeserta
+    const countPattern =
+      /(?:^|[^\d.,\-–%])\b(\d+)\s+(?:orang|peserta|responden|alumni)\b/gi;
+    const contextIgnorePattern =
+      /\b(?:tahun|angkatan|periode|skala|skor|nilai|rentang|kategori|bab|slide|grafik|pkp)\s*$/i;
+
+    for (const match of Array.from(teks.matchAll(countPattern))) {
+      const fullIndex = match.index ?? 0;
+      const before = teks.slice(Math.max(0, fullIndex - 24), fullIndex);
+      if (contextIgnorePattern.test(before)) continue;
+      const num = Number(match[1]);
+      if (!Number.isNaN(num) && num > totalPeserta) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+/**
  * Helper untuk mem-parsing respons JSON dari model Google Gemini
  * Menangani kasus jika output dibungkus markdown code fences (```json ... ```)
  */
@@ -200,7 +255,7 @@ export interface AiExecutionMeta {
 }
 
 const GEMINI_FALLBACK_MODELS = [
-  'models/gemini-2.5-flash',
+  'models/gemini-3.8-flash',
   'models/gemini-3.5-flash-lite',
 ] as const;
 
@@ -352,12 +407,17 @@ export async function buatPembahasanGrafikWithMeta(
           .join('\n')
       : 'Ringkasan data terlampir pada database aktif.';
 
+    const totalPesertaLabel =
+      typeof kesimpulanCtx?.totalPeserta === 'number' && kesimpulanCtx.totalPeserta > 0
+        ? ` — wajib cantumkan angka total ${kesimpulanCtx.totalPeserta} peserta`
+        : '';
+
     const promptKesimpulan = `Anda adalah analis evaluasi pasca pelatihan di BPSDM Provinsi Jawa Barat.
 Berikut adalah data rekapitulasi aktual dari ${kesimpulanCtx?.totalPeserta ?? 'seluruh'} peserta terdaftar:
 ${ringkasanTeks}
 
 Susunlah narasi resmi Slide Kesimpulan & Rekomendasi berbasis data aktual di atas (jangan mengarang angka di luar data):
-- "poin1": Paragraf kesimpulan umum tentang capaian implementasi aksi perubahan peserta berdasarkan data survei dan wawancara aktual.
+- "poin1": Paragraf kesimpulan umum tentang capaian implementasi aksi perubahan peserta berdasarkan data survei dan wawancara aktual${totalPesertaLabel}.
 - "poin2": Paragraf analisis perbandingan kesenjangan antara hasil survei alumni dengan hasil wawancara evaluator, serta kondisi peserta dengan skor rendah/kosong bila ada.
 - "poin3": Satu butir rekomendasi kebijakan pertama yang konkret, spesifik, dan langsung menjawab temuan data di atas (tanpa nomor di awal kalimat).
 - "poin4": Dua butir rekomendasi kebijakan lanjutan yang konkret untuk keberlanjutan/replikasi dan penguatan aspek lemah berdasarkan data di atas, pisahkan tepat dengan satu baris baru (\\n) tanpa nomor urut di awal kalimat.
@@ -374,7 +434,8 @@ Format balasan wajib JSON:
       promptKesimpulan,
       'kesimpulan',
       'Kesimpulan dan Rekomendasi',
-      config
+      config,
+      (teksLengkap) => verifikasiKesimpulanAI(teksLengkap, kesimpulanCtx)
     );
     return {
       item: aiAttempt.item || generatePembahasanTemplate('kesimpulan'),

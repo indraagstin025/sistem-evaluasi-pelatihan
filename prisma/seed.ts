@@ -5,7 +5,8 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('Menjalankan reset data database...');
 
-  // Kosongkan seluruh data tabel
+  // Kosongkan seluruh data tabel termasuk antrean job AI
+  await prisma.aiJob.deleteMany({});
   await prisma.pembahasan.deleteMany({});
   await prisma.hasilEkspose.deleteMany({});
   await prisma.wawancara.deleteMany({});
@@ -13,7 +14,7 @@ async function main() {
   await prisma.peserta.deleteMany({});
 
   console.log('Database telah bersih dan dikosongkan.');
-  console.log('Silakan gunakan tombol "Impor Excel / CSV" di menu Data Peserta untuk memasukkan data evaluasi Anda.');
+  console.log('Silakan gunakan tombol "Impor Excel / CSV" di menu Daftar Peserta untuk memasukkan data evaluasi Anda.');
 }
 
 main()
