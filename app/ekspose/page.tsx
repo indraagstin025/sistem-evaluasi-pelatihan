@@ -8,10 +8,17 @@ import {
   ClockIcon,
   DownloadIcon,
   ExclamationTriangleIcon,
+  FileTextIcon,
   Pencil1Icon,
   ReaderIcon,
   ReloadIcon,
 } from '@radix-ui/react-icons';
+import {
+  EKSPOSE_CATEGORIES,
+  EKSPOSE_GRAFIK_SLIDES,
+  extractKesimpulanContent,
+  parseBoldSegments,
+} from '@/lib/ekspose-config';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -58,20 +65,19 @@ const horizontalBarLabelPlugin = {
 };
 
 function renderFormattedText(text: string) {
-  if (!text) return null;
-  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  const parts = parseBoldSegments(text);
+  if (parts.length === 0) return null;
   return (
     <>
-      {parts.map((part, i) => {
-        if (part.startsWith('**') && part.endsWith('**')) {
-          return (
-            <strong key={i} className="font-semibold text-slate-900">
-              {part.slice(2, -2)}
-            </strong>
-          );
-        }
-        return <span key={i}>{part}</span>;
-      })}
+      {parts.map((part, i) =>
+        part.bold ? (
+          <strong key={i} className="font-semibold text-slate-900">
+            {part.text}
+          </strong>
+        ) : (
+          <span key={i}>{part.text}</span>
+        )
+      )}
     </>
   );
 }
@@ -107,6 +113,7 @@ export default function EksposePage() {
   const [queueError, setQueueError] = useState<string | null>(null);
   const [cancellingQueue, setCancellingQueue] = useState(false);
   const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [downloadingPptx, setDownloadingPptx] = useState(false);
 
   const workerRunningRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -378,6 +385,43 @@ export default function EksposePage() {
     link.href = url;
     link.download = `Rekap_Slide_Ekspose_Resmi_${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const handleExportPptx = async () => {
+    if (editingKey !== null) {
+      setActionError('Simpan atau batalkan suntingan pembahasan sebelum mengunduh file PPTX.');
+      return;
+    }
+    setActionError(null);
+    setDownloadingPptx(true);
+    try {
+      const res = await fetch('/api/ekspose/pptx', { cache: 'no-store' });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => null);
+        setActionError(errJson?.error || 'Gagal membuat file PPTX.');
+        return;
+      }
+
+      const blob = await res.blob();
+      const disposition = res.headers.get('Content-Disposition') || '';
+      const match = /filename="([^"]+)"/i.exec(disposition);
+      const filename =
+        match?.[1] || `Ekspose_PKP_Angkatan_VII_${new Date().toISOString().slice(0, 10)}.pptx`;
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+    } catch {
+      setActionError('Koneksi bermasalah saat mengunduh file PPTX. Coba lagi.');
+    } finally {
+      setDownloadingPptx(false);
+    }
   };
 
   if (loading) {
@@ -406,7 +450,7 @@ export default function EksposePage() {
   }
 
   const rekap = data?.rekap;
-  const presentationCategories = ['76-100', '51-75', '26-50', '1-25', '0'];
+  const presentationCategories = [...EKSPOSE_CATEGORIES];
 
   const getHorizontalChartOptions = (maxVal: number): any => ({
     indexAxis: 'y' as const,
@@ -455,55 +499,10 @@ export default function EksposePage() {
     },
   });
 
-  const slideList = [
-    {
-      key: 'grafik1',
-      slideNumber: 'Slide 5',
-      slideTitle:
-        'Perbandingan Capaian Jangka Menengah dengan Jangka Panjang (Hasil wawancara)',
-      subtitle:
-        'Perbandingan capaian jangka menengah dengan jangka panjang (Hasil wawancara)',
-      g: rekap?.grafik1,
-      labelOrange: 'Jangka panjang',
-      labelBlue: 'Jangka menengah',
-    },
-    {
-      key: 'grafik2',
-      slideNumber: 'Slide 6',
-      slideTitle: 'Target Aksi Perubahan Dalam Jangka Panjang Tercapai',
-      subtitle: 'Target Aksi Perubahan dalam jangka panjang tercapai',
-      g: rekap?.grafik2,
-      labelOrange: 'Nilai Wawancara',
-      labelBlue: 'Nilai Survey',
-    },
-    {
-      key: 'grafik3',
-      slideNumber: 'Slide 7',
-      slideTitle: 'Seluruh Tujuan Aksi Perubahan Dapat Tercapai',
-      subtitle: 'Seluruh tujuan Aksi Perubahan dapat tercapai',
-      g: rekap?.grafik3,
-      labelOrange: 'Nilai Wawancara',
-      labelBlue: 'Nilai Survey',
-    },
-    {
-      key: 'grafik4',
-      slideNumber: 'Slide 8',
-      slideTitle: 'Manfaat Aksi Perubahan',
-      subtitle: 'Manfaat Aksi Perubahan',
-      g: rekap?.grafik4,
-      labelOrange: 'Nilai Wawancara',
-      labelBlue: 'Nilai Survey',
-    },
-    {
-      key: 'grafik5',
-      slideNumber: 'Slide 9',
-      slideTitle: 'Nilai Keseluruhan',
-      subtitle: 'Nilai Keseluruhan',
-      g: rekap?.grafik5,
-      labelOrange: 'Nilai Wawancara',
-      labelBlue: 'Nilai Survey',
-    },
-  ];
+  const slideList = EKSPOSE_GRAFIK_SLIDES.map((meta) => ({
+    ...meta,
+    g: rekap?.[meta.key],
+  }));
 
   const totalPeserta = data?.ringkasan?.totalPeserta ?? 0;
 
@@ -514,16 +513,10 @@ export default function EksposePage() {
     poin4: '',
   };
 
-  const kesimpulanPembahasanList = [kesimpulanItem.poin1, kesimpulanItem.poin2]
-    .map((p) => (typeof p === 'string' ? p.trim() : ''))
-    .filter(Boolean);
-
-  const rekomendasiList = [
-    ...(typeof kesimpulanItem.poin3 === 'string' ? [kesimpulanItem.poin3] : []),
-    ...(typeof kesimpulanItem.poin4 === 'string' ? kesimpulanItem.poin4.split(/\r?\n/) : []),
-  ]
-    .map((line) => line.replace(/^\s*(?:[-*]|\d+[.)])\s*/, '').trim())
-    .filter(Boolean);
+  const {
+    pembahasanList: kesimpulanPembahasanList,
+    rekomendasiList,
+  } = extractKesimpulanContent(kesimpulanItem);
 
   const kesimpulanQueue = getSlideQueueInfo('kesimpulan');
   const isKesimpulanLoading = kesimpulanQueue.isActive;
@@ -539,8 +532,8 @@ export default function EksposePage() {
   return (
     <div className="mx-auto max-w-7xl space-y-6 pb-16 print:m-0 print:max-w-none print:p-0">
       {/* Top Application Bar (Hidden on Print) */}
-      <header className="no-print flex flex-col justify-between gap-4 rounded-2xl border border-zinc-200 bg-white p-5 md:flex-row md:items-center">
-        <div>
+      <header className="no-print flex flex-col justify-between gap-4 rounded-2xl border border-zinc-200 bg-white p-5 xl:flex-row xl:items-center">
+        <div className="min-w-0">
           <p className="text-xs font-normal text-zinc-600">
             Format slide PPTX (1:1) · BPSDM Provinsi Jawa Barat
           </p>
@@ -552,12 +545,12 @@ export default function EksposePage() {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex shrink-0 flex-wrap items-center gap-2 xl:flex-nowrap">
           <button
             type="button"
             onClick={() => handleRegenerate('all')}
             disabled={isAllQueued || savingKey !== null || totalPeserta === 0}
-            className={`inline-flex min-h-[38px] items-center gap-1.5 rounded-lg border px-3.5 py-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
+            className={`inline-flex min-h-[38px] items-center gap-1.5 whitespace-nowrap rounded-lg border px-3 py-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
               activeJobs.length > 0
                 ? 'border-zinc-950 bg-zinc-950 text-white'
                 : 'border-zinc-500 bg-white text-zinc-950 hover:bg-zinc-100'
@@ -579,7 +572,7 @@ export default function EksposePage() {
             type="button"
             onClick={handleExportCSV}
             disabled={totalPeserta === 0}
-            className="inline-flex min-h-[38px] items-center gap-1.5 rounded-lg border border-zinc-500 bg-white px-3.5 py-2 text-xs font-medium text-zinc-950 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex min-h-[38px] items-center gap-1.5 whitespace-nowrap rounded-lg border border-zinc-500 bg-white px-3 py-2 text-xs font-medium text-zinc-950 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <DownloadIcon className="h-3.5 w-3.5 text-zinc-700" aria-hidden="true" />
             Unduh Rekap CSV
@@ -589,10 +582,24 @@ export default function EksposePage() {
             type="button"
             onClick={handlePrint}
             disabled={totalPeserta === 0}
-            className="inline-flex min-h-[38px] items-center gap-1.5 rounded-lg bg-zinc-950 px-4 py-2 text-xs font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex min-h-[38px] items-center gap-1.5 whitespace-nowrap rounded-lg border border-zinc-500 bg-white px-3 py-2 text-xs font-medium text-zinc-950 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <PrinterIcon className="h-3.5 w-3.5" />
+            <PrinterIcon className="h-3.5 w-3.5 text-zinc-700" />
             Cetak Slide (PDF)
+          </button>
+
+          <button
+            type="button"
+            onClick={handleExportPptx}
+            disabled={totalPeserta === 0 || downloadingPptx}
+            className="inline-flex min-h-[38px] items-center gap-1.5 whitespace-nowrap rounded-lg bg-zinc-950 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {downloadingPptx ? (
+              <ReloadIcon className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+            ) : (
+              <FileTextIcon className="h-3.5 w-3.5" aria-hidden="true" />
+            )}
+            <span>{downloadingPptx ? 'Menyiapkan PPTX...' : 'Unduh PPTX'}</span>
           </button>
         </div>
       </header>
