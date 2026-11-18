@@ -163,18 +163,18 @@ export default function ImportExcelModal({
           json.message ||
             (activeInterviewFile
               ? 'File survei dan Form Penilaian Wawancara berhasil diimpor.'
-              : 'File survei berhasil diimpor. Teknik Komunikasi & Total Form berstatus KOSONG.')
+              : 'File survei berhasil diimpor. Nilai Wawancara dan Nilai Akhir Berbobot berstatus Belum dinilai.')
         );
         setTimeout(() => {
           onSuccess();
           onClose();
         }, 900);
       } else {
-        setErrorMessage(json.error || 'Gagal memproses file Excel.');
+        setErrorMessage(json.error || 'Gagal memproses file Excel. Periksa isi file, lalu coba lagi.');
       }
     } catch (err) {
       console.error('Import error:', err);
-      setErrorMessage('Koneksi bermasalah saat mengunggah file. Coba lagi.');
+      setErrorMessage('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
     } finally {
       setIsProcessing(false);
     }
@@ -215,7 +215,7 @@ export default function ImportExcelModal({
               ref={fileInputRef}
               type="file"
               multiple
-              accept=".xlsx,.xls,.csv"
+              accept=".xlsx,.xls"
               onChange={(e) => {
                 if (e.target.files) handleFilesAdded(e.target.files);
                 e.target.value = '';
@@ -237,7 +237,7 @@ export default function ImportExcelModal({
                   Tarik file Excel ke sini, atau <span className="font-semibold text-zinc-950 underline underline-offset-4">pilih file</span>
                 </p>
                 <p className="mt-1 text-xs font-normal text-zinc-600">
-                  Boleh 1 atau 2 file (.xlsx, .xls), jenis filenya dikenali otomatis.
+                  Boleh 1 atau 2 file (.xlsx atau .xls); jenis filenya dikenali otomatis.
                 </p>
               </div>
             </button>
@@ -247,7 +247,7 @@ export default function ImportExcelModal({
           {files.length > 0 && (
             <div className="space-y-2.5">
               <p className="text-xs font-medium text-zinc-700">
-                File terpilih ({files.length}/2)
+                File terpilih ({files.length} dari 2)
               </p>
               <div className="space-y-2">
                 {files.map((item, idx) => (
@@ -274,12 +274,12 @@ export default function ImportExcelModal({
                             {item.type === 'olah_data'
                               ? 'Survei (Olah Data)'
                               : item.type === 'form_penilaian'
-                              ? 'Wawancara'
-                              : 'Format belum dikenal'}
+                              ? 'Form Penilaian Wawancara'
+                              : 'Format file belum dikenali'}
                           </span>
                         </div>
                         <p className="mt-0.5 text-[11px] font-normal text-zinc-600">
-                          {(item.file.size / 1024).toFixed(1)} KB, {item.sheetNames.length} sheet
+                          {(item.file.size / 1024).toFixed(1)} KB, {item.sheetNames.length} lembar kerja (sheet)
                         </p>
                       </div>
                     </div>
@@ -334,7 +334,7 @@ export default function ImportExcelModal({
               <ExclamationTriangleIcon className="mt-0.5 h-4 w-4 shrink-0 text-zinc-950" aria-hidden="true" />
               <p className="font-normal">
                 <span className="font-semibold">Kedua file adalah Form Penilaian Wawancara.</span>{' '}
-                Tambahkan file Olah Data Survei sebagai data utama peserta (nama, NIP, instansi).
+                Tambahkan file Olah Data Survei sebagai data utama peserta (nama, Nomor Induk Pegawai/NIP, dan instansi).
               </p>
             </div>
           )}
@@ -354,7 +354,7 @@ export default function ImportExcelModal({
               <InfoCircledIcon className="mt-0.5 h-4 w-4 shrink-0 text-zinc-800" aria-hidden="true" />
               <p className="font-normal">
                 <span className="font-semibold text-zinc-950">Form Penilaian Wawancara tidak disertakan.</span>{' '}
-                Nilai Survey tetap diproses, sementara nilai Wawancara dan Akhir Berbobot berstatus KOSONG.
+                Nilai Survei tetap diproses, sementara nilai Wawancara dan Nilai Akhir Berbobot berstatus Belum dinilai.
               </p>
             </div>
           )}

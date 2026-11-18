@@ -47,11 +47,15 @@ export default function DaftarWawancaraTimPage({
         if (!active) return;
 
         if (!kegRes.ok || !kegJson.success) {
-          setError(kegJson.error || 'Gagal memuat daftar peserta wawancara.');
+          setError(
+            kegJson.error || 'Gagal memuat daftar peserta wawancara. Coba muat ulang halaman.'
+          );
           return;
         }
         if (!pesRes.ok || !pesJson.success) {
-          setError(pesJson.error || 'Gagal memuat daftar peserta wawancara.');
+          setError(
+            pesJson.error || 'Gagal memuat daftar peserta wawancara. Coba muat ulang halaman.'
+          );
           return;
         }
 
@@ -60,7 +64,9 @@ export default function DaftarWawancaraTimPage({
         if (pesJson.pagination) setInitialPagination(pesJson.pagination);
         if (pesJson.counts) setInitialCounts(pesJson.counts);
       } catch {
-        if (active) setError('Terjadi gangguan koneksi saat memuat peserta wawancara.');
+        if (active) {
+          setError('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
+        }
       } finally {
         if (active) setLoading(false);
       }
@@ -101,31 +107,32 @@ export default function DaftarWawancaraTimPage({
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-2xl border border-zinc-200 bg-white p-5">
           <p className="text-xs font-medium text-zinc-600">
-            {isAdmin ? 'Total Peserta Kegiatan' : 'Peserta Tim Anda'}
+            {isAdmin ? 'Total peserta kegiatan' : 'Peserta tim Anda'}
           </p>
-          <p className="mt-1.5 text-2xl font-semibold text-zinc-950">{totalPeserta}</p>
+          <p className="mt-1.5 text-2xl font-semibold text-zinc-950">{totalPeserta} peserta</p>
           <p className="mt-1 text-xs text-zinc-500">
-            {teams.map((t) => t.namaTim).join(', ') || 'Belum tergabung tim'}
+            Tim: {teams.map((t) => t.namaTim).join(', ') || 'Belum tergabung ke tim'}
           </p>
         </div>
 
         <div className="rounded-2xl border border-zinc-200 bg-white p-5">
-          <p className="text-xs font-medium text-zinc-600">Status Selesai</p>
+          <p className="text-xs font-medium text-zinc-600">Status wawancara selesai</p>
           <p className="mt-1.5 text-2xl font-semibold text-zinc-950">
-            {selesaiCount} / {totalPeserta} Selesai
+            {selesaiCount} dari {totalPeserta} selesai
           </p>
           <p className="mt-1 text-xs text-zinc-500">
-            Selesai bila Proper telah diunggah dan wawancara dikonfirmasi
+            Selesai bila dokumen Proper (laporan Proyek Perubahan peserta) sudah diunggah dan
+            wawancara sudah ditandai selesai
           </p>
         </div>
 
         <div className="rounded-2xl border border-zinc-200 bg-white p-5">
-          <p className="text-xs font-medium text-zinc-600">Unggahan Dokumen Proper</p>
+          <p className="text-xs font-medium text-zinc-600">Unggahan dokumen Proper</p>
           <p className="mt-1.5 text-2xl font-semibold text-zinc-950">
-            {properCount} / {totalPeserta} Unggah
+            {properCount} dari {totalPeserta} peserta sudah mengunggah
           </p>
           <p className="mt-1 text-xs text-zinc-500">
-            Laporan dan evidence diunggah peserta melalui Link Public
+            Laporan dan bukti diunggah peserta melalui tautan publik.
           </p>
         </div>
       </div>
@@ -133,7 +140,7 @@ export default function DaftarWawancaraTimPage({
       {meetingTeams.length > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-zinc-300 bg-zinc-50 px-5 py-3.5">
           <div>
-            <p className="text-xs font-semibold text-zinc-950">Tautan Meeting Daring Tim</p>
+            <p className="text-xs font-semibold text-zinc-950">Tautan Meeting Daring</p>
             <p className="text-xs text-zinc-600">
               Gunakan ruang meeting berikut apabila wawancara berlangsung secara daring.
             </p>

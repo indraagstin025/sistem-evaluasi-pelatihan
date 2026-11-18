@@ -85,7 +85,10 @@ function BrandMark({
     <>
       <BrandLogoSvg />
       <div className="min-w-0 leading-tight">
-        <span className="block truncate text-sm font-semibold tracking-tight text-zinc-950">
+        <span
+          className="block truncate text-sm font-semibold tracking-tight text-zinc-950"
+          title="Badan Pengembangan Sumber Daya Manusia (BPSDM) Provinsi Jawa Barat"
+        >
           BPSDM Jabar
         </span>
         <span className="block truncate text-[11px] font-normal text-zinc-600">
@@ -235,7 +238,7 @@ export default function Navbar({ user, children }: NavbarProps) {
                 href="/unggah-inovasi"
                 className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-500 bg-white px-3 py-1.5 text-xs font-medium text-zinc-950 transition hover:bg-zinc-100"
               >
-                Link Public
+                Tautan Publik
                 <ExternalLinkIcon className="h-3.5 w-3.5 text-zinc-700" aria-hidden="true" />
               </Link>
             )}
@@ -280,7 +283,7 @@ export default function Navbar({ user, children }: NavbarProps) {
           { name: 'Kegiatan', href: '/kegiatan', icon: CalendarIcon },
           { name: 'Kelola Evaluator', href: '/pengguna', icon: PersonIcon },
           {
-            name: 'Link Public',
+            name: 'Tautan Publik',
             href: '/unggah-inovasi',
             icon: ExternalLinkIcon,
             externalTab: true,
@@ -351,7 +354,7 @@ export default function Navbar({ user, children }: NavbarProps) {
                 aria-label={pinned ? 'Lepas sematan sidebar' : 'Sematkan sidebar'}
                 title={
                   pinned
-                    ? 'Lepas sematan (kembali ke mode hover)'
+                    ? 'Lepas sematan (buka otomatis saat disentuh kursor)'
                     : 'Sematkan agar tetap terbuka'
                 }
                 aria-pressed={pinned}

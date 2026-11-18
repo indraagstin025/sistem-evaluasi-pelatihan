@@ -44,7 +44,9 @@ export default function PantauWawancaraPage({
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        setError(json.error || 'Gagal memuat pemantauan wawancara.');
+        setError(
+          json.error || 'Gagal memuat pemantauan wawancara. Coba muat ulang halaman.'
+        );
         return;
       }
       setTeams(json.data?.teams || []);
@@ -55,7 +57,7 @@ export default function PantauWawancaraPage({
       }
       setLinkDrafts(drafts);
     } catch {
-      setError('Koneksi bermasalah saat memuat pemantauan wawancara.');
+      setError('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
     } finally {
       setLoading(false);
     }
@@ -81,13 +83,15 @@ export default function PantauWawancaraPage({
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        setError(json.error || 'Gagal memperbarui tautan meeting.');
+        setError(
+          json.error || 'Gagal memperbarui tautan meeting. Periksa tautan, lalu coba lagi.'
+        );
         return;
       }
       setSaveFeedback('Tautan meeting tim berhasil diperbarui.');
       await loadData();
     } catch {
-      setError('Koneksi bermasalah saat menyimpan tautan meeting.');
+      setError('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
     } finally {
       setSavingTimId(null);
     }
@@ -135,21 +139,27 @@ export default function PantauWawancaraPage({
         <StatusBanner tone="success" title="Berhasil" message={saveFeedback} />
       )}
 
-      {/* Ringkasan & Tautan Meeting Daring per Tim (IT-08b) */}
+      {/* Ringkasan & Tautan Meeting Daring */}
       <section className="rounded-2xl border border-zinc-200 bg-white p-5">
         <div className="flex flex-col justify-between gap-2 border-b border-zinc-200 pb-3.5 sm:flex-row sm:items-center">
           <div>
             <h2 className="text-base font-semibold text-zinc-950">
-              Tautan Meeting Daring per Tim (IT-08)
+              Tautan Meeting Daring
             </h2>
             <p className="mt-0.5 text-xs text-zinc-600">
-              Opsional: atur tautan Zoom atau Google Meet per tim. Jika kosong, hanya tautan
-              internal formulir wawancara yang ditampilkan.
+              Boleh dikosongkan. Isi tautan Zoom atau Google Meet tiap tim; bila kosong, hanya tautan
+              formulir wawancara yang tampil.
             </p>
           </div>
           <div className="text-xs font-medium text-zinc-700">
-            Selesai: <strong className="text-zinc-950">{selesaiCount}/{peserta.length}</strong> ·
-            Proper: <strong className="text-zinc-950">{properCount}/{peserta.length}</strong>
+            Wawancara selesai:{' '}
+            <strong className="text-zinc-950">
+              {selesaiCount} dari {peserta.length} peserta
+            </strong>{' '}
+            · Sudah unggah Proper (laporan Proyek Perubahan peserta):{' '}
+            <strong className="text-zinc-950">
+              {properCount} dari {peserta.length} peserta
+            </strong>
           </div>
         </div>
 
@@ -160,7 +170,7 @@ export default function PantauWawancaraPage({
           </div>
         ) : teams.length === 0 ? (
           <div className="py-6 text-xs text-zinc-600">
-            Belum ada tim terbentuk. Silakan atur pada menu Pembagian Tim terlebih dahulu.
+            Belum ada tim. Buat tim dulu di menu Pembagian Tim.
           </div>
         ) : (
           <div className="mt-4 grid gap-3 lg:grid-cols-3">
@@ -208,11 +218,11 @@ export default function PantauWawancaraPage({
         <div className="flex flex-col justify-between gap-3 border-b border-zinc-200 pb-4 lg:flex-row lg:items-center">
           <div>
             <h2 className="text-base font-semibold text-zinc-950">
-              Pemantauan Wawancara &amp; Tautan Formulir Peserta
+              Wawancara &amp; Tautan Formulir Peserta
             </h2>
             <p className="mt-0.5 text-xs text-zinc-600">
-              Setiap peserta memiliki tautan formulir wawancara internal (IT-08a) serta tautan
-              meeting tim bila tersedia (IT-08b).
+              Setiap peserta punya tautan formulir wawancara. Tautan meeting tim tampil bila sudah
+              diatur. Nilai Wawancara (M) adalah rata-rata 3 kriteria utama.
             </p>
           </div>
 
@@ -243,9 +253,12 @@ export default function PantauWawancaraPage({
               aria-label="Filter status wawancara"
               className="min-h-[40px] rounded-lg border border-zinc-500 bg-white px-3 text-xs font-medium text-zinc-950 focus:border-zinc-950 focus:outline-none"
             >
-              <option value="semua">Semua ({peserta.length})</option>
+              <option value="semua">Semua ({peserta.length} peserta)</option>
               <option value="selesai">Wawancara Selesai ({selesaiCount})</option>
-              <option value="belum">Belum Selesai ({peserta.length - selesaiCount})</option>
+              <option value="belum">
+                Belum Selesai: belum unggah Proper / belum selesai wawancara (
+                {peserta.length - selesaiCount})
+              </option>
               <option value="sudah_proper">Sudah Unggah Proper ({properCount})</option>
               <option value="belum_proper">
                 Belum Unggah Proper ({peserta.length - properCount})
@@ -260,8 +273,8 @@ export default function PantauWawancaraPage({
               <tr>
                 <th className="px-3 py-2.5 font-semibold">Peserta</th>
                 <th className="px-3 py-2.5 font-semibold">Tim &amp; Evaluator</th>
-                <th className="px-3 py-2.5 text-center font-semibold">Unggah Proper</th>
-                <th className="px-3 py-2.5 text-center font-semibold">Wawancara / Akhir</th>
+                <th className="px-3 py-2.5 text-center font-semibold">Laporan Proper</th>
+                <th className="px-3 py-2.5 text-center font-semibold">Nilai Wawancara (M)</th>
                 <th className="px-3 py-2.5 text-center font-semibold">Status</th>
                 <th className="px-3 py-2.5 text-right font-semibold">Tautan Wawancara</th>
               </tr>
@@ -273,7 +286,7 @@ export default function PantauWawancaraPage({
                 <tr key={p.id} className="hover:bg-zinc-50">
                   <td className="px-3 py-3">
                     <div className="font-semibold text-zinc-950">{p.nama}</div>
-                    <div className="font-mono text-[11px] text-zinc-500">{p.nip}</div>
+                    <div className="font-mono text-[11px] text-zinc-500">NIP {p.nip || '-'}</div>
                   </td>
                   <td className="px-3 py-3">
                     <div className="font-medium text-zinc-900">{p.timNama}</div>
@@ -296,10 +309,11 @@ export default function PantauWawancaraPage({
                     <div className="font-semibold text-zinc-950">
                       {typeof p.rataWawancaraM === 'number'
                         ? p.rataWawancaraM.toFixed(2)
-                        : 'KOSONG'}
+                        : 'Belum dinilai'}
                     </div>
                     <div className="text-[11px] text-zinc-500">
-                      {p.filledNilai}/5 · {p.filledDeskripsi}/5 bukti
+                      {p.filledNilai} dari 5 nilai terisi · {p.filledDeskripsi} dari 5 catatan bukti
+                      terisi
                     </div>
                   </td>
                   <td className="px-3 py-3 text-center">
@@ -318,7 +332,7 @@ export default function PantauWawancaraPage({
                       </span>
                     ) : (
                       <span className="inline-flex rounded border border-zinc-300 bg-zinc-50 px-2 py-0.5 text-[11px] text-zinc-600">
-                        Belum Selesai
+                        Wawancara Belum Selesai
                       </span>
                     )}
                   </td>
@@ -329,18 +343,24 @@ export default function PantauWawancaraPage({
                         className="inline-flex min-h-[34px] items-center gap-1 rounded-lg bg-zinc-950 px-2.5 py-1 text-[11px] font-semibold text-white transition hover:bg-zinc-800"
                       >
                         <Link2Icon className="h-3 w-3" aria-hidden="true" />
-                        <span>Form</span>
+                        <span>Buka Form</span>
                       </Link>
                       <button
                         type="button"
                         onClick={() => copyInternalLink(p.id, p.linkInternalWawancara)}
                         title="Salin tautan formulir wawancara"
-                        className="inline-flex min-h-[34px] items-center rounded-lg border border-zinc-500 bg-white px-2 py-1 text-[11px] text-zinc-900 transition hover:bg-zinc-100"
+                        className="inline-flex min-h-[34px] items-center gap-1 rounded-lg border border-zinc-500 bg-white px-2.5 py-1 text-[11px] font-medium text-zinc-900 transition hover:bg-zinc-100"
                       >
                         {copiedId === p.id ? (
-                          <CheckIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                          <>
+                            <CheckIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                            <span>Tersalin</span>
+                          </>
                         ) : (
-                          <CopyIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                          <>
+                            <CopyIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                            <span>Salin Tautan</span>
+                          </>
                         )}
                       </button>
                       {p.linkMeeting && (
@@ -351,7 +371,7 @@ export default function PantauWawancaraPage({
                           className="inline-flex min-h-[34px] items-center gap-1 rounded-lg border border-zinc-500 bg-white px-2.5 py-1 text-[11px] font-medium text-zinc-950 transition hover:bg-zinc-100"
                         >
                           <ExternalLinkIcon className="h-3 w-3" aria-hidden="true" />
-                          <span>Meet</span>
+                          <span>Buka Meeting</span>
                         </a>
                       )}
                     </div>

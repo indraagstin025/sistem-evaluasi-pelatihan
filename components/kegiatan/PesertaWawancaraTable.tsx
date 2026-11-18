@@ -48,19 +48,24 @@ function getInitials(nama: string): string {
 }
 
 function formatScoreId(val: number | null | undefined): string {
-  if (val === null || val === undefined || Number.isNaN(val)) return '-';
+  if (val === null || val === undefined || Number.isNaN(val)) return 'Belum dinilai';
   return Number(val).toLocaleString('id-ID', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
 }
 
-function formatTimestampSql(iso: string | Date | null | undefined): string {
+function formatTimestampId(iso: string | Date | null | undefined): string {
   if (!iso) return '';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
+  const datePart = d.toLocaleDateString('id-ID', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
   const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  return `${datePart}, ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 export default function PesertaWawancaraTable({
@@ -161,8 +166,8 @@ export default function PesertaWawancaraTable({
             </h2>
             <p className="mt-0.5 text-xs text-zinc-600">
               {isAdmin
-                ? 'Daftar peserta kegiatan dalam mode baca saja (read-only), ditampilkan 10 peserta per halaman. Klik Lihat Form untuk memeriksa kelengkapan Proper dan bukti wawancara.'
-                : 'Klik Wawancara untuk mengisi nilai wawancara (skala 0-100) dan catatan bukti; status selesai berlaku setelah Proper diunggah.'}
+                ? 'Daftar peserta kegiatan dalam mode baca saja, 10 peserta per halaman. Klik "Lihat Form" untuk memeriksa kelengkapan Proper (laporan Proyek Perubahan peserta) dan bukti wawancara.'
+                : 'Klik "Wawancara" untuk mengisi nilai (skala 0–100) dan catatan bukti. Status "Selesai" baru berlaku setelah Proper (laporan Proyek Perubahan peserta) diunggah dan wawancara ditandai selesai.'}
             </p>
           </div>
           {fetching && (
@@ -222,9 +227,9 @@ export default function PesertaWawancaraTable({
             >
               <option value="semua">Semua status ({counts.total})</option>
               <option value="selesai">Selesai ({counts.selesai})</option>
-              <option value="belum_selesai">Belum Selesai ({counts.belumSelesai})</option>
+              <option value="belum_selesai">Wawancara Belum Selesai ({counts.belumSelesai})</option>
               <option value="belum_proper">Belum Unggah Proper ({counts.belumProper})</option>
-              <option value="ada_kosong">Ada Nilai Kosong ({counts.adaKosong})</option>
+              <option value="ada_kosong">Ada Nilai yang Belum Diisi ({counts.adaKosong})</option>
             </select>
           </div>
         </div>
@@ -244,15 +249,11 @@ export default function PesertaWawancaraTable({
             <table className="min-w-full divide-y divide-zinc-200 text-left text-xs">
               <thead>
                 <tr className="bg-zinc-50 text-[11px] font-semibold uppercase tracking-wide text-zinc-600">
-                  <th className="px-2 py-3">Peserta / NIP</th>
+                  <th className="px-2 py-3">Peserta / NIP (Nomor Induk Pegawai)</th>
                   <th className="px-1.5 py-3">Tim</th>
-                  <th className="px-1.5 py-3 text-right">Survey</th>
+                  <th className="px-1.5 py-3 text-right">Survei</th>
                   <th className="px-1.5 py-3 text-right">Wawancara</th>
-                  <th className="px-1.5 py-3 text-right leading-tight">
-                    Akhir
-                    <br />
-                    Berbobot
-                  </th>
+                  <th className="px-1.5 py-3 text-right whitespace-nowrap">Nilai Akhir Berbobot</th>
                   <th className="px-1.5 py-3 text-center">Status</th>
                   <th className="px-2 py-3 text-right">Tindakan</th>
                 </tr>
@@ -265,7 +266,7 @@ export default function PesertaWawancaraTable({
                     (w: any) => w.nilai === null
                   ).length;
                   const instansiText = p.instansi || p.instansiPelatihan || '-';
-                  const timText = p.tim?.namaTim || p.namaTimExcel || 'Belum Dibagi';
+                  const timText = p.tim?.namaTim || p.namaTimExcel || 'Belum Dibagi ke Tim';
                   const surveyVal = p.hasil?.rataSurveiL;
                   const wawancaraVal = p.hasil?.rataWawancaraM;
                   const totalVal = p.hasil?.totalForm;
@@ -309,12 +310,12 @@ export default function PesertaWawancaraTable({
                           </span>
                         ) : (
                           <span className="inline-flex whitespace-nowrap rounded border border-zinc-400 bg-zinc-50 px-2 py-0.5 text-[10px] font-semibold text-zinc-800">
-                            KOSONG
+                            Belum dinilai
                           </span>
                         )}
                         {kosongCount > 0 && (
                           <div className="mt-0.5 text-[10px] font-normal text-zinc-500">
-                            {kosongCount} kriteria kosong
+                            {kosongCount} dari 5 kriteria belum dinilai
                           </div>
                         )}
                       </td>
@@ -331,7 +332,7 @@ export default function PesertaWawancaraTable({
                               <span>Selesai</span>
                             </span>
                             <span className="mt-1 whitespace-nowrap font-mono text-[10px] text-zinc-500">
-                              {formatTimestampSql(p.wawancaraSelesaiAt)}
+                              {formatTimestampId(p.wawancaraSelesaiAt)}
                             </span>
                           </div>
                         ) : !hasProper ? (
@@ -340,7 +341,7 @@ export default function PesertaWawancaraTable({
                           </span>
                         ) : (
                           <span className="inline-flex whitespace-nowrap rounded border border-zinc-400 bg-white px-2 py-0.5 text-[10px] font-medium text-zinc-800">
-                            Belum Selesai
+                            Wawancara Belum Selesai
                           </span>
                         )}
                       </td>

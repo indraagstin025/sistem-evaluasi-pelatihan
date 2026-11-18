@@ -38,22 +38,25 @@ function RespondenSummaryCell({ side }: { side: LikertSummarySide }) {
     );
   }
 
-  let dominantLabel: string = KATEGORI_URUTAN[0].label;
-  let dominantCount = -1;
+  let maxCount = 0;
   for (const cat of KATEGORI_URUTAN) {
     const count = side.counts[cat.index] ?? 0;
-    if (count > dominantCount) {
-      dominantCount = count;
-      dominantLabel = cat.label;
-    }
+    if (count > maxCount) maxCount = count;
   }
-  const dominantPct = Math.round((dominantCount / side.total) * 100);
+  const topCategories = KATEGORI_URUTAN.filter(
+    (cat) => (side.counts[cat.index] ?? 0) === maxCount
+  );
+  const dominantPct = Math.round((maxCount / side.total) * 100);
+  const summaryBadgeText =
+    topCategories.length > 1
+      ? `Seri: ${topCategories.map((c) => c.label).join(' & ')} (${dominantPct}%)`
+      : `Jawaban terbanyak: ${topCategories[0].label} (${dominantPct}%)`;
 
   return (
     <div className="min-w-[215px] space-y-2 rounded-xl border border-zinc-200 bg-zinc-50/70 p-3">
       <div className="flex flex-wrap items-center justify-between gap-1.5">
         <span className="inline-flex rounded border border-zinc-800 bg-zinc-950 px-2 py-0.5 text-[10px] font-semibold text-white">
-          Dominan: {dominantLabel} ({dominantPct}%)
+          {summaryBadgeText}
         </span>
         <span className="text-[11px] font-medium text-zinc-600">
           {side.total} responden
@@ -170,12 +173,14 @@ export default function HasilSurveiPage({
         const json = await res.json();
         if (!active) return;
         if (!res.ok || !json.success) {
-          setError(json.error || 'Gagal memuat hasil survei keseluruhan.');
+          setError(json.error || 'Gagal memuat hasil survei. Coba muat ulang halaman.');
           return;
         }
         setSummary(json.data);
       } catch {
-        if (active) setError('Terjadi gangguan koneksi saat memuat hasil survei.');
+        if (active) {
+          setError('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
+        }
       } finally {
         if (active) setLoading(false);
       }
@@ -191,7 +196,7 @@ export default function HasilSurveiPage({
       <div className="flex min-h-[260px] flex-col items-center justify-center rounded-2xl border border-zinc-200 bg-white p-8">
         <ReloadIcon className="h-5 w-5 animate-spin text-zinc-700" aria-hidden="true" />
         <p className="mt-2.5 text-sm font-medium text-zinc-700">
-          Menyiapkan ringkasan hasil survey keseluruhan...
+          Menyiapkan ringkasan hasil survei keseluruhan...
         </p>
       </div>
     );
@@ -201,45 +206,50 @@ export default function HasilSurveiPage({
     return (
       <StatusBanner
         tone="error"
-        title="Gagal memuat hasil survey"
-        message={error || 'Data tidak tersedia.'}
+        title="Gagal memuat hasil survei"
+        message={error || 'Data survei belum tersedia. Coba muat ulang halaman.'}
       />
     );
   }
+
+  const totalRespondenKuesioner =
+    summary.jumlahRespondenAlumni + summary.jumlahRespondenAtasan;
 
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-2xl border border-zinc-200 bg-white p-5">
-          <p className="text-xs font-medium text-zinc-600">Responden Survey</p>
+          <p className="text-xs font-medium text-zinc-600">Responden survei</p>
           <p className="mt-1.5 text-2xl font-semibold text-zinc-950">
-            {summary.jumlahRespondenAlumni} Alumni · {summary.jumlahRespondenAtasan} Atasan
+            {totalRespondenKuesioner} responden
           </p>
           <p className="mt-1 text-xs text-zinc-500">
-            Dari total {summary.totalPeserta} peserta terdaftar
+            {summary.jumlahRespondenAlumni} alumni dan {summary.jumlahRespondenAtasan} atasan, dari{' '}
+            {summary.totalPeserta} peserta terdaftar
           </p>
         </div>
 
         <div className="rounded-2xl border border-zinc-200 bg-white p-5">
-          <p className="text-xs font-medium text-zinc-600">Mutasi Jabatan Peserta</p>
+          <p className="text-xs font-medium text-zinc-600">Mutasi jabatan peserta</p>
           <p className="mt-1.5 text-2xl font-semibold text-zinc-950">
-            {summary.mutasiJabatan.berubah} Berubah · {summary.mutasiJabatan.tetap} Tetap
+            {summary.mutasiJabatan.berubah} peserta berubah jabatan · {summary.mutasiJabatan.tetap}{' '}
+            tetap
           </p>
           <p className="mt-1 text-xs text-zinc-500">
-            Belum terdata: {summary.mutasiJabatan.tidakDiketahui}
+            Belum terdata: {summary.mutasiJabatan.tidakDiketahui} peserta
           </p>
         </div>
 
         <div className="rounded-2xl border border-zinc-200 bg-white p-5">
-          <p className="text-xs font-medium text-zinc-600">Metode Pelaksanaan</p>
+          <p className="text-xs font-medium text-zinc-600">Metode pelaksanaan</p>
           <div className="mt-2 space-y-1 text-xs text-zinc-800">
             {summary.metodePelaksanaan.length === 0 ? (
-              <p className="text-zinc-500">Belum tercatat pada Excel</p>
+              <p className="text-zinc-500">Belum tercatat di Excel</p>
             ) : (
               summary.metodePelaksanaan.slice(0, 3).map((m) => (
                 <div key={m.metode} className="flex justify-between gap-2">
                   <span className="truncate">{m.metode}</span>
-                  <span className="font-mono font-semibold text-zinc-950">{m.jumlah}</span>
+                  <span className="font-mono font-semibold text-zinc-950">{m.jumlah} peserta</span>
                 </div>
               ))
             )}
@@ -247,13 +257,13 @@ export default function HasilSurveiPage({
         </div>
 
         <div className="rounded-2xl border border-zinc-200 bg-white p-5">
-          <p className="text-xs font-medium text-zinc-600">Sebaran Asal Instansi</p>
+          <p className="text-xs font-medium text-zinc-600">Sebaran asal instansi</p>
           <p className="mt-1.5 text-2xl font-semibold text-zinc-950">
-            {summary.instansiList.length} Instansi
+            {summary.instansiList.length} instansi
           </p>
           <p className="mt-1 truncate text-xs text-zinc-500">
             {summary.instansiList[0]
-              ? `Terbanyak: ${summary.instansiList[0].instansi} (${summary.instansiList[0].jumlah})`
+              ? `Terbanyak: ${summary.instansiList[0].instansi} (${summary.instansiList[0].jumlah} peserta)`
               : 'Belum ada data instansi'}
           </p>
         </div>
@@ -263,12 +273,10 @@ export default function HasilSurveiPage({
       <section className="rounded-2xl border border-zinc-200 bg-white p-5">
         <div className="mb-4 border-b border-zinc-200 pb-3.5">
           <h2 className="text-base font-semibold text-zinc-950">
-            Ringkasan Jawaban Survey (Alumni vs Atasan)
+            Ringkasan Jawaban Survei (Alumni dan Atasan)
           </h2>
           <p className="mt-1 text-xs text-zinc-600">
-            Menampilkan kecenderungan penilaian Alumni dan Atasan pada tiap pernyataan berdasarkan
-            jumlah serta persentase responden yang memilih Sangat Sesuai, Sesuai, Kurang Sesuai,
-            atau Tidak Sesuai.
+            Perbandingan jawaban alumni dan atasan untuk setiap pernyataan, dalam jumlah dan persen.
           </p>
         </div>
 
@@ -278,7 +286,7 @@ export default function HasilSurveiPage({
               const count = (summary.pertanyaanByKelompok[t.key] || []).length;
               return (
                 <TabsTrigger key={t.key} value={t.key} className="text-xs">
-                  {t.label} ({count})
+                  {t.label} ({count} pertanyaan)
                 </TabsTrigger>
               );
             })}
@@ -291,13 +299,13 @@ export default function HasilSurveiPage({
               {t.key === 'DUKUNGAN' && summary.dukunganTerbuka.length > 0 && (
                 <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
                   <h3 className="text-xs font-semibold text-zinc-950">
-                    Catatan Terbuka Faktor Pendukung ({summary.dukunganTerbuka.length})
+                    Catatan Terbuka Faktor Dukungan ({summary.dukunganTerbuka.length} catatan)
                   </h3>
                   <ul className="mt-2.5 max-h-64 space-y-2 overflow-y-auto text-xs text-zinc-700">
                     {summary.dukunganTerbuka.map((item, idx) => (
                       <li key={idx} className="rounded-lg border border-zinc-200 bg-white p-2.5">
                         <span className="font-semibold text-zinc-950">
-                          {item.pesertaNama} ({item.responden}):{' '}
+                          {item.pesertaNama} ({item.responden === 'atasan' ? 'Atasan' : 'Alumni'}):{' '}
                         </span>
                         <span>{item.teks}</span>
                       </li>
@@ -309,13 +317,13 @@ export default function HasilSurveiPage({
               {t.key === 'KENDALA' && summary.kendalaTerbuka.length > 0 && (
                 <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
                   <h3 className="text-xs font-semibold text-zinc-950">
-                    Catatan Terbuka Faktor Kendala ({summary.kendalaTerbuka.length})
+                    Catatan Terbuka Faktor Kendala ({summary.kendalaTerbuka.length} catatan)
                   </h3>
                   <ul className="mt-2.5 max-h-64 space-y-2 overflow-y-auto text-xs text-zinc-700">
                     {summary.kendalaTerbuka.map((item, idx) => (
                       <li key={idx} className="rounded-lg border border-zinc-200 bg-white p-2.5">
                         <span className="font-semibold text-zinc-950">
-                          {item.pesertaNama} ({item.responden}):{' '}
+                          {item.pesertaNama} ({item.responden === 'atasan' ? 'Atasan' : 'Alumni'}):{' '}
                         </span>
                         <span>{item.teks}</span>
                       </li>

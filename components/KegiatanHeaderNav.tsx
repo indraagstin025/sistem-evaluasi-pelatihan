@@ -51,7 +51,7 @@ export default function KegiatanHeaderNav({
           </h1>
         </div>
         <p className="mt-1 text-xs font-normal text-zinc-600">
-          {kegiatan.penyelenggara} · {kegiatan.lokasi} · {formatDateID(kegiatan.tanggalMulai)} s.d.{' '}
+          {kegiatan.penyelenggara} · {kegiatan.lokasi} · {formatDateID(kegiatan.tanggalMulai)} sampai dengan{' '}
           {formatDateID(kegiatan.tanggalSelesai)}
         </p>
       </div>

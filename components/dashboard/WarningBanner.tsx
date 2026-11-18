@@ -33,7 +33,7 @@ export default function WarningBanner({
           <InfoCircledIcon className="mt-0.5 h-4 w-4 shrink-0 text-zinc-800 sm:mt-0" aria-hidden="true" />
           <p className="font-normal text-zinc-700">
             <span className="font-semibold text-zinc-950">Belum ada data peserta.</span>{' '}
-            Mulai dengan mengimpor file Excel hasil survei atau wawancara.
+            Impor file Excel hasil survei atau wawancara untuk memulai.
           </p>
         </div>
 
@@ -41,7 +41,7 @@ export default function WarningBanner({
           href={inputDataHref}
           className="inline-flex shrink-0 items-center justify-center self-start rounded-lg border border-zinc-500 bg-white px-3.5 py-2 text-xs font-medium text-zinc-950 transition hover:bg-zinc-100 sm:self-auto"
         >
-          Buka Impor Excel
+          Impor File Excel
         </Link>
       </div>
     );
@@ -54,7 +54,7 @@ export default function WarningBanner({
           <CheckCircledIcon className="mt-0.5 h-4 w-4 shrink-0 text-zinc-950 sm:mt-0" aria-hidden="true" />
           <p className="font-normal text-zinc-700">
             <span className="font-semibold text-zinc-950">Data sudah lengkap.</span>{' '}
-            Semua peserta memiliki nilai survei dan wawancara yang tervalidasi.
+            Semua peserta sudah mengisi survei dan sudah diwawancarai.
           </p>
         </div>
 
@@ -62,7 +62,7 @@ export default function WarningBanner({
           href={eksposeHref}
           className="inline-flex shrink-0 items-center justify-center self-start rounded-lg bg-zinc-950 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-zinc-800 sm:self-auto"
         >
-          Lihat Slide Ekspose
+          Lihat Slide Ekspose (Presentasi Hasil)
         </Link>
       </div>
     );
@@ -78,7 +78,10 @@ export default function WarningBanner({
         <p className="font-normal text-zinc-800">
           <span className="font-semibold text-zinc-950">Perlu dilengkapi:</span>{' '}
           {count} peserta belum memiliki nilai wawancara{' '}
-          {firstP ? `(contoh: ${firstP.nama})` : ''}. Nilai kosong dicatat sebagai KOSONG, bukan nol.
+          {firstP
+            ? `(misalnya: ${firstP.nama}${count > 1 ? ` dan ${count - 1} peserta lainnya` : ''})`
+            : ''}
+          . Nilai yang kosong dicatat sebagai Belum dinilai, bukan nol.
         </p>
       </div>
 
@@ -86,7 +89,7 @@ export default function WarningBanner({
         href={targetKosongHref}
         className="inline-flex shrink-0 items-center justify-center self-start rounded-lg bg-zinc-950 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-zinc-800 sm:self-auto"
       >
-        Pantau Wawancara
+        Lihat Daftar Wawancara yang Belum Terisi
       </Link>
     </div>
   );

@@ -58,17 +58,25 @@ export async function POST(
 
       const existing = existingMap.get(kriteria);
       const hasSubmittedNilai = item.nilai !== undefined;
-      const submittedNilai =
-        !hasSubmittedNilai || item.nilai === '' || item.nilai === null
-          ? null
+      const isBlankNilai =
+        !hasSubmittedNilai ||
+        item.nilai === null ||
+        (typeof item.nilai === 'string' && item.nilai.trim() === '');
+      const submittedNilai = isBlankNilai
+        ? null
+        : typeof item.nilai === 'boolean'
+          ? Number.NaN
           : Number(item.nilai);
 
       if (
         submittedNilai !== null &&
-        (Number.isNaN(submittedNilai) || submittedNilai < 0 || submittedNilai > 100)
+        (!Number.isInteger(submittedNilai) || submittedNilai < 0 || submittedNilai > 100)
       ) {
         return NextResponse.json(
-          { success: false, error: `Nilai wawancara ${kriteria} harus antara 0 sampai 100.` },
+          {
+            success: false,
+            error: `Nilai wawancara ${kriteria} harus berupa bilangan bulat antara 0 sampai 100.`,
+          },
           { status: 400 }
         );
       }

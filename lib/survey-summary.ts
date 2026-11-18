@@ -257,7 +257,7 @@ export function ringkasHasilSurveyUntukAi(summary: HasilSurveyKegiatanSummary): 
     `Perubahan Perilaku (30 butir): ${avgKelompok('PERILAKU')}`,
     `Produktivitas & Kontribusi: ${avgKelompok('HASIL_KONTRIBUSI')}`,
     `Keberlanjutan Aksi Perubahan: ${avgKelompok('HASIL_AKSI')}`,
-    `Faktor Pendukung (5 butir): ${avgKelompok('DUKUNGAN')}`,
+    `Faktor Dukungan (5 butir): ${avgKelompok('DUKUNGAN')}`,
     `Faktor Kendala (3 butir, skor rendah berarti kendala kecil): ${avgKelompok('KENDALA')}`,
   ].join('\n');
 }

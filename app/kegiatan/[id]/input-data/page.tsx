@@ -34,7 +34,9 @@ export default function InputDataKegiatanPage({
     });
     const json = await res.json();
     if (!res.ok || !json.success) {
-      throw new Error(json.error || 'Gagal memuat data impor kegiatan.');
+      throw new Error(
+        json.error || 'Gagal memuat data impor kegiatan. Coba muat ulang halaman.'
+      );
     }
     setData(json.data);
   }, [params.id]);
@@ -47,7 +49,9 @@ export default function InputDataKegiatanPage({
       );
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json.error || 'Gagal memuat data peserta terimpor.');
+        throw new Error(
+          json.error || 'Gagal memuat data peserta yang sudah diimpor. Coba muat ulang halaman.'
+        );
       }
       setPeserta(json.data || []);
       setTotalPeserta(json.pagination?.total ?? 0);
@@ -61,7 +65,10 @@ export default function InputDataKegiatanPage({
       setError(null);
       await Promise.all([loadHeader(), loadPesertaPage(page)]);
     } catch (err: any) {
-      setError(err?.message || 'Koneksi bermasalah saat memuat data impor.');
+      setError(
+        err?.message ||
+          'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.'
+      );
     } finally {
       setLoading(false);
     }
@@ -77,7 +84,10 @@ export default function InputDataKegiatanPage({
       setLoadingPeserta(true);
       await loadPesertaPage(nextPage);
     } catch (err: any) {
-      setError(err?.message || 'Gagal memuat halaman peserta.');
+      setError(
+        err?.message ||
+          'Gagal memuat halaman daftar peserta. Coba pilih ulang halaman atau muat ulang.'
+      );
     } finally {
       setLoadingPeserta(false);
     }
@@ -92,13 +102,13 @@ export default function InputDataKegiatanPage({
           <div className="flex items-center gap-2">
             <TableIcon className="h-4 w-4 text-zinc-950" aria-hidden="true" />
             <h2 className="text-base font-semibold text-zinc-950">
-              Impor Berkas Excel Kegiatan
+              Impor File Excel Kegiatan
             </h2>
           </div>
           <p className="mt-1 text-xs text-zinc-600">
             Unggah file <strong>Form Penilaian</strong> dan <strong>Olah Data Survei</strong>{' '}
-            sekaligus. Nilai awal wawancara dari Excel dapat ditinjau dan disesuaikan kembali oleh
-            Evaluator tim saat wawancara.
+            sekaligus. Nilai wawancara dari Excel bisa dilihat dan diubah lagi oleh evaluator saat
+            wawancara.
           </p>
         </div>
 
@@ -114,8 +124,8 @@ export default function InputDataKegiatanPage({
 
       <StatusBanner
         tone="info"
-        title="Data Profil & Survei Terkunci (UR-N-07)"
-        message="Peserta hanya dapat ditambahkan atau diperbarui melalui impor ulang file Excel. Tidak tersedia tambah manual, ubah profil, ubah skor survei, atau hapus peserta di dalam sistem."
+        title="Data Profil & Survei Terkunci"
+        message="Peserta hanya bisa ditambah atau diubah lewat impor ulang file Excel. Di sistem ini tidak bisa tambah peserta manual, ubah profil, ubah skor survei, atau hapus peserta."
       />
 
       {error && <StatusBanner tone="error" title="Kesalahan" message={error} />}
@@ -129,11 +139,11 @@ export default function InputDataKegiatanPage({
             />
             <div>
               <h3 className="text-sm font-semibold text-zinc-950">
-                Laporan Selisih Antarberkas ({selisihImport.length} temuan)
+                Selisih Nilai Antarfile Excel ({selisihImport.length} temuan)
               </h3>
               <p className="mt-0.5 text-xs text-zinc-700">
-                Daftar berikut membandingkan sheet Form Penilaian dengan sheet Ekspose. Seluruh
-                perhitungan sistem memakai nilai pada kolom Form Penilaian.
+                Daftar ini membandingkan file Form Penilaian dengan sheet Ekspose (lembar paparan).
+                Semua perhitungan memakai nilai dari Form Penilaian.
               </p>
             </div>
           </div>
@@ -143,10 +153,10 @@ export default function InputDataKegiatanPage({
               <thead className="bg-zinc-50 text-zinc-700">
                 <tr>
                   <th className="px-3 py-2.5 font-semibold">Peserta</th>
-                  <th className="px-3 py-2.5 font-semibold">NIP</th>
+                  <th className="px-3 py-2.5 font-semibold">NIP (Nomor Induk Pegawai)</th>
                   <th className="px-3 py-2.5 font-semibold">Kriteria</th>
                   <th className="px-3 py-2.5 text-right font-semibold">Form Penilaian</th>
-                  <th className="px-3 py-2.5 text-right font-semibold">Sheet Ekspose</th>
+                  <th className="px-3 py-2.5 text-right font-semibold">Ekspose</th>
                   <th className="px-3 py-2.5 font-semibold">Catatan</th>
                 </tr>
               </thead>
@@ -155,14 +165,14 @@ export default function InputDataKegiatanPage({
                   <tr key={s.id} className="hover:bg-zinc-50">
                     <td className="px-3 py-2.5 font-medium text-zinc-950">{s.pesertaNama}</td>
                     <td className="px-3 py-2.5 font-mono text-[11px] text-zinc-600">
-                      {s.pesertaNip}
+                      {s.pesertaNip || '-'}
                     </td>
                     <td className="px-3 py-2.5 text-zinc-800">{s.kriteriaLabel}</td>
                     <td className="px-3 py-2.5 text-right font-mono font-semibold text-zinc-950">
-                      {s.nilaiForm === null ? 'KOSONG' : s.nilaiForm}
+                      {s.nilaiForm === null ? 'Belum dinilai' : s.nilaiForm}
                     </td>
                     <td className="px-3 py-2.5 text-right font-mono text-zinc-600">
-                      {s.nilaiEkspose === null ? 'KOSONG' : s.nilaiEkspose}
+                      {s.nilaiEkspose === null ? 'Belum dinilai' : s.nilaiEkspose}
                     </td>
                     <td className="px-3 py-2.5 text-zinc-600">{s.catatan}</td>
                   </tr>
@@ -177,11 +187,11 @@ export default function InputDataKegiatanPage({
         <div className="mb-4 flex items-center justify-between gap-2 border-b border-zinc-200 pb-3.5">
           <div>
             <h3 className="text-sm font-semibold text-zinc-950">
-              Pratinjau Data Terimpor (Baca Saja · {totalPeserta} Peserta)
+              Pratinjau Data yang Sudah Diimpor (Baca Saja · {totalPeserta} peserta)
             </h3>
             <p className="mt-0.5 text-xs text-zinc-600">
-              Menampilkan identitas resmi peserta, jabatan saat pelatihan vs saat ini, tim Excel,
-              dan kelengkapan nilai wawancara (10 peserta per halaman).
+              Menampilkan identitas resmi peserta, jabatan saat pelatihan dibandingkan saat ini,
+              nama tim dari Excel, dan kelengkapan nilai wawancara (10 peserta per halaman).
             </p>
           </div>
           <span className="inline-flex items-center gap-1 rounded border border-zinc-400 bg-zinc-50 px-2.5 py-1 text-[11px] font-medium text-zinc-800">
@@ -193,11 +203,11 @@ export default function InputDataKegiatanPage({
         {loading ? (
           <div className="flex items-center justify-center gap-2 py-12 text-xs text-zinc-600">
             <ReloadIcon className="h-4 w-4 animate-spin" aria-hidden="true" />
-            <span>Memuat data terimpor...</span>
+            <span>Memuat data yang sudah diimpor...</span>
           </div>
         ) : totalPeserta === 0 ? (
           <div className="py-12 text-center text-sm text-zinc-600">
-            Belum ada peserta terimpor. Klik tombol Impor / Perbarui dari Excel di atas untuk
+            Belum ada peserta yang diimpor. Klik tombol Impor / Perbarui dari Excel di atas untuk
             memulai.
           </div>
         ) : (
@@ -209,9 +219,11 @@ export default function InputDataKegiatanPage({
                     <th className="px-3 py-2.5 font-semibold">No</th>
                     <th className="px-3 py-2.5 font-semibold">Nama &amp; NIP</th>
                     <th className="px-3 py-2.5 font-semibold">Jabatan &amp; Instansi Saat Ini</th>
-                    <th className="px-3 py-2.5 font-semibold">Tim Excel</th>
-                    <th className="px-3 py-2.5 text-center font-semibold">Nilai Terisi</th>
-                    <th className="px-3 py-2.5 text-right font-semibold">Survey</th>
+                    <th className="px-3 py-2.5 font-semibold">Tim (dari Excel)</th>
+                    <th className="px-3 py-2.5 text-center font-semibold">
+                      Nilai Terisi (dari 5 kriteria)
+                    </th>
+                    <th className="px-3 py-2.5 text-right font-semibold">Survei</th>
                     <th className="px-3 py-2.5 text-right font-semibold">Wawancara</th>
                   </tr>
                 </thead>
@@ -226,7 +238,7 @@ export default function InputDataKegiatanPage({
                         <td className="px-3 py-2.5 font-mono text-zinc-500">{rowNumber}</td>
                         <td className="px-3 py-2.5">
                           <div className="font-semibold text-zinc-950">{p.nama}</div>
-                          <div className="font-mono text-[11px] text-zinc-500">{p.nip}</div>
+                          <div className="font-mono text-[11px] text-zinc-500">{p.nip || '-'}</div>
                         </td>
                         <td className="px-3 py-2.5 text-zinc-700">
                           <div>{p.jabatanSaatIni || p.jabatanPelatihan || '-'}</div>
@@ -238,17 +250,17 @@ export default function InputDataKegiatanPage({
                           {p.tim?.namaTim || p.namaTimExcel || '-'}
                         </td>
                         <td className="px-3 py-2.5 text-center font-mono text-zinc-800">
-                          {filledCount}/5
+                          {filledCount} dari 5
                         </td>
                         <td className="px-3 py-2.5 text-right font-mono">
                           {typeof p.hasil?.rataSurveiL === 'number'
                             ? p.hasil.rataSurveiL.toFixed(2)
-                            : '-'}
+                            : 'Belum dinilai'}
                         </td>
                         <td className="px-3 py-2.5 text-right font-mono font-semibold text-zinc-950">
                           {typeof p.hasil?.rataWawancaraM === 'number'
                             ? p.hasil.rataWawancaraM.toFixed(2)
-                            : 'KOSONG'}
+                            : 'Belum dinilai'}
                         </td>
                       </tr>
                     );

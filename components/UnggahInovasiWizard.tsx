@@ -119,7 +119,7 @@ export default function UnggahInovasiWizard() {
           }
         }
       } catch {
-        setErrorMsg('Gagal memuat daftar kegiatan pelatihan.');
+        setErrorMsg('Gagal memuat daftar kegiatan pelatihan. Coba muat ulang halaman.');
       } finally {
         setLoadingKegiatan(false);
       }
@@ -142,7 +142,7 @@ export default function UnggahInovasiWizard() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        setErrorMsg(json.error || 'NIP/NIK tidak ditemukan.');
+        setErrorMsg(json.error || 'NIP atau NIK tidak ditemukan pada kegiatan ini. Periksa kembali angka yang dimasukkan.');
         return;
       }
 
@@ -164,7 +164,7 @@ export default function UnggahInovasiWizard() {
       setDokumenSizeBytes(prev?.dokumenSizeBytes || null);
       setStep(3);
     } catch {
-      setErrorMsg('Koneksi bermasalah saat memverifikasi NIP.');
+      setErrorMsg('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
     } finally {
       setVerifying(false);
     }
@@ -198,7 +198,7 @@ export default function UnggahInovasiWizard() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        setErrorMsg(json.error || 'Gagal mengunggah berkas.');
+        setErrorMsg(json.error || 'Gagal mengunggah file. Silakan coba lagi.');
         return;
       }
 
@@ -214,7 +214,7 @@ export default function UnggahInovasiWizard() {
         setPanFotoNama(json.data.filename);
       }
     } catch {
-      setErrorMsg('Koneksi gagal saat mengunggah berkas.');
+      setErrorMsg('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
     } finally {
       setUploadingField(null);
     }
@@ -247,13 +247,13 @@ export default function UnggahInovasiWizard() {
 
       const json = await res.json();
       if (!res.ok || !json.success) {
-        setErrorMsg(json.error || 'Gagal menyimpan unggahan Inovasi/Proper.');
+        setErrorMsg(json.error || 'Gagal menyimpan unggahan Proper. Silakan coba lagi.');
         return;
       }
 
-      setSuccessMsg(json.message || 'Unggahan Inovasi/Proper berhasil disimpan.');
+      setSuccessMsg(json.message || 'Dokumen Proper berhasil disimpan.');
     } catch {
-      setErrorMsg('Terjadi kesalahan koneksi saat menyimpan unggahan.');
+      setErrorMsg('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
     } finally {
       setSubmitting(false);
     }
@@ -263,13 +263,13 @@ export default function UnggahInovasiWizard() {
     <div className="mx-auto max-w-3xl space-y-6 pb-16">
       <div className="rounded-2xl border border-zinc-200 bg-white p-6">
         <p className="text-xs font-medium text-zinc-600">
-          Evaluasi Pasca Pelatihan · BPSDM Provinsi Jawa Barat
+          Evaluasi Pasca Pelatihan · Badan Pengembangan Sumber Daya Manusia (BPSDM) Provinsi Jawa Barat
         </p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight text-zinc-950">
-          Unggah Inovasi / Proper (Link Public)
+          Unggah Dokumen Proper (Tautan Publik)
         </h1>
         <p className="mt-1.5 text-sm font-normal text-zinc-600">
-          Ikuti 3 langkah berikut tanpa login. Batas maksimal ukuran per berkas adalah 3 MB.
+          Ikuti 3 langkah berikut untuk mengunggah Proper (laporan Proyek Perubahan peserta) tanpa perlu masuk akun. Batas maksimal ukuran per file adalah 3 MB.
         </p>
 
         {/* Indikator 3 Langkah */}
@@ -321,7 +321,7 @@ export default function UnggahInovasiWizard() {
                   }}
                   className="rounded-lg border border-white/40 px-3.5 py-2 text-xs font-medium text-white hover:bg-white/10"
                 >
-                  Perbarui Lagi
+                  Ubah Isian
                 </button>
                 <button
                   type="button"
@@ -390,7 +390,7 @@ export default function UnggahInovasiWizard() {
                     {selectedKegiatan.penyelenggara} · {selectedKegiatan.lokasi}
                   </p>
                   <p className="mt-0.5 text-zinc-600">
-                    Periode: {formatTanggalID(selectedKegiatan.tanggalMulai)} s.d.{' '}
+                    Periode: {formatTanggalID(selectedKegiatan.tanggalMulai)} sampai dengan{' '}
                     {formatTanggalID(selectedKegiatan.tanggalSelesai)}
                   </p>
                 </div>
@@ -422,17 +422,17 @@ export default function UnggahInovasiWizard() {
         >
           <div>
             <h2 className="text-base font-semibold text-zinc-950">
-              Langkah 2: Verifikasi NIP / NIK Peserta
+              Langkah 2: Verifikasi Identitas Peserta (NIP / NIK)
             </h2>
             <p className="mt-1 text-xs text-zinc-600">
-              NIP/NIK hanya digunakan untuk mencocokkan peserta pada kegiatan{' '}
+              Nomor Induk Pegawai (NIP) atau Nomor Induk Kependudukan (NIK) hanya digunakan untuk mencocokkan peserta pada kegiatan{' '}
               <span className="font-semibold text-zinc-950">{selectedKegiatan?.nama}</span>.
             </p>
           </div>
 
           <div>
             <label htmlFor="public-nip" className="mb-1.5 block text-xs font-medium text-zinc-900">
-              Nomor Induk Pegawai (NIP) / NIK
+              NIP atau NIK
             </label>
             <input
               id="public-nip"
@@ -505,7 +505,7 @@ export default function UnggahInovasiWizard() {
 
           <div className="rounded-2xl border border-zinc-200 bg-white p-6 space-y-5">
             <h3 className="text-base font-semibold text-zinc-950">
-              Informasi Inovasi / Aksi Perubahan (Proper)
+              Informasi Proper (Laporan Proyek Perubahan)
             </h3>
 
             <div>
@@ -513,7 +513,7 @@ export default function UnggahInovasiWizard() {
                 htmlFor="proper-judul"
                 className="mb-1.5 block text-xs font-medium text-zinc-900"
               >
-                Judul Inovasi / Proper
+                Judul Proper
               </label>
               <input
                 id="proper-judul"
@@ -521,7 +521,7 @@ export default function UnggahInovasiWizard() {
                 required
                 value={judulProper}
                 onChange={(e) => setJudulProper(e.target.value)}
-                placeholder="Tuliskan judul lengkap Inovasi / Aksi Perubahan"
+                placeholder="Tuliskan judul lengkap Proper Anda"
                 className="w-full rounded-lg border border-zinc-500 bg-white px-3.5 py-2 text-sm text-zinc-950 focus:border-zinc-950 focus:outline-none"
               />
             </div>
@@ -534,7 +534,7 @@ export default function UnggahInovasiWizard() {
                   htmlFor="menengah-milestone"
                   className="mb-1 block text-xs font-medium text-zinc-800"
                 >
-                  Milestone / Rencana Jangka Menengah
+                  Tahapan Kerja (Milestone) / Rencana Jangka Menengah
                 </label>
                 <textarea
                   id="menengah-milestone"
@@ -542,14 +542,14 @@ export default function UnggahInovasiWizard() {
                   required
                   value={menMilestone}
                   onChange={(e) => setMenMilestone(e.target.value)}
-                  placeholder="Contoh: Milestone 5 - Implementasi aplikasi & penyusunan SOP"
+                  placeholder="Contoh: Tahapan ke-5 - Penerapan aplikasi & penyusunan SOP"
                   className="w-full rounded-lg border border-zinc-500 bg-white p-2.5 text-xs text-zinc-950 focus:border-zinc-950 focus:outline-none"
                 />
               </div>
 
               <div>
                 <span className="mb-1.5 block text-xs font-medium text-zinc-800">
-                  Status Evidence Jangka Menengah
+                  Status Bukti Pelaksanaan (Evidence) Jangka Menengah
                 </span>
                 <RadioGroup
                   value={menStatus}
@@ -577,7 +577,7 @@ export default function UnggahInovasiWizard() {
                     htmlFor="foto-menengah"
                     className="mb-1 block text-xs font-medium text-zinc-800"
                   >
-                    Foto Evidence Jangka Menengah (JPG/PNG/WEBP, maks. 3 MB)
+                    Foto Bukti Pelaksanaan Jangka Menengah (JPG/PNG/WEBP, maks. 3 MB)
                   </label>
                   <div className="flex flex-wrap items-center gap-3">
                     <label
@@ -590,7 +590,7 @@ export default function UnggahInovasiWizard() {
                           ? 'Mengunggah...'
                           : menFotoNama
                             ? 'Ganti Foto'
-                            : 'Pilih Foto Evidence'}
+                            : 'Pilih Foto Bukti'}
                       </span>
                     </label>
                     <input
@@ -602,7 +602,7 @@ export default function UnggahInovasiWizard() {
                     />
                     {menFotoNama && (
                       <span className="text-xs font-medium text-zinc-800">
-                        Terunggah: {menFotoNama}
+                        File tersimpan: {menFotoNama}
                       </span>
                     )}
                   </div>
@@ -618,7 +618,7 @@ export default function UnggahInovasiWizard() {
                   htmlFor="panjang-milestone"
                   className="mb-1 block text-xs font-medium text-zinc-800"
                 >
-                  Milestone / Rencana Jangka Panjang
+                  Tahapan Kerja (Milestone) / Rencana Jangka Panjang
                 </label>
                 <textarea
                   id="panjang-milestone"
@@ -633,7 +633,7 @@ export default function UnggahInovasiWizard() {
 
               <div>
                 <span className="mb-1.5 block text-xs font-medium text-zinc-800">
-                  Status Evidence Jangka Panjang
+                  Status Bukti Pelaksanaan (Evidence) Jangka Panjang
                 </span>
                 <RadioGroup
                   value={panStatus}
@@ -661,7 +661,7 @@ export default function UnggahInovasiWizard() {
                     htmlFor="foto-panjang"
                     className="mb-1 block text-xs font-medium text-zinc-800"
                   >
-                    Foto Evidence Jangka Panjang (JPG/PNG/WEBP, maks. 3 MB)
+                    Foto Bukti Pelaksanaan Jangka Panjang (JPG/PNG/WEBP, maks. 3 MB)
                   </label>
                   <div className="flex flex-wrap items-center gap-3">
                     <label
@@ -674,7 +674,7 @@ export default function UnggahInovasiWizard() {
                           ? 'Mengunggah...'
                           : panFotoNama
                             ? 'Ganti Foto'
-                            : 'Pilih Foto Evidence'}
+                            : 'Pilih Foto Bukti'}
                       </span>
                     </label>
                     <input
@@ -686,7 +686,7 @@ export default function UnggahInovasiWizard() {
                     />
                     {panFotoNama && (
                       <span className="text-xs font-medium text-zinc-800">
-                        Terunggah: {panFotoNama}
+                        File tersimpan: {panFotoNama}
                       </span>
                     )}
                   </div>
@@ -707,7 +707,7 @@ export default function UnggahInovasiWizard() {
                 required
                 value={kondisiSaatIni}
                 onChange={(e) => setKondisiSaatIni(e.target.value)}
-                placeholder="Jelaskan kondisi terkini pelaksanaan inovasi/proper di unit kerja Anda"
+                placeholder="Jelaskan kondisi terkini pelaksanaan Proper di unit kerja Anda"
                 className="w-full rounded-lg border border-zinc-500 bg-white p-2.5 text-xs text-zinc-950 focus:border-zinc-950 focus:outline-none"
               />
             </div>
@@ -717,7 +717,7 @@ export default function UnggahInovasiWizard() {
                 htmlFor="dokumen-proper"
                 className="block text-xs font-semibold text-zinc-950"
               >
-                Unggah Dokumen Inovasi / Proper (PDF, Word, PowerPoint, Excel, ZIP, RAR · Maks. 3 MB)
+                Unggah Dokumen Proper (PDF, Word, PowerPoint, Excel, ZIP, RAR · Maks. 3 MB)
               </label>
               <div className="mt-2.5 flex flex-wrap items-center gap-3">
                 <label
@@ -730,7 +730,7 @@ export default function UnggahInovasiWizard() {
                       ? 'Mengunggah...'
                       : dokumenNama
                         ? 'Ganti Dokumen Proper'
-                        : 'Pilih Berkas Dokumen'}
+                        : 'Pilih Dokumen Proper'}
                   </span>
                 </label>
                 <input
@@ -761,7 +761,7 @@ export default function UnggahInovasiWizard() {
                 className="inline-flex min-h-[42px] items-center gap-2 rounded-lg bg-zinc-950 px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-zinc-800 disabled:opacity-50"
               >
                 <CheckIcon className="h-4 w-4" aria-hidden="true" />
-                <span>{submitting ? 'Menyimpan...' : 'Kirim Unggahan Inovasi / Proper'}</span>
+                <span>{submitting ? 'Menyimpan...' : 'Simpan & Kirim Dokumen Proper'}</span>
               </button>
             </div>
           </div>

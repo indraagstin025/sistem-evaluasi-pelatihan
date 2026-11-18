@@ -28,7 +28,7 @@ function getWawancaraNilai(p: any, kriteria: string): number | null {
 }
 
 function formatNum(v: number | null | undefined, digits = 2): string {
-  if (v === null || v === undefined || Number.isNaN(v)) return 'KOSONG';
+  if (v === null || v === undefined || Number.isNaN(v)) return 'Belum dinilai';
   return Number(v).toFixed(digits);
 }
 
@@ -50,12 +50,12 @@ export default function KegiatanRingkasanClient({
       const res = await fetch(`/api/kegiatan/${kegiatanId}`, { cache: 'no-store' });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        setError(json.error || 'Gagal memuat ringkasan kegiatan.');
+        setError(json.error || 'Gagal memuat ringkasan kegiatan. Coba muat ulang halaman.');
         return;
       }
       setData(json.data);
     } catch {
-      setError('Terjadi gangguan koneksi saat memuat ringkasan kegiatan.');
+      setError('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
     } finally {
       setLoading(false);
     }
@@ -157,7 +157,7 @@ export default function KegiatanRingkasanClient({
       <div className="flex min-h-[260px] flex-col items-center justify-center rounded-2xl border border-zinc-200 bg-white p-8">
         <ReloadIcon className="h-5 w-5 animate-spin text-zinc-700" aria-hidden="true" />
         <p className="mt-2.5 text-sm font-medium text-zinc-700">
-          Memuat ringkasan dan perbandingan 3 item peserta...
+          Memuat ringkasan kegiatan...
         </p>
       </div>
     );
@@ -192,13 +192,12 @@ export default function KegiatanRingkasanClient({
               />
               <div>
                 <h2 id="selisih-import-title" className="text-sm font-semibold text-zinc-950">
-                  Peringatan Selisih Nilai Antarberkas (IT-01)
+                  Peringatan Selisih Nilai Antarfile Excel
                 </h2>
                 <p className="mt-0.5 text-xs text-zinc-700">
-                  Sumber aktif nilai wawancara menggunakan <strong>Form Penilaian</strong>.
-                  Terdeteksi {selisihImport.length} perbedaan angka antara sheet Form Penilaian dan
-                  sheet Ekspose. Nilai yang tercantum di bawah ini otomatis memakai angka Form
-                  Penilaian.
+                  Nilai wawancara memakai <strong>Form Penilaian</strong>. Ditemukan{' '}
+                  {selisihImport.length} angka yang berbeda antara Form Penilaian dan Ekspose
+                  (paparan hasil evaluasi); angka yang tampil di bawah ini memakai Form Penilaian.
                 </p>
               </div>
             </div>
@@ -206,7 +205,7 @@ export default function KegiatanRingkasanClient({
               href={`/kegiatan/${kegiatanId}/input-data`}
               className="inline-flex min-h-[36px] items-center rounded-lg border border-zinc-500 bg-white px-3 py-1.5 text-xs font-medium text-zinc-950 transition hover:bg-zinc-100"
             >
-              Kelola Impor Excel
+              Kelola Impor File Excel
             </Link>
           </div>
 
@@ -217,9 +216,9 @@ export default function KegiatanRingkasanClient({
                   <th className="px-3.5 py-2.5 font-semibold">Nama Peserta</th>
                   <th className="px-3.5 py-2.5 font-semibold">Kriteria</th>
                   <th className="px-3.5 py-2.5 text-right font-semibold">
-                    Form Penilaian (Dipakai)
+                    Form Penilaian (dipakai)
                   </th>
-                  <th className="px-3.5 py-2.5 text-right font-semibold">Sheet Ekspose</th>
+                  <th className="px-3.5 py-2.5 text-right font-semibold">Ekspose</th>
                   <th className="px-3.5 py-2.5 font-semibold">Catatan</th>
                 </tr>
               </thead>
@@ -231,10 +230,10 @@ export default function KegiatanRingkasanClient({
                     </td>
                     <td className="px-3.5 py-2.5 text-zinc-700">{s.kriteriaLabel}</td>
                     <td className="px-3.5 py-2.5 text-right font-mono font-semibold text-zinc-950">
-                      {s.nilaiForm === null ? 'KOSONG' : s.nilaiForm}
+                      {s.nilaiForm === null ? 'Belum dinilai' : s.nilaiForm}
                     </td>
                     <td className="px-3.5 py-2.5 text-right font-mono text-zinc-600">
-                      {s.nilaiEkspose === null ? 'KOSONG' : s.nilaiEkspose}
+                      {s.nilaiEkspose === null ? 'Belum dinilai' : s.nilaiEkspose}
                     </td>
                     <td className="px-3.5 py-2.5 text-zinc-600">{s.catatan}</td>
                   </tr>
@@ -257,11 +256,12 @@ export default function KegiatanRingkasanClient({
         <div className="flex flex-col justify-between gap-3 border-b border-zinc-200 pb-4 lg:flex-row lg:items-center">
           <div>
             <h2 id="jawaban-perbandingan-title" className="text-base font-semibold text-zinc-950">
-              Tabel Jawaban 3 Item Perbandingan per Peserta
+              Tabel Perbandingan 3 Butir per Peserta
             </h2>
             <p className="mt-1 text-xs text-zinc-600">
-              Menampilkan perbandingan hasil Survey dan Wawancara pada 3 butir Aksi Perubahan per
-              peserta. Ringkasan kuesioner lengkap tersedia pada menu{' '}
+              Menampilkan perbandingan hasil Survei dan Wawancara pada 3 butir Aksi Perubahan per
+              peserta (Selisih = Nilai Wawancara - Nilai Survei). Ringkasan kuesioner lengkap
+              tersedia pada menu{' '}
               <Link
                 href={`/kegiatan/${kegiatanId}/hasil-survei`}
                 className="font-medium text-zinc-950 underline underline-offset-4"
@@ -325,18 +325,18 @@ export default function KegiatanRingkasanClient({
                     <th className="px-3 py-2.5 font-semibold">No</th>
                     <th className="px-3 py-2.5 font-semibold">Peserta &amp; Tim</th>
                     <th className="px-3 py-2.5 text-center font-semibold">
-                      Jangka Panjang (Survey / Wawancara)
+                      Jangka Panjang (Survei / Wawancara)
                     </th>
                     <th className="px-3 py-2.5 text-center font-semibold">
-                      Tujuan Aksi (Survey / Wawancara)
+                      Tujuan Aksi (Survei / Wawancara)
                     </th>
                     <th className="px-3 py-2.5 text-center font-semibold">
-                      Manfaat (Survey / Wawancara)
+                      Manfaat (Survei / Wawancara)
                     </th>
-                    <th className="px-3 py-2.5 text-right font-semibold">Survey</th>
+                    <th className="px-3 py-2.5 text-right font-semibold">Survei</th>
                     <th className="px-3 py-2.5 text-right font-semibold">Wawancara</th>
                     <th className="px-3 py-2.5 text-right font-semibold">Selisih</th>
-                    <th className="px-3 py-2.5 text-right font-semibold">Akhir Berbobot</th>
+                    <th className="px-3 py-2.5 text-right font-semibold">Nilai Akhir Berbobot</th>
                     <th className="px-3 py-2.5 text-right font-semibold">Aksi</th>
                   </tr>
                 </thead>
@@ -362,34 +362,35 @@ export default function KegiatanRingkasanClient({
                       <td className="px-3 py-3">
                         <div className="font-semibold text-zinc-950">{p.nama}</div>
                         <div className="mt-0.5 font-mono text-[11px] text-zinc-500">
-                          NIP {p.nip} · {p.tim?.namaTim || p.namaTimExcel || 'Belum Dibagi'}
+                          NIP (Nomor Induk Pegawai) {p.nip || '-'} ·{' '}
+                          {p.tim?.namaTim || p.namaTimExcel || 'Belum Dibagi ke Tim'}
                         </div>
                       </td>
                       <td className="px-3 py-3 text-center font-mono">
                         <span className="font-semibold text-zinc-950">
-                          {s1 ?? '-'}
+                          {s1 ?? 'Belum dinilai'}
                         </span>{' '}
                         <span className="text-zinc-400">/</span>{' '}
                         <span className={w2 === null ? 'text-zinc-400' : 'font-semibold text-zinc-950'}>
-                          {w2 === null ? 'KOSONG' : w2}
+                          {w2 === null ? 'Belum dinilai' : w2}
                         </span>
                       </td>
                       <td className="px-3 py-3 text-center font-mono">
                         <span className="font-semibold text-zinc-950">
-                          {s2 ?? '-'}
+                          {s2 ?? 'Belum dinilai'}
                         </span>{' '}
                         <span className="text-zinc-400">/</span>{' '}
                         <span className={w3 === null ? 'text-zinc-400' : 'font-semibold text-zinc-950'}>
-                          {w3 === null ? 'KOSONG' : w3}
+                          {w3 === null ? 'Belum dinilai' : w3}
                         </span>
                       </td>
                       <td className="px-3 py-3 text-center font-mono">
                         <span className="font-semibold text-zinc-950">
-                          {s3 ?? '-'}
+                          {s3 ?? 'Belum dinilai'}
                         </span>{' '}
                         <span className="text-zinc-400">/</span>{' '}
                         <span className={w4 === null ? 'text-zinc-400' : 'font-semibold text-zinc-950'}>
-                          {w4 === null ? 'KOSONG' : w4}
+                          {w4 === null ? 'Belum dinilai' : w4}
                         </span>
                       </td>
                       <td className="px-3 py-3 text-right font-mono font-medium text-zinc-900">
@@ -398,7 +399,7 @@ export default function KegiatanRingkasanClient({
                       <td className="px-3 py-3 text-right font-mono font-semibold text-zinc-950">
                         {m === null ? (
                           <span className="rounded border border-zinc-400 px-1.5 py-0.5 text-[10px]">
-                            KOSONG
+                            Belum dinilai
                           </span>
                         ) : (
                           formatNum(m)
@@ -410,14 +411,14 @@ export default function KegiatanRingkasanClient({
                           : `${selisih >= 0 ? '+' : ''}${selisih.toFixed(2)}`}
                       </td>
                       <td className="px-3 py-3 text-right font-mono font-medium text-zinc-900">
-                        {totalForm === null ? '-' : totalForm.toFixed(2)}
+                        {totalForm === null ? 'Belum dinilai' : totalForm.toFixed(2)}
                       </td>
                       <td className="px-3 py-3 text-right">
                         <Link
                           href={`/kegiatan/${kegiatanId}/wawancara/${p.id}`}
                           className="inline-flex min-h-[34px] items-center rounded-lg border border-zinc-500 bg-white px-2.5 py-1 text-[11px] font-medium text-zinc-950 transition hover:bg-zinc-950 hover:text-white"
                         >
-                          Form
+                          Buka Form
                         </Link>
                       </td>
                     </tr>
@@ -426,6 +427,12 @@ export default function KegiatanRingkasanClient({
               </tbody>
             </table>
           </div>
+
+          <p className="mt-3 text-[11px] text-zinc-600">
+            Keterangan kolom: Survei = rata-rata survei (L); Wawancara = rata-rata wawancara (M)
+            dari 3 kriteria; Selisih = Nilai Wawancara - Nilai Survei; Nilai Akhir Berbobot =
+            gabungan berbobot 5 kriteria.
+          </p>
 
           <TablePagination
             page={page}

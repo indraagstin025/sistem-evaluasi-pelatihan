@@ -22,7 +22,7 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: 'Sistem Evaluasi Pasca Pelatihan | BPSDM Provinsi Jawa Barat',
   description:
-    'Platform terpadu pengelolaan kegiatan, unggahan Inovasi/Proper, penilaian wawancara, dan ekspose hasil evaluasi pasca pelatihan.',
+    'Platform terpadu pengelolaan kegiatan evaluasi, unggahan dokumen Proper (Proyek Perubahan), penilaian wawancara, dan ekspose hasil evaluasi pasca pelatihan.',
 };
 
 export default async function RootLayout({

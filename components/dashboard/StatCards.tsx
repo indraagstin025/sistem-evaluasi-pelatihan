@@ -40,21 +40,21 @@ export default function StatCards({ ringkasan }: StatCardsProps) {
   const hasNeg = typeof maxNeg === 'number' && !isNaN(maxNeg);
 
   const selisihDisplay = hasPos
-    ? `${maxPos >= 0 ? '+' : ''}${maxPos.toFixed(2)}`
-    : '0.00';
+    ? `${maxPos >= 0 ? '+' : ''}${maxPos.toFixed(2)} poin`
+    : 'Belum dinilai';
   const subSelisih =
     hasPos && hasNeg
-      ? `Rentang ${maxNeg.toFixed(2)} s.d. ${maxPos >= 0 ? '+' : ''}${maxPos.toFixed(2)}`
+      ? `Selisih terendah ${maxNeg.toFixed(2)} sampai dengan tertinggi ${maxPos >= 0 ? '+' : ''}${maxPos.toFixed(2)} (Wawancara - Survei)`
       : 'Belum ada perbandingan';
 
   const lRentangText =
     validSurvei === 0
-      ? 'Belum ada data survey'
+      ? 'Belum ada data survei (skala 0–100)'
       : (ringkasan?.rataRataSurveiL ?? 0) >= 76
-      ? 'Kategori Optimal'
+      ? 'Kategori Optimal (76–100)'
       : (ringkasan?.rataRataSurveiL ?? 0) >= 51
-      ? 'Kategori Baik'
-      : 'Perlu Ditingkatkan';
+      ? 'Kategori Baik (51–75)'
+      : 'Perlu Ditingkatkan (< 51)';
 
   const wawancaraCoverage =
     total > 0 ? Math.round((validWawancara / total) * 100) : 0;
@@ -63,15 +63,15 @@ export default function StatCards({ ringkasan }: StatCardsProps) {
     {
       id: 'peserta',
       title: 'Total peserta',
-      value: String(total),
-      detail: `${validSurvei} terdata survey, ${validWawancara} terdata wawancara`,
+      value: `${total} peserta`,
+      detail: `${validSurvei} peserta sudah mengisi survei, ${validWawancara} peserta sudah diwawancarai`,
       icon: PersonIcon,
     },
     {
       id: 'cakupan',
       title: 'Cakupan wawancara',
       value: `${wawancaraCoverage}%`,
-      detail: `${validWawancara} dari ${total} peserta tervalidasi`,
+      detail: `${validWawancara} dari ${total} peserta sudah diwawancarai`,
       icon: TargetIcon,
     },
     {
@@ -90,14 +90,16 @@ export default function StatCards({ ringkasan }: StatCardsProps) {
         <div>
           <div className="flex items-center justify-between gap-2">
             <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-zinc-400">
-              Indeks Evaluasi Utama
+              Nilai Utama Evaluasi (Rata-rata Survei &amp; Wawancara)
             </p>
             <BarChartIcon className="h-4 w-4 shrink-0 text-zinc-300" aria-hidden="true" />
           </div>
 
           <div className="mt-5 grid grid-cols-2 divide-x divide-zinc-800">
             <div className="pr-4">
-              <p className="text-xs font-normal text-zinc-300">Rata-rata Survey</p>
+              <p className="text-xs font-normal text-zinc-300">
+                Rata-rata Survei (L, skala 0–100)
+              </p>
               <p className="mt-1.5 font-mono text-3xl font-semibold leading-none tracking-tight text-white tabular-nums sm:text-[34px]">
                 {lVal}
               </p>
@@ -107,19 +109,21 @@ export default function StatCards({ ringkasan }: StatCardsProps) {
             </div>
 
             <div className="pl-4">
-              <p className="text-xs font-normal text-zinc-300">Rata-rata Wawancara</p>
+              <p className="text-xs font-normal text-zinc-300">
+                Rata-rata Wawancara (M, skala 0–100)
+              </p>
               <p className="mt-1.5 font-mono text-3xl font-semibold leading-none tracking-tight text-white tabular-nums sm:text-[34px]">
                 {mVal}
               </p>
               <p className="mt-2 text-[11px] font-normal text-zinc-300">
-                {validWawancara} dari {total} terisi
+                {validWawancara} dari {total} peserta sudah diwawancarai
               </p>
             </div>
           </div>
         </div>
 
         <div className="mt-5 flex items-center justify-between border-t border-zinc-800 pt-3.5 text-xs">
-          <span className="font-normal text-zinc-300">Selisih Tertinggi</span>
+          <span className="font-normal text-zinc-300">Selisih tertinggi (Wawancara - Survei)</span>
           <span className="font-mono font-semibold text-white tabular-nums">
             {selisihDisplay}
           </span>

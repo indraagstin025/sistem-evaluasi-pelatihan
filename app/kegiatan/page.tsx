@@ -67,13 +67,22 @@ const EMPTY_FORM: KegiatanFormState = {
 };
 
 function formatDateRange(startIso: string, endIso: string): string {
-  const fmt = (d: string) =>
-    new Date(d).toLocaleDateString('id-ID', {
+  const start = new Date(startIso);
+  const end = new Date(endIso);
+  const fmt = (d: Date) =>
+    d.toLocaleDateString('id-ID', {
       day: '2-digit',
       month: 'short',
       year: 'numeric',
     });
-  return `${fmt(startIso)} s.d. ${fmt(endIso)}`;
+  if (
+    start.getFullYear() === end.getFullYear() &&
+    start.getMonth() === end.getMonth()
+  ) {
+    const startDay = start.toLocaleDateString('id-ID', { day: '2-digit' });
+    return `${startDay}–${fmt(end)}`;
+  }
+  return `${fmt(start)}–${fmt(end)}`;
 }
 
 function toDateInputValue(iso: string): string {
@@ -118,7 +127,7 @@ function KegiatanFormFields({
             htmlFor={`${idPrefix}-jenis`}
             className="mb-1.5 block text-xs font-semibold text-zinc-900"
           >
-            Pelatihan <span className="text-zinc-500">*</span>
+            Jenis Pelatihan <span className="text-zinc-500">*</span>
           </label>
           <Select
             value={form.jenisPelatihan}
@@ -131,11 +140,14 @@ function KegiatanFormFields({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="PKP">PKP</SelectItem>
-              <SelectItem value="PKA">PKA</SelectItem>
-              <SelectItem value="PKN">PKN</SelectItem>
+              <SelectItem value="PKP">PKP - Pelatihan Kepemimpinan Pengawas</SelectItem>
+              <SelectItem value="PKA">PKA - Pelatihan Kepemimpinan Administrator</SelectItem>
+              <SelectItem value="PKN">PKN - Pelatihan Kepemimpinan Nasional</SelectItem>
             </SelectContent>
           </Select>
+          <p className="mt-1 text-[11px] text-zinc-500">
+            PKA = Pelatihan Kepemimpinan Administrator, PKP = Pengawas, PKN = Nasional.
+          </p>
         </div>
       </div>
 
@@ -254,12 +266,16 @@ export default function DaftarKegiatanPage() {
         setRole(meJson.user.role);
       }
       if (!kegRes.ok || !kegJson.success) {
-        setFetchError(kegJson.error || 'Gagal memuat daftar kegiatan.');
+        setFetchError(
+          kegJson.error || 'Gagal memuat daftar kegiatan. Coba muat ulang halaman.'
+        );
         return;
       }
       setKegiatan(kegJson.data || []);
     } catch {
-      setFetchError('Koneksi bermasalah saat memuat daftar kegiatan.');
+      setFetchError(
+        'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.'
+      );
     } finally {
       setLoading(false);
     }
@@ -318,7 +334,9 @@ export default function DaftarKegiatanPage() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        setCreateError(json.error || 'Gagal membuat kegiatan baru.');
+        setCreateError(
+          json.error || 'Gagal membuat kegiatan baru. Periksa isian, lalu coba lagi.'
+        );
         return;
       }
       setCreateOpen(false);
@@ -326,7 +344,9 @@ export default function DaftarKegiatanPage() {
       setForm(EMPTY_FORM);
       await loadAll();
     } catch {
-      setCreateError('Koneksi gagal saat menyimpan kegiatan.');
+      setCreateError(
+        'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.'
+      );
     } finally {
       setCreating(false);
     }
@@ -364,14 +384,18 @@ export default function DaftarKegiatanPage() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        setEditError(json.error || 'Gagal memperbarui kegiatan.');
+        setEditError(
+          json.error || 'Gagal memperbarui kegiatan. Periksa isian, lalu coba lagi.'
+        );
         return;
       }
       setEditTarget(null);
       setEditError(null);
       await loadAll();
     } catch {
-      setEditError('Koneksi gagal saat memperbarui kegiatan.');
+      setEditError(
+        'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.'
+      );
     } finally {
       setEditing(false);
     }
@@ -387,13 +411,17 @@ export default function DaftarKegiatanPage() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        setActionError(json.error || 'Gagal menghapus kegiatan.');
+        setActionError(
+          json.error || 'Gagal menghapus kegiatan. Muat ulang halaman, lalu coba lagi.'
+        );
         return;
       }
       setDeleteTarget(null);
       await loadAll();
     } catch {
-      setActionError('Koneksi bermasalah saat menghapus kegiatan.');
+      setActionError(
+        'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.'
+      );
     } finally {
       setDeleting(false);
     }
@@ -407,8 +435,8 @@ export default function DaftarKegiatanPage() {
         title={isAdmin ? 'Daftar Kegiatan Evaluasi' : 'Kegiatan Evaluasi Saya'}
         subtitle={
           isAdmin
-            ? 'Buat kegiatan baru, impor berkas Excel, atur tim evaluator, dan kelola Ekspose'
-            : 'Pilih kegiatan di bawah ini untuk melihat daftar pegawai tim Anda dan mengisi wawancara'
+            ? 'Buat kegiatan baru, impor file Excel, atur tim evaluator, dan kelola Ekspose (paparan hasil evaluasi). Istilah: Proper (laporan Proyek Perubahan peserta).'
+            : 'Pilih kegiatan di bawah ini untuk melihat peserta tim Anda, memeriksa laporan Proper (laporan Proyek Perubahan peserta), dan mengisi wawancara'
         }
       >
         {isAdmin && (
@@ -456,7 +484,7 @@ export default function DaftarKegiatanPage() {
           </h2>
           <p className="mx-auto mt-1 max-w-md text-xs text-zinc-600">
             {isAdmin
-              ? 'Klik "Buat Kegiatan" untuk membuat pelatihan PKA, PKP, atau PKN lalu impor dua berkas Excel.'
+              ? 'Klik "Buat Kegiatan" untuk membuat kegiatan Pelatihan Kepemimpinan (PKA = Pelatihan Kepemimpinan Administrator, PKP = Pengawas, PKN = Nasional), lalu impor dua file Excel.'
               : 'Anda belum ditautkan ke tim pada kegiatan apa pun. Hubungi Super Admin untuk penugasan tim.'}
           </p>
           {isAdmin && (
@@ -530,7 +558,7 @@ export default function DaftarKegiatanPage() {
                             className="flex min-h-[34px] w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-zinc-800 transition hover:bg-zinc-100 hover:text-zinc-950"
                           >
                             <EyeOpenIcon className="h-3.5 w-3.5 shrink-0 text-zinc-600" aria-hidden="true" />
-                            <span>Detail</span>
+                            <span>Lihat Detail</span>
                           </button>
 
                           {isAdmin && (
@@ -542,7 +570,7 @@ export default function DaftarKegiatanPage() {
                                 className="flex min-h-[34px] w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-zinc-800 transition hover:bg-zinc-100 hover:text-zinc-950"
                               >
                                 <Pencil1Icon className="h-3.5 w-3.5 shrink-0 text-zinc-600" aria-hidden="true" />
-                                <span>Update</span>
+                                <span>Ubah</span>
                               </button>
                               <button
                                 type="button"
@@ -554,7 +582,7 @@ export default function DaftarKegiatanPage() {
                                 className="flex min-h-[34px] w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium text-zinc-950 transition hover:bg-zinc-950 hover:text-white"
                               >
                                 <TrashIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                                <span>Delete</span>
+                                <span>Hapus</span>
                               </button>
                             </>
                           )}
@@ -580,13 +608,15 @@ export default function DaftarKegiatanPage() {
                       <p className="font-mono text-sm font-semibold text-zinc-950 tabular-nums">
                         {item.totalProper}
                       </p>
-                      <p className="text-[10px] text-zinc-600">Proper</p>
+                      <p className="text-[10px] text-zinc-600" title="Peserta yang sudah unggah Proper">
+                        Unggah Proper
+                      </p>
                     </div>
                     <div>
                       <p className="font-mono text-sm font-semibold text-zinc-950 tabular-nums">
                         {item.wawancaraSelesaiCount}
                       </p>
-                      <p className="text-[10px] text-zinc-600">Selesai</p>
+                      <p className="text-[10px] text-zinc-600">Wawancara Selesai</p>
                     </div>
                   </div>
 
@@ -594,7 +624,7 @@ export default function DaftarKegiatanPage() {
                     <div className="mt-2.5 flex items-center gap-1.5 rounded-lg border border-zinc-900 bg-zinc-100 px-2.5 py-1 text-[10px] font-medium text-zinc-950">
                       <ExclamationTriangleIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
                       <span className="truncate">
-                        {item.totalSelisih} catatan selisih antarberkas (IT-01)
+                        {item.totalSelisih} selisih nilai antara Form Penilaian dan Ekspose
                       </span>
                     </div>
                   )}
@@ -623,7 +653,7 @@ export default function DaftarKegiatanPage() {
         </div>
       )}
 
-      {/* Modal Buat Kegiatan (5 isian wajib UR-F-08) */}
+      {/* Modal Buat Kegiatan */}
       <Dialog
         open={createOpen}
         onOpenChange={(open) => {
@@ -635,7 +665,7 @@ export default function DaftarKegiatanPage() {
           <DialogHeader>
             <DialogTitle>Buat Kegiatan Baru</DialogTitle>
             <DialogDescription>
-              Lengkapi lima informasi dasar kegiatan evaluasi pasca pelatihan (PKA, PKP, atau PKN).
+              Lengkapi informasi dasar kegiatan evaluasi pasca pelatihan (PKA, PKP, atau PKN).
             </DialogDescription>
           </DialogHeader>
 
@@ -671,7 +701,7 @@ export default function DaftarKegiatanPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal Update Kegiatan */}
+      {/* Modal Ubah Kegiatan */}
       <Dialog
         open={editTarget !== null}
         onOpenChange={(open) => {
@@ -683,9 +713,9 @@ export default function DaftarKegiatanPage() {
       >
         <DialogContent className="max-w-xl">
           <DialogHeader>
-            <DialogTitle>Update Kegiatan Evaluasi</DialogTitle>
+            <DialogTitle>Ubah Kegiatan Evaluasi</DialogTitle>
             <DialogDescription>
-              Perbarui informasi kegiatan pelatihan yang dipilih.
+              Perbarui informasi kegiatan evaluasi pasca pelatihan yang dipilih.
             </DialogDescription>
           </DialogHeader>
 
@@ -792,13 +822,13 @@ export default function DaftarKegiatanPage() {
                     <p className="font-mono text-base font-semibold text-zinc-950 tabular-nums">
                       {detailTarget.totalProper}
                     </p>
-                    <p className="mt-0.5 text-[11px] text-zinc-600">Proper</p>
+                    <p className="mt-0.5 text-[11px] text-zinc-600">Unggah Proper</p>
                   </div>
                   <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3">
                     <p className="font-mono text-base font-semibold text-zinc-950 tabular-nums">
                       {detailTarget.wawancaraSelesaiCount}
                     </p>
-                    <p className="mt-0.5 text-[11px] text-zinc-600">Selesai</p>
+                    <p className="mt-0.5 text-[11px] text-zinc-600">Wawancara Selesai</p>
                   </div>
                 </div>
 
@@ -806,7 +836,7 @@ export default function DaftarKegiatanPage() {
                   <div className="flex items-center gap-2 rounded-xl border border-zinc-900 bg-zinc-100 px-3.5 py-2.5 text-xs font-medium text-zinc-950">
                     <ExclamationTriangleIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
                     <span>
-                      Terdeteksi {detailTarget.totalSelisih} temuan selisih nilai Form Penilaian vs Ekspose (IT-01).
+                      {detailTarget.totalSelisih} selisih nilai antara Form Penilaian dan Ekspose.
                     </span>
                   </div>
                 )}
@@ -845,7 +875,7 @@ export default function DaftarKegiatanPage() {
         title="Hapus Kegiatan?"
         description={
           deleteTarget
-            ? `Kegiatan "${deleteTarget.nama}" beserta seluruh peserta, tim, proper, nilai wawancara, dan pembahasannya akan dihapus permanen.`
+            ? `Kegiatan "${deleteTarget.nama}" beserta seluruh peserta, tim, laporan Proper, nilai wawancara, dan pembahasannya akan dihapus permanen.`
             : ''
         }
         confirmLabel="Hapus Kegiatan"

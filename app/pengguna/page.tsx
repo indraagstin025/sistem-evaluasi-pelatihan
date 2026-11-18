@@ -19,6 +19,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { StatusBanner } from '@/components/ui/status-banner';
+import { ConfirmDialog } from '@/components/ui/alert-dialog';
 import { TablePagination } from '@/components/ui/table-pagination';
 
 interface EvaluatorUser {
@@ -56,6 +57,9 @@ export default function KelolaEvaluatorPage() {
   const [resetError, setResetError] = useState<string | null>(null);
   const [showResetPass, setShowResetPass] = useState(false);
 
+  const [deactivateTarget, setDeactivateTarget] = useState<EvaluatorUser | null>(null);
+  const [togglingAktif, setTogglingAktif] = useState(false);
+
   const loadUsers = async () => {
     setLoading(true);
     setFetchError(null);
@@ -63,12 +67,14 @@ export default function KelolaEvaluatorPage() {
       const res = await fetch('/api/users', { cache: 'no-store' });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        setFetchError(json.error || 'Gagal memuat daftar Evaluator.');
+        setFetchError(
+          json.error || 'Gagal memuat daftar Evaluator. Coba muat ulang halaman.'
+        );
         return;
       }
       setUsers(json.data || []);
     } catch {
-      setFetchError('Koneksi bermasalah saat memuat daftar Evaluator.');
+      setFetchError('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
     } finally {
       setLoading(false);
     }
@@ -91,7 +97,9 @@ export default function KelolaEvaluatorPage() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        setCreateError(json.error || 'Gagal membuat akun Evaluator.');
+        setCreateError(
+          json.error || 'Gagal membuat akun Evaluator. Periksa isian, lalu coba lagi.'
+        );
         return;
       }
       setCreateOpen(false);
@@ -101,7 +109,7 @@ export default function KelolaEvaluatorPage() {
       setPage(1);
       await loadUsers();
     } catch {
-      setCreateError('Gagal menghubungi server.');
+      setCreateError('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
     } finally {
       setCreating(false);
     }
@@ -121,7 +129,9 @@ export default function KelolaEvaluatorPage() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        setResetError(json.error || 'Gagal mereset kata sandi.');
+        setResetError(
+          json.error || 'Gagal mereset kata sandi. Periksa kata sandi baru, lalu coba lagi.'
+        );
         return;
       }
       setResetTarget(null);
@@ -130,7 +140,7 @@ export default function KelolaEvaluatorPage() {
       setBanner({ tone: 'success', text: json.message });
       await loadUsers();
     } catch {
-      setResetError('Koneksi gagal saat mereset kata sandi.');
+      setResetError('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
     } finally {
       setResetting(false);
     }
@@ -138,6 +148,7 @@ export default function KelolaEvaluatorPage() {
 
   const handleToggleAktif = async (u: EvaluatorUser) => {
     setBanner(null);
+    setTogglingAktif(true);
     try {
       const res = await fetch(`/api/users/${u.id}`, {
         method: 'PATCH',
@@ -146,12 +157,21 @@ export default function KelolaEvaluatorPage() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        setBanner({ tone: 'error', text: json.error || 'Gagal mengubah status akun.' });
+        setBanner({
+          tone: 'error',
+          text: json.error || 'Gagal mengubah keaktifan akun. Coba muat ulang halaman.',
+        });
         return;
       }
+      setDeactivateTarget(null);
       await loadUsers();
     } catch {
-      setBanner({ tone: 'error', text: 'Gagal menghubungi server.' });
+      setBanner({
+        tone: 'error',
+        text: 'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.',
+      });
+    } finally {
+      setTogglingAktif(false);
     }
   };
 
@@ -159,7 +179,7 @@ export default function KelolaEvaluatorPage() {
     <div className="space-y-6 pb-12">
       <Topbar
         title="Kelola Akun Evaluator"
-        subtitle="Buat akun Evaluator dengan username NIP dan sandi awal, serta reset kata sandi bila diperlukan"
+        subtitle="Buat akun Evaluator (masuk dengan NIP atau Nomor Induk Pegawai dan kata sandi awal) serta reset kata sandi bila perlu"
       >
         <button
           type="button"
@@ -194,7 +214,8 @@ export default function KelolaEvaluatorPage() {
         <div className="rounded-2xl border border-zinc-200 bg-white p-10 text-center">
           <p className="text-sm font-semibold text-zinc-950">Belum Ada Akun Evaluator</p>
           <p className="mt-1 text-xs text-zinc-600">
-            Akun Evaluator dapat dibuat di sini atau langsung di menu Pembagian Tim pada masing-masing kegiatan.
+            Klik &quot;Tambah Evaluator&quot; di atas, atau buat lewat menu Pembagian Tim di
+            halaman kegiatan.
           </p>
         </div>
       ) : (
@@ -204,10 +225,10 @@ export default function KelolaEvaluatorPage() {
               <thead>
                 <tr className="border-b border-zinc-200 bg-zinc-50 font-semibold text-zinc-800">
                   <th className="px-4 py-3">Nama Evaluator</th>
-                  <th className="px-4 py-3">NIP (Username Login)</th>
-                  <th className="px-4 py-3">Tim Diampu</th>
-                  <th className="px-4 py-3">Status Sandi</th>
-                  <th className="px-4 py-3">Status Akun</th>
+                  <th className="px-4 py-3">NIP</th>
+                  <th className="px-4 py-3">Tim yang Ditangani</th>
+                  <th className="px-4 py-3">Kata Sandi Awal</th>
+                  <th className="px-4 py-3">Keaktifan Akun</th>
                   <th className="px-4 py-3 text-right">Aksi</th>
                 </tr>
               </thead>
@@ -224,7 +245,7 @@ export default function KelolaEvaluatorPage() {
                       <td className="px-4 py-3 text-zinc-700">
                         {u.timDiampu.length > 0
                           ? u.timDiampu.map((t) => `${t.namaTim} (${t.kegiatan.nama})`).join(', ')
-                          : 'Belum ditugaskan'}
+                          : 'Belum ditugaskan ke tim mana pun'}
                       </td>
                       <td className="px-4 py-3">
                         <span
@@ -234,7 +255,9 @@ export default function KelolaEvaluatorPage() {
                               : 'border-zinc-300 bg-white text-zinc-700'
                           }`}
                         >
-                          {u.mustChangePassword ? 'Wajib Ganti Sandi' : 'Sudah Diganti'}
+                          {u.mustChangePassword
+                            ? 'Wajib Ganti Kata Sandi'
+                            : 'Sudah diganti dari kata sandi awal'}
                         </span>
                       </td>
                       <td className="px-4 py-3">
@@ -259,14 +282,25 @@ export default function KelolaEvaluatorPage() {
                             className="inline-flex min-h-[34px] items-center gap-1 rounded-lg border border-zinc-500 bg-white px-2.5 py-1 text-[11px] font-medium text-zinc-950 hover:bg-zinc-100"
                           >
                             <LockClosedIcon className="h-3 w-3" aria-hidden="true" />
-                            <span>Reset Sandi</span>
+                            <span>Reset Kata Sandi</span>
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleToggleAktif(u)}
+                            onClick={() => {
+                              if (u.aktif) {
+                                setDeactivateTarget(u);
+                              } else {
+                                void handleToggleAktif(u);
+                              }
+                            }}
+                            title={
+                              u.aktif
+                                ? 'Nonaktifkan (Evaluator tidak bisa masuk)'
+                                : 'Aktifkan kembali akun Evaluator'
+                            }
                             className="min-h-[34px] rounded-lg border border-zinc-300 bg-white px-2.5 py-1 text-[11px] font-medium text-zinc-700 hover:border-zinc-950 hover:text-zinc-950"
                           >
-                            {u.aktif ? 'Nonaktifkan' : 'Aktifkan'}
+                            {u.aktif ? 'Nonaktifkan (tidak bisa masuk)' : 'Aktifkan'}
                           </button>
                         </div>
                       </td>
@@ -298,7 +332,8 @@ export default function KelolaEvaluatorPage() {
           <DialogHeader>
             <DialogTitle>Tambah Akun Evaluator</DialogTitle>
             <DialogDescription>
-              Evaluator akan login menggunakan NIP dan sandi awal ini, lalu wajib mengganti sandi pada login pertama.
+              Evaluator akan login menggunakan NIP (Nomor Induk Pegawai) dan kata sandi awal ini,
+              lalu wajib mengganti kata sandi pada login pertama. Tanda * berarti wajib diisi.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCreate} className="flex min-h-0 flex-1 flex-col">
@@ -324,7 +359,7 @@ export default function KelolaEvaluatorPage() {
                   required
                   value={form.nama}
                   onChange={(e) => setForm({ ...form, nama: e.target.value })}
-                  placeholder="Contoh: Angga Muchlis Al Rachmat"
+                  placeholder="Contoh: Budi Santoso"
                   className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white px-3.5 text-sm text-zinc-950 placeholder:text-zinc-400 focus:border-zinc-950 focus:outline-none"
                 />
               </div>
@@ -334,7 +369,7 @@ export default function KelolaEvaluatorPage() {
                   htmlFor="ev-nip"
                   className="mb-1.5 block text-xs font-semibold text-zinc-900"
                 >
-                  NIP (Username Login) <span className="text-zinc-500">*</span>
+                  NIP <span className="text-zinc-500">*</span>
                 </label>
                 <input
                   id="ev-nip"
@@ -346,7 +381,7 @@ export default function KelolaEvaluatorPage() {
                   className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white px-3.5 font-mono text-sm text-zinc-950 placeholder:text-zinc-400 focus:border-zinc-950 focus:outline-none"
                 />
                 <p className="mt-1 text-[11px] text-zinc-500">
-                  Masukkan NIP 18 digit tanpa spasi.
+                  Masukkan NIP 18 digit tanpa spasi (contoh: 197905012009021001).
                 </p>
               </div>
 
@@ -362,7 +397,7 @@ export default function KelolaEvaluatorPage() {
                   type="email"
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  placeholder="Opsional"
+                  placeholder="Contoh: evaluator@bpsdm.jabarprov.go.id"
                   className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white px-3.5 text-sm text-zinc-950 placeholder:text-zinc-400 focus:border-zinc-950 focus:outline-none"
                 />
               </div>
@@ -372,7 +407,7 @@ export default function KelolaEvaluatorPage() {
                   htmlFor="ev-pass"
                   className="mb-1.5 block text-xs font-semibold text-zinc-900"
                 >
-                  Kata Sandi Awal (min. 6 karakter) <span className="text-zinc-500">*</span>
+                  Kata Sandi Awal (minimal 6 karakter) <span className="text-zinc-500">*</span>
                 </label>
                 <div className="relative">
                   <input
@@ -382,13 +417,13 @@ export default function KelolaEvaluatorPage() {
                     minLength={6}
                     value={form.password}
                     onChange={(e) => setForm({ ...form, password: e.target.value })}
-                    placeholder="Sandi sementara"
+                    placeholder="Masukkan kata sandi awal"
                     className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white pl-3.5 pr-11 font-mono text-sm text-zinc-950 placeholder:text-zinc-400 focus:border-zinc-950 focus:outline-none"
                   />
                   <button
                     type="button"
                     onClick={() => setShowCreatePass((prev) => !prev)}
-                    aria-label={showCreatePass ? 'Sembunyikan sandi' : 'Lihat sandi'}
+                    aria-label={showCreatePass ? 'Sembunyikan kata sandi' : 'Lihat kata sandi'}
                     className="absolute right-1.5 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-950"
                   >
                     {showCreatePass ? (
@@ -421,7 +456,7 @@ export default function KelolaEvaluatorPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal Reset Sandi Evaluator */}
+      {/* Modal Reset Kata Sandi Evaluator */}
       <Dialog
         open={resetTarget !== null}
         onOpenChange={(open) => {
@@ -435,7 +470,8 @@ export default function KelolaEvaluatorPage() {
           <DialogHeader>
             <DialogTitle>Reset Kata Sandi Evaluator</DialogTitle>
             <DialogDescription>
-              Tetapkan sandi sementara baru untuk {resetTarget?.nama} (NIP {resetTarget?.nip}). Evaluator akan diwajibkan mengganti sandi saat login berikutnya.
+              Tetapkan kata sandi sementara baru untuk {resetTarget?.nama} (NIP{' '}
+              {resetTarget?.nip || '-'}). Evaluator wajib mengganti kata sandi saat login berikutnya.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleReset} className="flex min-h-0 flex-1 flex-col">
@@ -453,7 +489,7 @@ export default function KelolaEvaluatorPage() {
                   htmlFor="reset-pass"
                   className="mb-1.5 block text-xs font-semibold text-zinc-900"
                 >
-                  Sandi Sementara Baru (min. 6 karakter)
+                  Kata Sandi Sementara Baru (minimal 6 karakter)
                 </label>
                 <div className="relative">
                   <input
@@ -463,13 +499,13 @@ export default function KelolaEvaluatorPage() {
                     minLength={6}
                     value={resetPassword}
                     onChange={(e) => setResetPassword(e.target.value)}
-                    placeholder="Masukkan sandi baru"
+                    placeholder="Masukkan kata sandi baru"
                     className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white pl-3.5 pr-11 font-mono text-sm text-zinc-950 placeholder:text-zinc-400 focus:border-zinc-950 focus:outline-none"
                   />
                   <button
                     type="button"
                     onClick={() => setShowResetPass((prev) => !prev)}
-                    aria-label={showResetPass ? 'Sembunyikan sandi' : 'Lihat sandi'}
+                    aria-label={showResetPass ? 'Sembunyikan kata sandi' : 'Lihat kata sandi'}
                     className="absolute right-1.5 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-950"
                   >
                     {showResetPass ? (
@@ -501,6 +537,27 @@ export default function KelolaEvaluatorPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={deactivateTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !togglingAktif) setDeactivateTarget(null);
+        }}
+        title="Nonaktifkan Akun Evaluator?"
+        description={
+          deactivateTarget
+            ? `Akun ${deactivateTarget.nama} (NIP ${deactivateTarget.nip || '-'}) akan dinonaktifkan sehingga Evaluator tidak bisa masuk ke sistem sampai akun diaktifkan kembali.`
+            : ''
+        }
+        confirmLabel="Nonaktifkan Akun"
+        tone="warning"
+        loading={togglingAktif}
+        onConfirm={() => {
+          if (deactivateTarget) {
+            void handleToggleAktif(deactivateTarget);
+          }
+        }}
+      />
     </div>
   );
 }

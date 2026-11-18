@@ -38,50 +38,50 @@ export default function ChartEksposeOverview({
   const columns: ChartColumnData[] = [
     {
       num: '01',
-      title: 'Survei Alumni',
-      subtitle: 'Aksi Perubahan',
+      title: 'Survei alumni',
+      subtitle: 'Hasil Aksi Perubahan',
       swatchClass: 'bg-zinc-950',
       bars: [
         { label: 'P1', value: hitungRataKolom(peserta, 's_panjang', 25), barClass: 'bg-zinc-950' },
         { label: 'P2', value: hitungRataKolom(peserta, 's_tujuan', 25), barClass: 'bg-zinc-700' },
         { label: 'P3', value: hitungRataKolom(peserta, 's_manfaat', 25), barClass: 'bg-zinc-500' },
       ],
-      legend: 'P1, P2, P3',
+      legend: 'P1 = Jangka Panjang, P2 = Tujuan, P3 = Manfaat',
     },
     {
       num: '02',
       title: 'Wawancara',
-      subtitle: 'Menengah & Panjang',
+      subtitle: 'Target Menengah & Panjang',
       swatchClass: 'bg-zinc-950',
       bars: [
         { label: 'K1', value: hitungRataKolom(peserta, 'w_menengah'), barClass: 'bg-zinc-950' },
         { label: 'K2', value: hitungRataKolom(peserta, 'w_panjang'), barClass: 'bg-zinc-600' },
       ],
-      legend: 'K1, K2',
+      legend: 'K1 = Jangka Menengah, K2 = Jangka Panjang',
     },
     {
       num: '03',
       title: 'Wawancara',
-      subtitle: 'Seluruh Tujuan',
+      subtitle: 'Pencapaian Seluruh Tujuan',
       swatchClass: 'bg-zinc-950',
       bars: [{ label: 'K3', value: hitungRataKolom(peserta, 'w_tujuan'), barClass: 'bg-zinc-950' }],
-      legend: 'K3',
+      legend: 'K3 = Seluruh Tujuan',
     },
     {
       num: '04',
       title: 'Wawancara',
-      subtitle: 'Manfaat Aksi',
+      subtitle: 'Manfaat Aksi Perubahan',
       swatchClass: 'bg-zinc-700',
       bars: [{ label: 'K4', value: hitungRataKolom(peserta, 'w_manfaat'), barClass: 'bg-zinc-700' }],
-      legend: 'K4',
+      legend: 'K4 = Manfaat Aksi',
     },
     {
       num: '05',
       title: 'Wawancara',
-      subtitle: 'Komunikasi',
+      subtitle: 'Teknik Komunikasi',
       swatchClass: 'bg-zinc-600',
       bars: [{ label: 'K5', value: hitungRataKolom(peserta, 'w_komunikasi'), barClass: 'bg-zinc-600' }],
-      legend: 'K5',
+      legend: 'K5 = Teknik Komunikasi',
     },
   ];
 
@@ -90,13 +90,18 @@ export default function ChartEksposeOverview({
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 pb-3.5">
         <div className="flex items-center gap-2">
           <BarChartIcon className="h-4 w-4 text-zinc-950" aria-hidden="true" />
-          <h2 className="text-sm font-semibold text-zinc-950">Ringkasan Grafik Ekspose</h2>
+          <h2 className="text-sm font-semibold text-zinc-950">
+            Ringkasan grafik untuk Ekspose (presentasi hasil evaluasi)
+          </h2>
+          <span className="rounded border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600">
+            Skor 0–100 (poin)
+          </span>
         </div>
         <Link
           href={eksposeHref}
           className="text-xs font-medium text-zinc-950 underline underline-offset-4 transition hover:text-zinc-600"
         >
-          Buka Semua Slide Ekspose
+          Lihat Semua Slide Ekspose
         </Link>
       </div>
 
@@ -116,35 +121,44 @@ export default function ChartEksposeOverview({
               </div>
             </div>
 
-            <div className="relative flex h-44 items-end pb-1 pt-5">
-              <div className="pointer-events-none absolute inset-0 flex flex-col justify-between text-[10px] font-normal text-zinc-600">
-                {[100, 80, 60, 40, 20, 0].map((tick) => (
-                  <div key={tick} className="flex w-full items-center gap-1.5">
-                    <span className="w-5 shrink-0 text-right font-mono tabular-nums">{tick}</span>
-                    <div className="h-px flex-1 bg-zinc-200/80" />
-                  </div>
-                ))}
-              </div>
-
-              <div className="relative z-10 ml-7 flex h-full flex-1 items-end justify-center gap-2.5">
-                {col.bars.map((bar) => {
-                  const barHeightPercent = Math.min(Math.max(bar.value, 0), 100);
-
-                  return (
+            <div className="pb-2 pt-6">
+              <div className="relative h-40">
+                <div className="pointer-events-none absolute inset-0 text-[10px] font-normal text-zinc-600">
+                  {[100, 80, 60, 40, 20, 0].map((tick) => (
                     <div
-                      key={bar.label}
-                      className="flex h-full max-w-[42px] flex-1 flex-col items-center justify-end"
+                      key={tick}
+                      style={{ bottom: `${tick}%` }}
+                      className="absolute inset-x-0 flex h-0 items-center"
                     >
-                      <span className="mb-1 font-mono text-[10px] font-medium leading-none text-zinc-950 tabular-nums">
-                        {bar.value.toFixed(1)}
+                      <span className="w-5 shrink-0 text-right font-mono leading-none tabular-nums">
+                        {tick}
                       </span>
-                      <div
-                        style={{ height: `${barHeightPercent * 0.78}%` }}
-                        className={`w-full rounded-t-sm ${bar.barClass} transition-opacity duration-200 hover:opacity-85`}
-                      />
+                      <div className="ml-1.5 h-px flex-1 bg-zinc-200/80" />
                     </div>
-                  );
-                })}
+                  ))}
+                </div>
+
+                <div className="relative z-10 ml-7 flex h-full items-end justify-center gap-2.5">
+                  {col.bars.map((bar) => {
+                    const barHeightPercent = Math.min(Math.max(bar.value, 0), 100);
+
+                    return (
+                      <div
+                        key={bar.label}
+                        className="flex h-full max-w-[42px] flex-1 flex-col items-center justify-end"
+                      >
+                        <div
+                          style={{ height: `${barHeightPercent}%` }}
+                          className={`relative w-full rounded-t-sm ${bar.barClass} transition-opacity duration-200 hover:opacity-85`}
+                        >
+                          <span className="absolute bottom-full left-1/2 mb-1 -translate-x-1/2 whitespace-nowrap font-mono text-[10px] font-medium leading-none text-zinc-950 tabular-nums">
+                            {bar.value.toFixed(1)} poin
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 

@@ -171,7 +171,7 @@ export function parseJawabanSheetRows(rows: any[][]): ParsedJawabanRow[] {
         'alumni',
         `DUK_${38 + dIdx}`,
         'DUKUNGAN',
-        'Faktor Pendukung',
+        'Faktor Dukungan',
         cleanStr(headerRow[45 + dIdx]),
         r[45 + dIdx]
       );
@@ -181,7 +181,7 @@ export function parseJawabanSheetRows(rows: any[][]): ParsedJawabanRow[] {
       'alumni',
       'DUK_TEXT',
       'DUKUNGAN',
-      'Faktor Pendukung',
+      'Faktor Dukungan',
       cleanStr(headerRow[50]),
       r[50]
     );
@@ -192,7 +192,7 @@ export function parseJawabanSheetRows(rows: any[][]): ParsedJawabanRow[] {
         'alumni',
         `KND_${43 + kIdx}`,
         'KENDALA',
-        'Faktor Penghambat',
+        'Faktor Kendala',
         cleanStr(headerRow[51 + kIdx]),
         r[51 + kIdx]
       );
@@ -202,7 +202,7 @@ export function parseJawabanSheetRows(rows: any[][]): ParsedJawabanRow[] {
       'alumni',
       'KND_TEXT',
       'KENDALA',
-      'Faktor Penghambat',
+      'Faktor Kendala',
       cleanStr(headerRow[54]),
       r[54]
     );
@@ -294,7 +294,7 @@ export function parseJawabanSheetRows(rows: any[][]): ParsedJawabanRow[] {
             'atasan',
             `DUK_${38 + dIdx}`,
             'DUKUNGAN',
-            'Faktor Pendukung',
+            'Faktor Dukungan',
             cleanStr(headerRow[pOffset + 5 + dIdx]),
             r[pOffset + 5 + dIdx]
           );
@@ -304,7 +304,7 @@ export function parseJawabanSheetRows(rows: any[][]): ParsedJawabanRow[] {
           'atasan',
           'DUK_TEXT',
           'DUKUNGAN',
-          'Faktor Pendukung',
+          'Faktor Dukungan',
           cleanStr(headerRow[pOffset + 10]),
           r[pOffset + 10]
         );
@@ -315,7 +315,7 @@ export function parseJawabanSheetRows(rows: any[][]): ParsedJawabanRow[] {
             'atasan',
             `KND_${43 + kIdx}`,
             'KENDALA',
-            'Faktor Penghambat',
+            'Faktor Kendala',
             cleanStr(headerRow[pOffset + 11 + kIdx]),
             r[pOffset + 11 + kIdx]
           );
@@ -325,7 +325,7 @@ export function parseJawabanSheetRows(rows: any[][]): ParsedJawabanRow[] {
           'atasan',
           'KND_TEXT',
           'KENDALA',
-          'Faktor Penghambat',
+          'Faktor Kendala',
           cleanStr(headerRow[pOffset + 14]),
           r[pOffset + 14]
         );

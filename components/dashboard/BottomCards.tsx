@@ -52,7 +52,7 @@ export default function BottomCards({ ringkasan }: BottomCardsProps) {
         <div>
           <div className="flex items-center gap-2 border-b border-zinc-100 pb-3">
             <ClockIcon className="h-4 w-4 text-zinc-800" aria-hidden="true" />
-            <h2 className="text-sm font-semibold text-zinc-950">Kelengkapan Data</h2>
+            <h2 className="text-sm font-semibold text-zinc-950">Kelengkapan data wawancara</h2>
           </div>
 
           <div className="space-y-4 py-4">
@@ -79,7 +79,7 @@ export default function BottomCards({ ringkasan }: BottomCardsProps) {
                   <span>Lengkap</span>
                 </div>
                 <p className="mt-1 font-mono text-sm font-semibold text-zinc-950 tabular-nums">
-                  {valid} ({pctValidStr}%)
+                  {valid} peserta ({pctValidStr}%)
                 </p>
               </div>
 
@@ -92,10 +92,10 @@ export default function BottomCards({ ringkasan }: BottomCardsProps) {
               >
                 <div className="flex items-center gap-1.5 font-medium">
                   <ExclamationTriangleIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                  <span>Kosong</span>
+                  <span>Belum dinilai</span>
                 </div>
                 <p className="mt-1 font-mono text-sm font-semibold tabular-nums">
-                  {kosong} ({pctKosongStr}%)
+                  {kosong} peserta ({pctKosongStr}%)
                 </p>
               </div>
             </div>
@@ -103,7 +103,7 @@ export default function BottomCards({ ringkasan }: BottomCardsProps) {
         </div>
 
         <p className="border-t border-zinc-100 pt-3 text-xs font-normal text-zinc-600">
-          Nilai yang kosong tidak diikutsertakan dalam perhitungan rata-rata wawancara.
+          Nilai wawancara yang masih kosong tidak dihitung dalam rata-rata wawancara.
         </p>
       </div>
 
@@ -112,27 +112,29 @@ export default function BottomCards({ ringkasan }: BottomCardsProps) {
         <div>
           <div className="flex items-center gap-2 border-b border-zinc-100 pb-3">
             <TargetIcon className="h-4 w-4 text-zinc-800" aria-hidden="true" />
-            <h2 className="text-sm font-semibold text-zinc-950">Rata-rata Nilai</h2>
+            <h2 className="text-sm font-semibold text-zinc-950">Rata-rata nilai</h2>
           </div>
 
           <div className="space-y-3 py-4 text-xs">
             <div className="flex items-center justify-between border-b border-zinc-100 pb-2">
-              <span className="font-normal text-zinc-600">Nilai Survey</span>
+              <span className="font-normal text-zinc-600">Nilai Survei (L)</span>
               <span className="font-mono text-sm font-medium text-zinc-950 tabular-nums">
-                {lVal.toFixed(2)}
+                {lVal.toFixed(2)} poin
               </span>
             </div>
 
             <div className="flex items-center justify-between border-b border-zinc-100 pb-2">
-              <span className="font-normal text-zinc-600">Nilai Wawancara</span>
+              <span className="font-normal text-zinc-600">Nilai Wawancara (M)</span>
               <span className="font-mono text-sm font-medium text-zinc-950 tabular-nums">
-                {mVal.toFixed(2)}
+                {mVal.toFixed(2)} poin
               </span>
             </div>
 
-            <div className="flex items-center justify-between rounded-xl border border-zinc-950 bg-zinc-50 p-3">
-              <span className="font-medium text-zinc-950">Gabungan</span>
-              <span className="font-mono text-base font-semibold text-zinc-950 tabular-nums">
+            <div className="flex items-center justify-between gap-2 rounded-xl border border-zinc-950 bg-zinc-50 p-3">
+              <span className="font-medium text-zinc-950">
+                Gabungan (Rata-rata Survei &amp; Wawancara)
+              </span>
+              <span className="shrink-0 font-mono text-base font-semibold text-zinc-950 tabular-nums">
                 {avgBoth}
               </span>
             </div>
@@ -140,53 +142,49 @@ export default function BottomCards({ ringkasan }: BottomCardsProps) {
         </div>
 
         <p className="border-t border-zinc-100 pt-3 text-xs font-normal text-zinc-600">
-          Perbandingan skor instrumen survey alumni dan wawancara evaluator.
+          Perbandingan skor survei alumni dan skor wawancara evaluator (skala 0–100).
         </p>
       </div>
 
-      {/* 3. Ekstrem Selisih Card */}
+      {/* 3. Selisih Terbesar Card */}
       <div className="flex flex-col justify-between rounded-2xl border border-zinc-200 bg-white p-5 lg:col-span-4">
         <div>
           <div className="flex items-center gap-2 border-b border-zinc-100 pb-3">
             <MixerHorizontalIcon className="h-4 w-4 text-zinc-800" aria-hidden="true" />
-            <h2 className="text-sm font-semibold text-zinc-950">Ekstrem Selisih</h2>
+            <h2 className="text-sm font-semibold text-zinc-950">Selisih terbesar</h2>
           </div>
 
           <div className="grid grid-cols-2 gap-3 py-4">
             <div className="rounded-xl bg-zinc-950 p-3.5 text-center text-white">
               <span className="block text-xs font-medium text-zinc-300">
-                Tertinggi (+)
+                Selisih Terbesar (+)
               </span>
               <span className="mt-1 block font-mono text-xl font-semibold text-white tabular-nums">
-                {hasPos ? `${maxPos >= 0 ? '+' : ''}${maxPos.toFixed(2)}` : '0.00'}
+                {hasPos ? `${maxPos >= 0 ? '+' : ''}${maxPos.toFixed(2)}` : 'Belum ada data'}
               </span>
               <span className="mt-1 block truncate text-[11px] font-normal text-zinc-300">
                 {ringkasan?.selisihTerbesarPositif?.nama ||
-                  (total === 0 ? 'Belum ada data' : 'Wawancara lebih tinggi')}
+                  (total === 0 || !hasPos ? 'Belum ada data' : 'Wawancara lebih tinggi')}
               </span>
             </div>
 
             <div className="rounded-xl border border-zinc-500 bg-zinc-50 p-3.5 text-center text-zinc-950">
               <span className="block text-xs font-medium text-zinc-700">
-                Terendah (-)
+                Selisih Terbesar (-)
               </span>
               <span className="mt-1 block font-mono text-xl font-semibold text-zinc-950 tabular-nums">
-                {hasNeg
-                  ? maxNeg > 0
-                    ? `-${maxNeg.toFixed(2)}`
-                    : maxNeg.toFixed(2)
-                  : '0.00'}
+                {hasNeg ? `${maxNeg > 0 ? '+' : ''}${maxNeg.toFixed(2)}` : 'Belum ada data'}
               </span>
               <span className="mt-1 block truncate text-[11px] font-normal text-zinc-600">
                 {ringkasan?.selisihTerbesarNegatif?.nama ||
-                  (total === 0 ? 'Belum ada data' : 'Survei lebih tinggi')}
+                  (total === 0 || !hasNeg ? 'Belum ada data' : 'Survei lebih tinggi')}
               </span>
             </div>
           </div>
         </div>
 
         <p className="border-t border-zinc-100 pt-3 text-xs font-normal text-zinc-600">
-          Selisih paling besar antara nilai Wawancara dan nilai Survey.
+          Selisih terbesar antara nilai Wawancara (M) dan nilai Survei (L), dihitung sebagai M - L.
         </p>
       </div>
     </div>

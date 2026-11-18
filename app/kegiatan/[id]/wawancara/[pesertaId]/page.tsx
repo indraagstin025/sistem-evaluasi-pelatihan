@@ -55,7 +55,9 @@ export default function FormWawancaraPesertaPage({
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        setError(json.error || 'Gagal memuat detail wawancara peserta.');
+        setError(
+          json.error || 'Gagal memuat detail wawancara peserta. Coba muat ulang halaman.'
+        );
         return;
       }
       const p = json.data;
@@ -75,7 +77,7 @@ export default function FormWawancaraPesertaPage({
       }
       setDrafts(nextDrafts);
     } catch {
-      setError('Koneksi bermasalah saat memuat data peserta.');
+      setError('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
     } finally {
       setLoading(false);
     }
@@ -113,6 +115,20 @@ export default function FormWawancaraPesertaPage({
   const handleSubmit = async (e: React.FormEvent, markSelesai: boolean) => {
     e.preventDefault();
     if (!canEditWawancara) return;
+
+    for (const meta of WAWANCARA_KRITERIA) {
+      const raw = (drafts[meta.key]?.nilai ?? '').trim();
+      if (raw === '') continue;
+      const parsed = Number(raw);
+      if (!/^\d+$/.test(raw) || !Number.isInteger(parsed) || parsed < 0 || parsed > 100) {
+        setSuccessMsg(null);
+        setError(
+          `Nilai wawancara pada kriteria "${meta.judul}" harus berupa bilangan bulat antara 0 sampai 100 (contoh: 85).`
+        );
+        return;
+      }
+    }
+
     try {
       setSaving(true);
       setError(null);
@@ -138,7 +154,9 @@ export default function FormWawancaraPesertaPage({
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        setError(json.error || 'Gagal menyimpan hasil wawancara.');
+        setError(
+          json.error || 'Gagal menyimpan hasil wawancara. Periksa isian nilai, lalu coba lagi.'
+        );
         return;
       }
 
@@ -150,7 +168,7 @@ export default function FormWawancaraPesertaPage({
       );
       await loadPeserta();
     } catch {
-      setError('Koneksi bermasalah saat menyimpan wawancara.');
+      setError('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
     } finally {
       setSaving(false);
     }
@@ -200,7 +218,7 @@ export default function FormWawancaraPesertaPage({
             className="inline-flex min-h-[38px] items-center gap-1.5 rounded-lg border border-zinc-500 bg-white px-3.5 py-1.5 text-xs font-semibold text-zinc-950 transition hover:bg-zinc-100"
           >
             <ExternalLinkIcon className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>Buka Room Meeting ({peserta.tim.namaTim})</span>
+            <span>Buka Ruang Meeting ({peserta.tim.namaTim})</span>
           </a>
         )}
       </div>
@@ -216,12 +234,12 @@ export default function FormWawancaraPesertaPage({
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded border border-zinc-400 bg-zinc-50 px-2 py-0.5 text-[11px] font-medium text-zinc-800">
-                {peserta.tim?.namaTim || peserta.namaTimExcel || 'Tanpa Tim'}
+                {peserta.tim?.namaTim || peserta.namaTimExcel || 'Belum Dibagi ke Tim'}
               </span>
               {isSelesaiLengkap ? (
                 <span className="inline-flex items-center gap-1 rounded border border-zinc-800 bg-zinc-950 px-2 py-0.5 text-[11px] font-medium text-white">
                   <CheckCircledIcon className="h-3 w-3" aria-hidden="true" />
-                  Selesai Wawancara
+                  Selesai
                 </span>
               ) : !proper ? (
                 <span className="rounded border border-zinc-400 bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-900">
@@ -229,40 +247,45 @@ export default function FormWawancaraPesertaPage({
                 </span>
               ) : (
                 <span className="rounded border border-zinc-400 bg-white px-2 py-0.5 text-[11px] font-medium text-zinc-800">
-                  Belum Selesai
+                  Wawancara Belum Selesai
                 </span>
               )}
             </div>
             <h2 className="mt-2 text-lg font-semibold text-zinc-950">{peserta.nama}</h2>
-            <p className="mt-0.5 font-mono text-xs text-zinc-600">NIP {peserta.nip}</p>
+            <p className="mt-0.5 font-mono text-xs text-zinc-600">
+              NIP (Nomor Induk Pegawai): {peserta.nip || '-'}
+            </p>
             <p className="mt-2 text-xs text-zinc-700">
               <strong>Judul Aksi Perubahan:</strong>{' '}
-              {proper?.judulProper || peserta.judulAksiPerubahan || 'Belum tercantum'}
+              {proper?.judulProper || peserta.judulAksiPerubahan || '-'}
             </p>
           </div>
 
           <div className="grid shrink-0 grid-cols-3 gap-2 text-center">
             <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5">
-              <p className="text-[10px] font-medium text-zinc-600">Survey</p>
-              <p className="mt-1 font-mono text-base font-semibold text-zinc-950">
-                {typeof surveyL === 'number' ? surveyL.toFixed(2) : '-'}
+              <p className="text-[10px] font-medium text-zinc-600">Survei (L)</p>
+              <p className="mt-1 font-mono text-sm font-semibold text-zinc-950">
+                {typeof surveyL === 'number' ? surveyL.toFixed(2) : 'Belum dinilai'}
               </p>
+              <p className="mt-0.5 text-[10px] text-zinc-500">Rata-rata 3 item</p>
             </div>
             <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5">
-              <p className="text-[10px] font-medium text-zinc-600">Wawancara</p>
-              <p className="mt-1 font-mono text-base font-semibold text-zinc-950">
+              <p className="text-[10px] font-medium text-zinc-600">Wawancara (M)</p>
+              <p className="mt-1 font-mono text-sm font-semibold text-zinc-950">
                 {previewScores.rataM !== null
                   ? previewScores.rataM.toFixed(2)
-                  : 'KOSONG'}
+                  : 'Belum dinilai'}
               </p>
+              <p className="mt-0.5 text-[10px] text-zinc-500">Rata-rata 3 kriteria</p>
             </div>
             <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5">
-              <p className="text-[10px] font-medium text-zinc-600">Akhir Berbobot</p>
-              <p className="mt-1 font-mono text-base font-semibold text-zinc-950">
+              <p className="text-[10px] font-medium text-zinc-600">Nilai Akhir Berbobot</p>
+              <p className="mt-1 font-mono text-sm font-semibold text-zinc-950">
                 {previewScores.totalForm !== null
                   ? previewScores.totalForm.toFixed(2)
-                  : '-'}
+                  : 'Belum dinilai'}
               </p>
+              <p className="mt-0.5 text-[10px] text-zinc-500">5 kriteria (20/20/20/30/10)</p>
             </div>
           </div>
         </div>
@@ -286,11 +309,11 @@ export default function FormWawancaraPesertaPage({
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 pb-3">
           <div>
             <h3 className="text-sm font-semibold text-zinc-950">
-              Dokumen Proper &amp; Kondisi Saat Ini
+              Dokumen Proper (laporan Proyek Perubahan peserta) &amp; Kondisi Saat Ini (dari peserta)
             </h3>
             <p className="mt-0.5 text-xs text-zinc-600">
-              Diunggah peserta melalui tautan publik. Data jangka menengah &amp; jangka panjang
-              ditampilkan langsung pada Kriteria 1 dan Kriteria 2 di bawah.
+              Diunggah peserta melalui tautan publik. Data jangka menengah dan jangka panjang
+              ditampilkan pada Kriteria 1 dan Kriteria 2 di bawah.
             </p>
           </div>
           {proper?.dokumenFileId && (
@@ -301,14 +324,18 @@ export default function FormWawancaraPesertaPage({
               className="inline-flex min-h-[38px] items-center gap-1.5 rounded-lg border border-zinc-500 bg-white px-3 py-1.5 text-xs font-medium text-zinc-950 transition hover:bg-zinc-100"
             >
               <DownloadIcon className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>Unduh Dokumen Proper ({proper.dokumenNama || 'File'})</span>
+              <span>
+                {proper.dokumenNama
+                  ? `Unduh Dokumen Proper (${proper.dokumenNama})`
+                  : 'Unduh Dokumen Proper'}
+              </span>
             </a>
           )}
         </div>
 
         {!proper ? (
           <p className="mt-3 text-xs text-zinc-600">
-            Peserta belum mengunggah laporan Inovasi / Proper melalui tautan publik.
+            Peserta belum mengunggah dokumen Proper melalui tautan publik.
           </p>
         ) : (
           <div className="mt-4 rounded-xl border border-zinc-200 bg-zinc-50 p-4">
@@ -328,20 +355,21 @@ export default function FormWawancaraPesertaPage({
           <StatusBanner
             tone="info"
             title="Mode Baca Saja (Super Admin)"
-            message="Anda masuk sebagai Super Admin. Formulir wawancara, nilai, dan catatan bukti bersifat baca saja (read-only) dan hanya dapat diisi oleh Evaluator tim terkait."
+            message="Formulir ini hanya bisa diisi oleh evaluator tim peserta."
           />
         ) : (
           <div className="space-y-3">
             <div className="rounded-2xl border border-zinc-900 bg-zinc-50 px-5 py-3.5 text-xs text-zinc-800">
-              <strong>Panduan Pengisian:</strong> Isikan <strong>Nilai wawancara</strong> (skala
-              0-100, kosongkan bila belum dinilai) serta <strong>Hasil wawancara &amp; bukti</strong>{' '}
-              untuk setiap kriteria sesuai dokumen Proper dan konfirmasi langsung dengan peserta.
+              <strong>Panduan Pengisian:</strong> Isi <strong>Nilai wawancara</strong> (skala
+              0–100; kosongkan bila belum dinilai) dan <strong>Hasil wawancara &amp; bukti</strong>{' '}
+              untuk setiap kriteria, berdasarkan dokumen Proper dan konfirmasi langsung dengan
+              peserta.
             </div>
             {!proper && (
               <StatusBanner
                 tone="info"
                 title="Proper Belum Diunggah"
-                message="Peserta belum mengunggah dokumen/data Inovasi/Proper melalui Link Public. Anda tetap dapat menyimpan draf nilai atau catatan bukti, namun status belum dapat ditandai Selesai sebelum Proper diunggah."
+                message="Peserta belum mengunggah dokumen Proper melalui tautan publik. Anda tetap bisa menyimpan draf, tetapi status belum bisa ditandai Selesai sebelum Proper diunggah."
               />
             )}
           </div>
@@ -358,21 +386,21 @@ export default function FormWawancaraPesertaPage({
           const properInline =
             meta.key === 'menengah'
               ? {
-                  heading: 'Data Jangka Menengah dari peserta',
+                  heading: 'Data Jangka Menengah dari Peserta',
                   milestone: proper?.jangkaMenengahMilestone,
                   status: proper?.jangkaMenengahStatus,
                   fotoId: proper?.jangkaMenengahFotoId,
-                  fotoNama: proper?.jangkaMenengahFotoNama || 'evidence-menengah',
-                  previewTitle: 'Foto Evidence Jangka Menengah',
+                  fotoNama: proper?.jangkaMenengahFotoNama || 'bukti-menengah',
+                  previewTitle: 'Foto Bukti Jangka Menengah',
                 }
               : meta.key === 'jangkaPanjang'
                 ? {
-                    heading: 'Data Jangka Panjang dari peserta',
+                    heading: 'Data Jangka Panjang dari Peserta',
                     milestone: proper?.jangkaPanjangMilestone,
                     status: proper?.jangkaPanjangStatus,
                     fotoId: proper?.jangkaPanjangFotoId,
-                    fotoNama: proper?.jangkaPanjangFotoNama || 'evidence-panjang',
-                    previewTitle: 'Foto Evidence Jangka Panjang',
+                    fotoNama: proper?.jangkaPanjangFotoNama || 'bukti-panjang',
+                    previewTitle: 'Foto Bukti Jangka Panjang',
                   }
                 : null;
 
@@ -407,6 +435,8 @@ export default function FormWawancaraPesertaPage({
                     type="number"
                     min={0}
                     max={100}
+                    step={1}
+                    inputMode="numeric"
                     disabled={!canEditWawancara}
                     value={d.nilai}
                     placeholder="-"
@@ -419,7 +449,7 @@ export default function FormWawancaraPesertaPage({
                     className="min-h-[60px] w-full rounded-xl border border-zinc-500 bg-white px-3 text-center font-mono text-xl font-bold text-zinc-950 focus:border-zinc-950 focus:outline-none disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-700"
                   />
                   <p className="mt-1.5 text-[11px] leading-snug text-zinc-600">
-                    Skala 0-100. Kosongkan bila belum dinilai.
+                    Skala 0–100 (bilangan bulat). Kosongkan bila belum dinilai.
                   </p>
                 </div>
 
@@ -443,7 +473,7 @@ export default function FormWawancaraPesertaPage({
                     }
                     placeholder={
                       canEditWawancara
-                        ? 'Catat hasil konfirmasi langsung dan bukti dukung dari alumni...'
+                        ? 'Catat hasil konfirmasi langsung dan bukti dukung dari peserta...'
                         : 'Belum ada catatan bukti dari evaluator.'
                     }
                     className="min-h-[96px] w-full rounded-xl border border-zinc-500 bg-white p-3 text-xs leading-relaxed text-zinc-950 focus:border-zinc-950 focus:outline-none disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-700"
@@ -458,18 +488,18 @@ export default function FormWawancaraPesertaPage({
                   </p>
                   {!proper ? (
                     <p className="mt-2 text-xs text-zinc-600">
-                      Peserta belum mengunggah Inovasi / Proper melalui Link Public.
+                      Peserta belum mengunggah dokumen Proper melalui tautan publik.
                     </p>
                   ) : (
                     <div className="mt-2 divide-y divide-zinc-200 text-xs">
                       <div className="grid gap-2 py-2.5 sm:grid-cols-[170px_1fr]">
-                        <span className="text-zinc-600">Milestone / rencana</span>
+                        <span className="text-zinc-600">Target / rencana</span>
                         <p className="whitespace-pre-wrap leading-relaxed text-zinc-950">
                           {properInline.milestone || '-'}
                         </p>
                       </div>
                       <div className="grid gap-2 pt-2.5 sm:grid-cols-[170px_1fr] sm:items-center">
-                        <span className="text-zinc-600">Status evidence</span>
+                        <span className="text-zinc-600">Status bukti</span>
                         <div className="flex flex-wrap items-center gap-3">
                           <span
                             className={
@@ -479,8 +509,8 @@ export default function FormWawancaraPesertaPage({
                             }
                           >
                             {properInline.status === 'SUDAH_DILAKSANAKAN'
-                              ? 'Sudah Dilaksanakan'
-                              : 'Belum Dilaksanakan'}
+                              ? 'Target sudah dilaksanakan'
+                              : 'Target belum dilaksanakan'}
                           </span>
 
                           {properInline.fotoId && (
@@ -495,7 +525,7 @@ export default function FormWawancaraPesertaPage({
                               }
                               className="inline-flex min-h-[32px] items-center gap-1 text-xs font-semibold text-zinc-950 underline underline-offset-4 transition hover:text-zinc-700"
                             >
-                              <span>Lihat foto evidence</span>
+                              <span>Lihat foto bukti</span>
                               <ExternalLinkIcon className="h-3.5 w-3.5" aria-hidden="true" />
                             </button>
                           )}
@@ -529,39 +559,41 @@ export default function FormWawancaraPesertaPage({
         })}
 
         {canEditWawancara && (
-          <div className="flex flex-col-reverse justify-end gap-2.5 sm:flex-row">
-            <button
-              type="button"
-              disabled={saving}
-              onClick={(e) => handleSubmit(e, false)}
-              className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-zinc-500 bg-white px-5 py-2.5 text-xs font-semibold text-zinc-950 transition hover:bg-zinc-100 disabled:opacity-50"
-            >
-              {saving ? 'Menyimpan...' : 'Simpan Draf'}
-            </button>
-            <button
-              type="submit"
-              disabled={saving || !proper}
-              title={
-                !proper
-                  ? 'Status selesai hanya dapat ditandai setelah peserta mengunggah Proper'
-                  : undefined
-              }
-              className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg bg-zinc-950 px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <CheckCircledIcon className="h-4 w-4" aria-hidden="true" />
-              <span>
-                {saving
-                  ? 'Menyimpan...'
-                  : !proper
-                    ? 'Tunggu Unggahan Proper untuk Selesai'
-                    : 'Simpan & Tandai Selesai Wawancara'}
-              </span>
-            </button>
+          <div className="space-y-1.5">
+            <div className="flex flex-col-reverse justify-end gap-2.5 sm:flex-row">
+              <button
+                type="button"
+                disabled={saving}
+                onClick={(e) => handleSubmit(e, false)}
+                className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-zinc-500 bg-white px-5 py-2.5 text-xs font-semibold text-zinc-950 transition hover:bg-zinc-100 disabled:opacity-50"
+              >
+                {saving ? 'Menyimpan...' : 'Simpan Draf'}
+              </button>
+              <button
+                type="submit"
+                disabled={saving || !proper}
+                title={
+                  !proper
+                    ? 'Tombol aktif setelah peserta mengunggah dokumen Proper.'
+                    : undefined
+                }
+                className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg bg-zinc-950 px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <CheckCircledIcon className="h-4 w-4" aria-hidden="true" />
+                <span>{saving ? 'Menyimpan...' : 'Simpan & Tandai Selesai'}</span>
+              </button>
+            </div>
+            {!proper && (
+              <p className="text-right text-[11px] text-zinc-600">
+                Tombol &quot;Simpan &amp; Tandai Selesai&quot; aktif setelah peserta mengunggah
+                Proper.
+              </p>
+            )}
           </div>
         )}
       </form>
 
-      {/* Dialog Pratinjau Foto Evidence */}
+      {/* Dialog Pratinjau Foto Bukti */}
       <Dialog
         open={Boolean(evidencePreview)}
         onOpenChange={(open) => {

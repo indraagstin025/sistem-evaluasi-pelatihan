@@ -54,7 +54,10 @@ export default function PembagianTimPage({
       const res = await fetch(`/api/kegiatan/${params.id}/tim`, { cache: 'no-store' });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        setBanner({ tone: 'error', message: json.error || 'Gagal memuat pembagian tim.' });
+        setBanner({
+          tone: 'error',
+          message: json.error || 'Gagal memuat pembagian tim. Coba muat ulang halaman.',
+        });
         return;
       }
       const d = json.data;
@@ -72,7 +75,10 @@ export default function PembagianTimPage({
       setLinkDrafts(nextLinks);
       setEvalDrafts(nextEvals);
     } catch {
-      setBanner({ tone: 'error', message: 'Gangguan koneksi saat memuat pembagian tim.' });
+      setBanner({
+        tone: 'error',
+        message: 'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.',
+      });
     } finally {
       setLoading(false);
     }
@@ -94,13 +100,19 @@ export default function PembagianTimPage({
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        setBanner({ tone: 'error', message: json.error || 'Gagal membagi tim.' });
+        setBanner({
+          tone: 'error',
+          message: json.error || 'Gagal membagi tim. Muat ulang halaman, lalu coba lagi.',
+        });
         return;
       }
       setBanner({ tone: 'success', message: json.message || 'Pembagian tim selesai.' });
       await loadData();
     } catch {
-      setBanner({ tone: 'error', message: 'Gagal menghubungi server pembagian tim.' });
+      setBanner({
+        tone: 'error',
+        message: 'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.',
+      });
     } finally {
       setBusyMode(null);
     }
@@ -121,13 +133,19 @@ export default function PembagianTimPage({
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        setBanner({ tone: 'error', message: json.error || 'Gagal menyimpan tim.' });
+        setBanner({
+          tone: 'error',
+          message: json.error || 'Gagal menyimpan pengaturan tim. Periksa isian, lalu coba lagi.',
+        });
         return;
       }
       setBanner({ tone: 'success', message: 'Pengaturan tim berhasil disimpan.' });
       await loadData();
     } catch {
-      setBanner({ tone: 'error', message: 'Koneksi bermasalah saat menyimpan tim.' });
+      setBanner({
+        tone: 'error',
+        message: 'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.',
+      });
     } finally {
       setSavingTimId(null);
     }
@@ -156,7 +174,9 @@ export default function PembagianTimPage({
       if (!res.ok || !json.success) {
         setBanner({
           tone: 'error',
-          message: json.error || 'Gagal membuat dan menautkan akun evaluator.',
+          message:
+            json.error ||
+            'Gagal membuat dan menautkan akun evaluator. Periksa isian, lalu coba lagi.',
         });
         return;
       }
@@ -171,7 +191,10 @@ export default function PembagianTimPage({
       });
       await loadData();
     } catch {
-      setBanner({ tone: 'error', message: 'Koneksi bermasalah saat membuat akun.' });
+      setBanner({
+        tone: 'error',
+        message: 'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.',
+      });
     } finally {
       setCreatingEval(false);
     }
@@ -184,13 +207,12 @@ export default function PembagianTimPage({
           <div className="flex items-center gap-2">
             <MixerHorizontalIcon className="h-4 w-4 text-zinc-950" aria-hidden="true" />
             <h2 className="text-base font-semibold text-zinc-950">
-              Pembagian Tim &amp; Penugasan Evaluator (IT-12)
+              Pembagian Tim &amp; Penugasan Evaluator
             </h2>
           </div>
           <p className="mt-1 text-xs text-zinc-600">
-            Total {totalPeserta} peserta terdaftar. Gunakan kelompok dari kolom Nama Tim Evaluator
-            Excel atau bagi otomatis maksimal 10 peserta per tim (sisa peserta didistribusikan
-            merata).
+            Total {totalPeserta} peserta terdaftar. Pakai pembagian tim dari kolom &quot;Nama Tim
+            Evaluator&quot; di Excel, atau bagi otomatis, maksimal 10 peserta per tim.
           </p>
         </div>
 
@@ -202,7 +224,7 @@ export default function PembagianTimPage({
               onClick={() => handleGenerateTeams('from_excel')}
               className="inline-flex min-h-[42px] items-center justify-center rounded-lg border border-zinc-500 bg-white px-4 py-2 text-xs font-semibold text-zinc-950 transition hover:bg-zinc-100 disabled:opacity-50"
             >
-              {busyMode === 'from_excel' ? 'Memproses...' : 'Sinkronkan Tim dari Excel'}
+              {busyMode === 'from_excel' ? 'Memproses...' : 'Pakai Tim dari Excel'}
             </button>
           )}
           <button
@@ -211,7 +233,7 @@ export default function PembagianTimPage({
             onClick={() => handleGenerateTeams('auto_10')}
             className="inline-flex min-h-[42px] items-center justify-center rounded-lg bg-zinc-950 px-4 py-2 text-xs font-semibold text-white transition hover:bg-zinc-800 disabled:opacity-50"
           >
-            {busyMode === 'auto_10' ? 'Membagi Tim...' : 'Bagi Tim Otomatis (10/Tim)'}
+            {busyMode === 'auto_10' ? 'Membagi Tim...' : 'Bagi Tim Otomatis (maks. 10 peserta/tim)'}
           </button>
         </div>
       </div>
@@ -232,7 +254,7 @@ export default function PembagianTimPage({
         <div className="rounded-2xl border border-zinc-200 bg-white p-10 text-center text-sm text-zinc-600">
           {totalPeserta === 0
             ? 'Belum ada peserta terimpor. Impor file Excel terlebih dahulu.'
-            : 'Belum ada tim terbentuk. Klik "Sinkronkan Tim dari Excel" atau "Bagi Tim Otomatis (10/Tim)".'}
+            : 'Belum ada tim. Klik "Pakai Tim dari Excel" atau "Bagi Tim Otomatis (maks. 10 peserta/tim)".'}
         </div>
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
@@ -267,7 +289,7 @@ export default function PembagianTimPage({
                     <div>
                       <label className="mb-1 flex items-center gap-1.5 text-xs font-medium text-zinc-800">
                         <PersonIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                        <span>Evaluator Penanggung Jawab</span>
+                        <span>Evaluator</span>
                       </label>
                       <select
                         value={evalDrafts[tim.id] || ''}
@@ -288,7 +310,7 @@ export default function PembagianTimPage({
                     <div>
                       <label className="mb-1 flex items-center gap-1.5 text-xs font-medium text-zinc-800">
                         <Link2Icon className="h-3.5 w-3.5" aria-hidden="true" />
-                        <span>Tautan Meeting (Zoom/Meet)</span>
+                        <span>Tautan Meeting Daring</span>
                       </label>
                       <input
                         type="url"
@@ -296,7 +318,7 @@ export default function PembagianTimPage({
                         onChange={(e) =>
                           setLinkDrafts((prev) => ({ ...prev, [tim.id]: e.target.value }))
                         }
-                        placeholder="https://zoom.us/j/... (opsional)"
+                        placeholder="https://zoom.us/j/... (Zoom atau Google Meet, opsional)"
                         className="min-h-[40px] w-full rounded-lg border border-zinc-500 bg-white px-3 text-xs text-zinc-950 focus:border-zinc-950 focus:outline-none"
                       />
                     </div>
@@ -319,8 +341,8 @@ export default function PembagianTimPage({
                             {p.inovasiProper && p.wawancaraSelesaiAt
                               ? 'Selesai'
                               : !p.inovasiProper
-                                ? 'Belum Proper'
-                                : 'Menunggu'}
+                                ? 'Belum Unggah Proper'
+                                : 'Wawancara Belum Selesai'}
                           </span>
                         </li>
                       ))}
@@ -344,7 +366,7 @@ export default function PembagianTimPage({
         </div>
       )}
 
-      {/* Modal Buat Akun Evaluator Baru langsung saat pembagian tim (IT-10) */}
+      {/* Modal Buat Akun Evaluator Baru langsung saat pembagian tim */}
       <Dialog
         open={Boolean(createForTim)}
         onOpenChange={(open) => {
@@ -356,7 +378,8 @@ export default function PembagianTimPage({
             <DialogTitle>Buat Akun Evaluator Baru</DialogTitle>
             <DialogDescription>
               Akun akan langsung ditugaskan ke <strong>{createForTim?.namaTim}</strong>. Evaluator
-              masuk menggunakan NIP dan wajib mengganti sandi saat login pertama.
+              masuk memakai NIP (Nomor Induk Pegawai) sebagai username dan wajib ganti kata sandi
+              saat pertama login. Proper = laporan Proyek Perubahan peserta.
             </DialogDescription>
           </DialogHeader>
 
@@ -371,14 +394,14 @@ export default function PembagianTimPage({
                   required
                   value={newNama}
                   onChange={(e) => setNewNama(e.target.value)}
-                  placeholder="Contoh: Angga Wijaya, S.Sos"
+                  placeholder="Contoh: Budi Santoso, S.Sos"
                   className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white px-3.5 text-sm text-zinc-950 focus:border-zinc-950 focus:outline-none"
                 />
               </div>
 
               <div>
                 <label className="mb-1.5 block text-xs font-semibold text-zinc-900">
-                  NIP (Username Login) <span className="text-zinc-500">*</span>
+                  NIP (dipakai sebagai username login) <span className="text-zinc-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -398,14 +421,14 @@ export default function PembagianTimPage({
                   type="email"
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
-                  placeholder="evaluator@bpsdm.jabarprov.go.id"
+                  placeholder="Contoh: evaluator@bpsdm.jabarprov.go.id"
                   className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white px-3.5 text-sm text-zinc-950 focus:border-zinc-950 focus:outline-none"
                 />
               </div>
 
               <div>
                 <label className="mb-1.5 block text-xs font-semibold text-zinc-900">
-                  Sandi Awal (min. 6 karakter) <span className="text-zinc-500">*</span>
+                  Kata Sandi Awal (minimal 6 karakter) <span className="text-zinc-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -413,7 +436,7 @@ export default function PembagianTimPage({
                   minLength={6}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Sandi sementara evaluator"
+                  placeholder="Kata sandi sementara evaluator"
                   className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white px-3.5 font-mono text-sm text-zinc-950 focus:border-zinc-950 focus:outline-none"
                 />
               </div>
@@ -432,7 +455,7 @@ export default function PembagianTimPage({
                 disabled={creatingEval}
                 className="min-h-[40px] rounded-lg bg-zinc-950 px-5 py-2 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-50"
               >
-                {creatingEval ? 'Menyimpan...' : 'Buat & Tugaskan'}
+                {creatingEval ? 'Menyimpan...' : 'Buat Akun & Tugaskan ke Tim'}
               </button>
             </DialogFooter>
           </form>
