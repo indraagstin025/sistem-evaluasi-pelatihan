@@ -94,6 +94,7 @@ export async function GET(
   return NextResponse.json({
     success: true,
     data: {
+      viewerRole: guard.user.role,
       kegiatan,
       peserta,
       tim: timRaw,

@@ -354,7 +354,7 @@ export default function ImportExcelModal({
               <InfoCircledIcon className="mt-0.5 h-4 w-4 shrink-0 text-zinc-800" aria-hidden="true" />
               <p className="font-normal">
                 <span className="font-semibold text-zinc-950">Form Penilaian Wawancara tidak disertakan.</span>{' '}
-                Nilai survei (L) tetap diproses, sementara nilai wawancara (M) dan Total Form berstatus KOSONG.
+                Nilai Survey tetap diproses, sementara nilai Wawancara dan Akhir Berbobot berstatus KOSONG.
               </p>
             </div>
           )}

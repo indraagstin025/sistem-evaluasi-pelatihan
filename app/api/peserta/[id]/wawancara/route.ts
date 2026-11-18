@@ -18,6 +18,17 @@ export async function POST(
   const guard = await requireSession();
   if (!guard.ok) return guard.response;
 
+  if (guard.user.role !== 'EVALUATOR') {
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          'Mode Super Admin bersifat baca saja (read-only). Hanya Evaluator tim yang berhak mengisi atau memperbarui wawancara.',
+      },
+      { status: 403 }
+    );
+  }
+
   try {
     const access = await canAccessPeserta(guard.user, params.id);
     if (!access.peserta) {
@@ -109,25 +120,50 @@ export async function POST(
       });
     }
 
-    const updatedRows = await prisma.wawancara.findMany({
-      where: { pesertaId: params.id },
-    });
+    const [updatedRows, properRecord] = await Promise.all([
+      prisma.wawancara.findMany({
+        where: { pesertaId: params.id },
+      }),
+      prisma.inovasiProper.findUnique({
+        where: { pesertaId: params.id },
+        select: { id: true },
+      }),
+    ]);
+
+    const hasProper = Boolean(properRecord);
     const allCoreFilled = ['menengah', 'jangkaPanjang', 'seluruhTujuan', 'manfaat'].every(
       (k) => updatedRows.find((w) => w.kriteria === k)?.nilai !== null
     );
 
-    if (allCoreFilled || body?.markSelesai) {
+    let completed = false;
+    if (!hasProper) {
+      await prisma.peserta.update({
+        where: { id: params.id },
+        data: { wawancaraSelesaiAt: null },
+      });
+    } else if (body?.markSelesai || allCoreFilled) {
       await prisma.peserta.update({
         where: { id: params.id },
         data: { wawancaraSelesaiAt: new Date() },
       });
+      completed = true;
     }
 
     const hasilBaru = await hitungHasil(params.id);
 
+    const wantsComplete = Boolean(body?.markSelesai);
+    const message =
+      !hasProper && wantsComplete
+        ? 'Draf nilai dan bukti tersimpan, namun status belum dapat ditandai Selesai karena peserta belum mengunggah Inovasi/Proper.'
+        : completed
+          ? 'Hasil wawancara dan bukti berhasil disimpan dan ditandai Selesai.'
+          : 'Draf hasil wawancara dan bukti berhasil disimpan.';
+
     return NextResponse.json({
       success: true,
-      message: 'Hasil wawancara dan bukti berhasil disimpan.',
+      completed,
+      hasProper,
+      message,
       hasil: hasilBaru,
     });
   } catch (error: any) {

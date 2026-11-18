@@ -102,11 +102,14 @@ export default function PantauWawancaraPage({
     }
   };
 
+  const isSelesaiLengkap = (p: any) => Boolean(p.hasProper && p.wawancaraSelesaiAt);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return peserta.filter((p) => {
-      if (statusFilter === 'selesai' && !p.wawancaraSelesaiAt) return false;
-      if (statusFilter === 'belum' && p.wawancaraSelesaiAt) return false;
+      const selesai = isSelesaiLengkap(p);
+      if (statusFilter === 'selesai' && !selesai) return false;
+      if (statusFilter === 'belum' && selesai) return false;
       if (statusFilter === 'sudah_proper' && !p.hasProper) return false;
       if (statusFilter === 'belum_proper' && p.hasProper) return false;
       if (!q) return true;
@@ -119,7 +122,7 @@ export default function PantauWawancaraPage({
     });
   }, [peserta, search, statusFilter]);
 
-  const selesaiCount = peserta.filter((p) => Boolean(p.wawancaraSelesaiAt)).length;
+  const selesaiCount = peserta.filter((p) => isSelesaiLengkap(p)).length;
   const properCount = peserta.filter((p) => Boolean(p.hasProper)).length;
 
   return (
@@ -249,8 +252,8 @@ export default function PantauWawancaraPage({
                 <th className="px-3 py-2.5 font-semibold">Peserta</th>
                 <th className="px-3 py-2.5 font-semibold">Tim &amp; Evaluator</th>
                 <th className="px-3 py-2.5 text-center font-semibold">Unggah Proper</th>
-                <th className="px-3 py-2.5 text-center font-semibold">Skor (M / Total)</th>
-                <th className="px-3 py-2.5 text-center font-semibold">Status Wawancara</th>
+                <th className="px-3 py-2.5 text-center font-semibold">Wawancara / Akhir</th>
+                <th className="px-3 py-2.5 text-center font-semibold">Status</th>
                 <th className="px-3 py-2.5 text-right font-semibold">Tautan Wawancara</th>
               </tr>
             </thead>
@@ -289,15 +292,19 @@ export default function PantauWawancaraPage({
                     </div>
                   </td>
                   <td className="px-3 py-3 text-center">
-                    {p.wawancaraSelesaiAt ? (
+                    {isSelesaiLengkap(p) ? (
                       <div>
-                        <span className="inline-flex rounded border border-zinc-800 bg-white px-2 py-0.5 text-[11px] font-semibold text-zinc-950">
+                        <span className="inline-flex rounded border border-zinc-800 bg-zinc-950 px-2 py-0.5 text-[11px] font-semibold text-white">
                           Selesai
                         </span>
                         <div className="mt-0.5 text-[10px] text-zinc-500">
                           {new Date(p.wawancaraSelesaiAt).toLocaleDateString('id-ID')}
                         </div>
                       </div>
+                    ) : !p.hasProper ? (
+                      <span className="inline-flex rounded border border-zinc-400 bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-900">
+                        Belum Unggah Proper
+                      </span>
                     ) : (
                       <span className="inline-flex rounded border border-zinc-300 bg-zinc-50 px-2 py-0.5 text-[11px] text-zinc-600">
                         Belum Selesai

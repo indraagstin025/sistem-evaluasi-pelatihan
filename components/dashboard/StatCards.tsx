@@ -49,12 +49,12 @@ export default function StatCards({ ringkasan }: StatCardsProps) {
 
   const lRentangText =
     validSurvei === 0
-      ? 'Belum ada data survei'
+      ? 'Belum ada data survey'
       : (ringkasan?.rataRataSurveiL ?? 0) >= 76
-      ? 'Rentang Optimal (76-100)'
+      ? 'Kategori Optimal'
       : (ringkasan?.rataRataSurveiL ?? 0) >= 51
-      ? 'Rentang Baik (51-75)'
-      : 'Perlu ditingkatkan (< 51)';
+      ? 'Kategori Baik'
+      : 'Perlu Ditingkatkan';
 
   const wawancaraCoverage =
     total > 0 ? Math.round((validWawancara / total) * 100) : 0;
@@ -64,7 +64,7 @@ export default function StatCards({ ringkasan }: StatCardsProps) {
       id: 'peserta',
       title: 'Total peserta',
       value: String(total),
-      detail: `${validSurvei} terdata survei, ${validWawancara} terdata wawancara`,
+      detail: `${validSurvei} terdata survey, ${validWawancara} terdata wawancara`,
       icon: PersonIcon,
     },
     {
@@ -76,7 +76,7 @@ export default function StatCards({ ringkasan }: StatCardsProps) {
     },
     {
       id: 'selisih',
-      title: 'Selisih tertinggi (M - L)',
+      title: 'Selisih tertinggi',
       value: selisihDisplay,
       detail: subSelisih,
       icon: MixerHorizontalIcon,
@@ -97,7 +97,7 @@ export default function StatCards({ ringkasan }: StatCardsProps) {
 
           <div className="mt-5 grid grid-cols-2 divide-x divide-zinc-800">
             <div className="pr-4">
-              <p className="text-xs font-normal text-zinc-300">Rata-rata L (Survei)</p>
+              <p className="text-xs font-normal text-zinc-300">Rata-rata Survey</p>
               <p className="mt-1.5 font-mono text-3xl font-semibold leading-none tracking-tight text-white tabular-nums sm:text-[34px]">
                 {lVal}
               </p>
@@ -107,7 +107,7 @@ export default function StatCards({ ringkasan }: StatCardsProps) {
             </div>
 
             <div className="pl-4">
-              <p className="text-xs font-normal text-zinc-300">Rata-rata M (Wawancara)</p>
+              <p className="text-xs font-normal text-zinc-300">Rata-rata Wawancara</p>
               <p className="mt-1.5 font-mono text-3xl font-semibold leading-none tracking-tight text-white tabular-nums sm:text-[34px]">
                 {mVal}
               </p>
@@ -119,7 +119,7 @@ export default function StatCards({ ringkasan }: StatCardsProps) {
         </div>
 
         <div className="mt-5 flex items-center justify-between border-t border-zinc-800 pt-3.5 text-xs">
-          <span className="font-normal text-zinc-300">Gap Tertinggi (M - L)</span>
+          <span className="font-normal text-zinc-300">Selisih Tertinggi</span>
           <span className="font-mono font-semibold text-white tabular-nums">
             {selisihDisplay}
           </span>

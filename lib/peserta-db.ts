@@ -167,16 +167,6 @@ export async function simpanPesertaDenganDetail(input: PesertaDetailInput) {
     },
   ];
 
-  const hasAllCoreWawancara =
-    input.w_menengah !== null &&
-    input.w_menengah !== undefined &&
-    input.w_panjang !== null &&
-    input.w_panjang !== undefined &&
-    input.w_tujuan !== null &&
-    input.w_tujuan !== undefined &&
-    input.w_manfaat !== null &&
-    input.w_manfaat !== undefined;
-
   return prisma.peserta.create({
     data: {
       kegiatanId: input.kegiatanId,
@@ -198,7 +188,7 @@ export async function simpanPesertaDenganDetail(input: PesertaDetailInput) {
       jabatanAtasan: input.jabatanAtasan ?? null,
       instansiAtasan: input.instansiAtasan ?? null,
       lockedImport: isLocked,
-      wawancaraSelesaiAt: hasAllCoreWawancara ? new Date() : null,
+      wawancaraSelesaiAt: null,
       survey: {
         create: [...l4Items, ...extraSurveyItems],
       },

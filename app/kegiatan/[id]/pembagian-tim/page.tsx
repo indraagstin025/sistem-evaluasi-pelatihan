@@ -315,7 +315,11 @@ export default function PembagianTimPage({
                             {idx + 1}. {p.nama}
                           </span>
                           <span className="shrink-0 font-mono text-[11px] text-zinc-500">
-                            {p.wawancaraSelesaiAt ? 'Selesai' : 'Menunggu'}
+                            {p.inovasiProper && p.wawancaraSelesaiAt
+                              ? 'Selesai'
+                              : !p.inovasiProper
+                                ? 'Belum Proper'
+                                : 'Menunggu'}
                           </span>
                         </li>
                       ))}

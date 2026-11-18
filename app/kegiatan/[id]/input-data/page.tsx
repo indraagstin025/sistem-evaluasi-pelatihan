@@ -172,8 +172,8 @@ export default function InputDataKegiatanPage({
                   <th className="px-3 py-2.5 font-semibold">Jabatan &amp; Instansi Saat Ini</th>
                   <th className="px-3 py-2.5 font-semibold">Tim Excel</th>
                   <th className="px-3 py-2.5 text-center font-semibold">Kriteria Terkunci</th>
-                  <th className="px-3 py-2.5 text-right font-semibold">Survei (L)</th>
-                  <th className="px-3 py-2.5 text-right font-semibold">Wawancara (M)</th>
+                  <th className="px-3 py-2.5 text-right font-semibold">Survey</th>
+                  <th className="px-3 py-2.5 text-right font-semibold">Wawancara</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-200">

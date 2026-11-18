@@ -34,6 +34,7 @@ export default function FormWawancaraPesertaPage({
   params: { id: string; pesertaId: string };
 }) {
   const [peserta, setPeserta] = useState<any>(null);
+  const [canEditWawancara, setCanEditWawancara] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,6 +60,7 @@ export default function FormWawancaraPesertaPage({
       }
       const p = json.data;
       setPeserta(p);
+      setCanEditWawancara(Boolean(json.canEditWawancara));
 
       const nextDrafts: Record<string, DraftCriterion> = {};
       for (const meta of WAWANCARA_KRITERIA) {
@@ -110,6 +112,7 @@ export default function FormWawancaraPesertaPage({
 
   const handleSubmit = async (e: React.FormEvent, markSelesai: boolean) => {
     e.preventDefault();
+    if (!canEditWawancara) return;
     try {
       setSaving(true);
       setError(null);
@@ -143,9 +146,10 @@ export default function FormWawancaraPesertaPage({
       }
 
       setSuccessMsg(
-        markSelesai
-          ? 'Hasil wawancara disimpan dan ditandai Selesai.'
-          : 'Draf hasil wawancara berhasil disimpan.'
+        json.message ||
+          (markSelesai
+            ? 'Hasil wawancara disimpan dan ditandai Selesai.'
+            : 'Draf hasil wawancara berhasil disimpan.')
       );
       await loadPeserta();
     } catch {
@@ -178,6 +182,7 @@ export default function FormWawancaraPesertaPage({
 
   const proper = peserta.inovasiProper;
   const surveyL = peserta.hasil?.rataSurveiL;
+  const isSelesaiLengkap = Boolean(proper && peserta.wawancaraSelesaiAt);
 
   return (
     <div className="space-y-6 pb-12">
@@ -216,10 +221,18 @@ export default function FormWawancaraPesertaPage({
               <span className="rounded border border-zinc-400 bg-zinc-50 px-2 py-0.5 text-[11px] font-medium text-zinc-800">
                 {peserta.tim?.namaTim || peserta.namaTimExcel || 'Tanpa Tim'}
               </span>
-              {peserta.wawancaraSelesaiAt && (
+              {isSelesaiLengkap ? (
                 <span className="inline-flex items-center gap-1 rounded border border-zinc-800 bg-zinc-950 px-2 py-0.5 text-[11px] font-medium text-white">
                   <CheckCircledIcon className="h-3 w-3" aria-hidden="true" />
                   Selesai Wawancara
+                </span>
+              ) : !proper ? (
+                <span className="rounded border border-zinc-400 bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-900">
+                  Belum Unggah Proper
+                </span>
+              ) : (
+                <span className="rounded border border-zinc-400 bg-white px-2 py-0.5 text-[11px] font-medium text-zinc-800">
+                  Belum Selesai
                 </span>
               )}
             </div>
@@ -233,13 +246,13 @@ export default function FormWawancaraPesertaPage({
 
           <div className="grid shrink-0 grid-cols-3 gap-2 text-center">
             <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5">
-              <p className="text-[10px] font-medium text-zinc-600">Survei (L)</p>
+              <p className="text-[10px] font-medium text-zinc-600">Survey</p>
               <p className="mt-1 font-mono text-base font-semibold text-zinc-950">
                 {typeof surveyL === 'number' ? surveyL.toFixed(2) : '-'}
               </p>
             </div>
             <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5">
-              <p className="text-[10px] font-medium text-zinc-600">Pratinjau (M)</p>
+              <p className="text-[10px] font-medium text-zinc-600">Wawancara</p>
               <p className="mt-1 font-mono text-base font-semibold text-zinc-950">
                 {previewScores.rataM !== null
                   ? previewScores.rataM.toFixed(2)
@@ -247,7 +260,7 @@ export default function FormWawancaraPesertaPage({
               </p>
             </div>
             <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5">
-              <p className="text-[10px] font-medium text-zinc-600">Total Form</p>
+              <p className="text-[10px] font-medium text-zinc-600">Akhir Berbobot</p>
               <p className="mt-1 font-mono text-base font-semibold text-zinc-950">
                 {previewScores.totalForm !== null
                   ? previewScores.totalForm.toFixed(2)
@@ -378,14 +391,31 @@ export default function FormWawancaraPesertaPage({
         )}
       </section>
 
-      {/* Form 5 Kriteria Wawancara (IT-07 Lock + Hasil & Bukti + Rentang Nilai) */}
+      {/* Form 5 Kriteria Wawancara */}
       <form onSubmit={(e) => handleSubmit(e, true)} className="space-y-4">
-        <div className="rounded-2xl border border-zinc-900 bg-zinc-50 px-5 py-3.5 text-xs text-zinc-800">
-          <strong>Aturan IT-07:</strong> Angka wawancara yang sudah berasal dari impor Excel
-          bersifat <strong>TERKUNCI</strong>. Evaluator hanya mengisi angka pada kriteria yang masih{' '}
-          <strong>KOSONG</strong>, serta selalu mengisi atau melengkapi kolom{' '}
-          <strong>Hasil wawancara &amp; bukti</strong>.
-        </div>
+        {!canEditWawancara ? (
+          <StatusBanner
+            tone="info"
+            title="Mode Baca Saja (Super Admin)"
+            message="Anda masuk sebagai Super Admin. Formulir wawancara, nilai, dan catatan bukti bersifat baca saja (read-only) dan hanya dapat diisi oleh Evaluator tim terkait."
+          />
+        ) : (
+          <div className="space-y-3">
+            <div className="rounded-2xl border border-zinc-900 bg-zinc-50 px-5 py-3.5 text-xs text-zinc-800">
+              <strong>Aturan Pengisian:</strong> Angka wawancara yang berasal dari impor Excel
+              bersifat <strong>TERKUNCI</strong>. Evaluator hanya mengisi angka pada kriteria yang
+              masih <strong>KOSONG</strong>, serta mengisi kolom{' '}
+              <strong>Hasil wawancara &amp; bukti</strong>.
+            </div>
+            {!proper && (
+              <StatusBanner
+                tone="info"
+                title="Proper Belum Diunggah"
+                message="Peserta belum mengunggah dokumen/data Inovasi/Proper melalui Link Public. Anda tetap dapat menyimpan draf nilai kosong atau catatan bukti, namun status belum dapat ditandai Selesai sebelum Proper diunggah."
+              />
+            )}
+          </div>
+        )}
 
         {WAWANCARA_KRITERIA.map((meta) => {
           const d = drafts[meta.key] || {
@@ -406,11 +436,6 @@ export default function FormWawancaraPesertaPage({
                     <span className="rounded bg-zinc-950 px-2 py-0.5 font-mono text-[11px] font-semibold text-white">
                       Kriteria {meta.no} · Bobot {meta.bobot}%
                     </span>
-                    {meta.masukRataM && (
-                      <span className="rounded border border-zinc-400 bg-zinc-50 px-2 py-0.5 text-[10px] font-medium text-zinc-800">
-                        Pembentuk Rata-rata (M)
-                      </span>
-                    )}
                     {d.lockedFromImport && (
                       <span className="inline-flex items-center gap-1 rounded border border-zinc-800 bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-950">
                         <LockClosedIcon className="h-3 w-3" aria-hidden="true" />
@@ -434,7 +459,7 @@ export default function FormWawancaraPesertaPage({
                     type="number"
                     min={0}
                     max={100}
-                    disabled={d.lockedFromImport}
+                    disabled={!canEditWawancara || d.lockedFromImport}
                     value={d.nilai}
                     placeholder="KOSONG"
                     onChange={(e) =>
@@ -454,11 +479,14 @@ export default function FormWawancaraPesertaPage({
                     htmlFor={`bukti-${meta.key}`}
                     className="mb-1.5 block text-xs font-medium text-zinc-800"
                   >
-                    Hasil wawancara &amp; bukti (selalu dapat diisi evaluator)
+                    {canEditWawancara
+                      ? 'Hasil wawancara & bukti (selalu dapat diisi evaluator)'
+                      : 'Hasil wawancara & bukti'}
                   </label>
                   <textarea
                     id={`bukti-${meta.key}`}
                     rows={4}
+                    disabled={!canEditWawancara}
                     value={d.deskripsi}
                     onChange={(e) =>
                       setDrafts((prev) => ({
@@ -466,8 +494,12 @@ export default function FormWawancaraPesertaPage({
                         [meta.key]: { ...d, deskripsi: e.target.value },
                       }))
                     }
-                    placeholder="Catat hasil konfirmasi langsung dan bukti dukung dari alumni..."
-                    className="w-full rounded-xl border border-zinc-500 bg-white p-3 text-xs text-zinc-950 focus:border-zinc-950 focus:outline-none"
+                    placeholder={
+                      canEditWawancara
+                        ? 'Catat hasil konfirmasi langsung dan bukti dukung dari alumni...'
+                        : 'Belum ada catatan bukti dari evaluator.'
+                    }
+                    className="w-full rounded-xl border border-zinc-500 bg-white p-3 text-xs text-zinc-950 focus:border-zinc-950 focus:outline-none disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-700"
                   />
                 </div>
 
@@ -493,24 +525,37 @@ export default function FormWawancaraPesertaPage({
           );
         })}
 
-        <div className="flex flex-col-reverse justify-end gap-2.5 sm:flex-row">
-          <button
-            type="button"
-            disabled={saving}
-            onClick={(e) => handleSubmit(e, false)}
-            className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-zinc-500 bg-white px-5 py-2.5 text-xs font-semibold text-zinc-950 transition hover:bg-zinc-100 disabled:opacity-50"
-          >
-            {saving ? 'Menyimpan...' : 'Simpan Draf'}
-          </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg bg-zinc-950 px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-zinc-800 disabled:opacity-50"
-          >
-            <CheckCircledIcon className="h-4 w-4" aria-hidden="true" />
-            <span>{saving ? 'Menyimpan...' : 'Simpan & Tandai Selesai Wawancara'}</span>
-          </button>
-        </div>
+        {canEditWawancara && (
+          <div className="flex flex-col-reverse justify-end gap-2.5 sm:flex-row">
+            <button
+              type="button"
+              disabled={saving}
+              onClick={(e) => handleSubmit(e, false)}
+              className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-zinc-500 bg-white px-5 py-2.5 text-xs font-semibold text-zinc-950 transition hover:bg-zinc-100 disabled:opacity-50"
+            >
+              {saving ? 'Menyimpan...' : 'Simpan Draf'}
+            </button>
+            <button
+              type="submit"
+              disabled={saving || !proper}
+              title={
+                !proper
+                  ? 'Status selesai hanya dapat ditandai setelah peserta mengunggah Proper'
+                  : undefined
+              }
+              className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg bg-zinc-950 px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <CheckCircledIcon className="h-4 w-4" aria-hidden="true" />
+              <span>
+                {saving
+                  ? 'Menyimpan...'
+                  : !proper
+                    ? 'Tunggu Unggahan Proper untuk Selesai'
+                    : 'Simpan & Tandai Selesai Wawancara'}
+              </span>
+            </button>
+          </div>
+        )}
       </form>
 
       {/* Dialog Pratinjau Foto Evidence */}

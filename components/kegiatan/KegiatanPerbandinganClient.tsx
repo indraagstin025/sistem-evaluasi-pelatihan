@@ -130,10 +130,10 @@ export default function KegiatanPerbandinganClient({
       'No',
       'Nama Peserta',
       'Instansi',
-      'Nilai L (Survei)',
-      'Nilai M (Wawancara)',
-      'Total Form',
-      'Selisih (M-L)',
+      'Nilai Survey',
+      'Nilai Wawancara',
+      'Akhir Berbobot',
+      'Selisih',
       'Status',
     ];
 
@@ -192,10 +192,10 @@ export default function KegiatanPerbandinganClient({
       <div className="flex flex-col justify-between gap-4 rounded-2xl border border-zinc-200 bg-white p-5 sm:flex-row sm:items-center">
         <div>
           <h2 className="text-base font-semibold text-zinc-950">
-            Perbandingan Nilai L &amp; M
+            Perbandingan Survey &amp; Wawancara
           </h2>
           <p className="mt-1 text-xs text-zinc-600">
-            Komparasi hasil survei alumni (L) dan wawancara evaluator (M) untuk setiap peserta
+            Komparasi hasil Survey alumni dan Wawancara evaluator untuk setiap peserta
           </p>
         </div>
         <button
@@ -212,17 +212,17 @@ export default function KegiatanPerbandinganClient({
       {/* 4 Kartu Metrik Ringkasan */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-2xl border border-zinc-200 bg-white p-5">
-          <p className="text-xs font-medium text-zinc-600">Rata-rata L (Survei)</p>
+          <p className="text-xs font-medium text-zinc-600">Rata-rata Survey</p>
           <p className="mt-1.5 font-mono text-[26px] font-semibold leading-tight tracking-tight text-zinc-950 tabular-nums">
             {avgL.toFixed(2)}
           </p>
           <p className="mt-1 text-xs font-normal text-zinc-600">
-            Survei Aksi Perubahan (N={ringkasan?.totalValidSurvei ?? 0})
+            Survey Aksi Perubahan (N={ringkasan?.totalValidSurvei ?? 0})
           </p>
         </div>
 
         <div className="rounded-2xl border border-zinc-200 bg-white p-5">
-          <p className="text-xs font-medium text-zinc-600">Rata-rata M (Wawancara)</p>
+          <p className="text-xs font-medium text-zinc-600">Rata-rata Wawancara</p>
           <p className="mt-1.5 font-mono text-[26px] font-semibold leading-tight tracking-tight text-zinc-950 tabular-nums">
             {avgM.toFixed(2)}
           </p>
@@ -232,7 +232,7 @@ export default function KegiatanPerbandinganClient({
         </div>
 
         <div className="rounded-2xl bg-zinc-950 p-5 text-white">
-          <p className="text-xs font-medium text-zinc-300">Rata-rata Selisih (M - L)</p>
+          <p className="text-xs font-medium text-zinc-300">Rata-rata Selisih</p>
           <p className="mt-1.5 font-mono text-[26px] font-semibold leading-tight tracking-tight text-white tabular-nums">
             {avgDiff > 0 ? `+${avgDiff.toFixed(2)}` : avgDiff.toFixed(2)}
           </p>
@@ -277,7 +277,7 @@ export default function KegiatanPerbandinganClient({
         <div className="flex flex-col justify-between gap-2 border-b border-zinc-200 pb-3 sm:flex-row sm:items-center">
           <div>
             <h2 className="text-sm font-semibold text-zinc-950 sm:text-base">
-              Grafik Selisih Nilai (M - L) per Peserta
+              Grafik Selisih Nilai per Peserta
             </h2>
             <p className="mt-0.5 text-xs font-normal text-zinc-600">
               <span className="font-semibold text-zinc-950">Hitam solid (+):</span> evaluator menilai lebih tinggi ·{' '}
@@ -285,7 +285,7 @@ export default function KegiatanPerbandinganClient({
             </p>
           </div>
           <span className="self-start rounded-md border border-zinc-300 bg-zinc-50 px-2.5 py-1 font-mono text-xs font-medium text-zinc-700 sm:self-auto">
-            0.00 (seimbang: M = L)
+            0.00 (seimbang)
           </span>
         </div>
 
@@ -308,7 +308,7 @@ export default function KegiatanPerbandinganClient({
                     #{activeDeltaIdx + 1} {validDeltas[activeDeltaIdx].nama}:
                   </span>
                   <span className="font-mono tabular-nums">
-                    L={validDeltas[activeDeltaIdx].L?.toFixed(2)} | M=
+                    Survey={validDeltas[activeDeltaIdx].L?.toFixed(2)} | Wawancara=
                     {validDeltas[activeDeltaIdx].M?.toFixed(2)} | Selisih=
                     {(validDeltas[activeDeltaIdx].selisih || 0) > 0
                       ? `+${validDeltas[activeDeltaIdx].selisih?.toFixed(2)}`
@@ -345,9 +345,9 @@ export default function KegiatanPerbandinganClient({
                       <TooltipTrigger asChild>
                         <button
                           type="button"
-                          aria-label={`Peserta ${idx + 1} ${p.nama}: Nilai L ${p.L?.toFixed(
+                          aria-label={`Peserta ${idx + 1} ${p.nama}: Nilai Survey ${p.L?.toFixed(
                             2
-                          )}, Nilai M ${p.M?.toFixed(2)}, Selisih ${formattedDiff}`}
+                          )}, Nilai Wawancara ${p.M?.toFixed(2)}, Selisih ${formattedDiff}`}
                           onMouseEnter={() => setActiveDeltaIdx(idx)}
                           onFocus={() => setActiveDeltaIdx(idx)}
                           onClick={() => setActiveDeltaIdx(idx)}
@@ -383,7 +383,8 @@ export default function KegiatanPerbandinganClient({
                       <TooltipContent>
                         <p className="font-medium">{p.nama}</p>
                         <p className="font-mono text-[10px]">
-                          L: {p.L?.toFixed(2)} | M: {p.M?.toFixed(2)} | Selisih: {formattedDiff}
+                          Survey: {p.L?.toFixed(2)} | Wawancara: {p.M?.toFixed(2)} | Selisih:{' '}
+                          {formattedDiff}
                         </p>
                       </TooltipContent>
                     </Tooltip>
@@ -443,8 +444,8 @@ export default function KegiatanPerbandinganClient({
                       isPos ? 'border-zinc-800 text-zinc-300' : 'border-zinc-200 text-zinc-700'
                     }`}
                   >
-                    <span>L: {p.L?.toFixed(2)}</span>
-                    <span>M: {p.M?.toFixed(2)}</span>
+                    <span>Survey: {p.L?.toFixed(2)}</span>
+                    <span>Wawancara: {p.M?.toFixed(2)}</span>
                   </div>
                 </div>
               );
@@ -502,7 +503,7 @@ export default function KegiatanPerbandinganClient({
                     onClick={() => handleSort('L')}
                     className="inline-flex items-center justify-center gap-1 font-medium text-zinc-800 hover:text-zinc-950"
                   >
-                    <span>Nilai L</span>
+                    <span>Nilai Survey</span>
                     {renderSortIcon('L')}
                   </button>
                 </th>
@@ -512,18 +513,18 @@ export default function KegiatanPerbandinganClient({
                     onClick={() => handleSort('M')}
                     className="inline-flex items-center justify-center gap-1 font-medium text-zinc-800 hover:text-zinc-950"
                   >
-                    <span>Nilai M</span>
+                    <span>Nilai Wawancara</span>
                     {renderSortIcon('M')}
                   </button>
                 </th>
-                <th className="px-3 py-3 text-center">Total Form</th>
+                <th className="px-3 py-3 text-center">Akhir Berbobot</th>
                 <th className="px-3 py-3 text-center" aria-sort={getAriaSort('selisih')}>
                   <button
                     type="button"
                     onClick={() => handleSort('selisih')}
                     className="inline-flex items-center justify-center gap-1 font-medium text-zinc-800 hover:text-zinc-950"
                   >
-                    <span>Selisih (M - L)</span>
+                    <span>Selisih</span>
                     {renderSortIcon('selisih')}
                   </button>
                 </th>

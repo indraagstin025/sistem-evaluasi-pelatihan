@@ -40,6 +40,7 @@ export async function GET(
             instansi: true,
             jabatanSaatIni: true,
             wawancaraSelesaiAt: true,
+            inovasiProper: { select: { id: true } },
           },
         },
       },

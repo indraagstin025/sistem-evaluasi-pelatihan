@@ -24,6 +24,7 @@ export async function GET() {
         peserta: {
           select: {
             wawancaraSelesaiAt: true,
+            inovasiProper: { select: { id: true } },
           },
         },
       },
@@ -36,7 +37,9 @@ export async function GET() {
       totalTim: _count.tim,
       totalProper: _count.inovasiProper,
       totalSelisih: _count.selisihImport,
-      wawancaraSelesaiCount: peserta.filter((p) => p.wawancaraSelesaiAt !== null).length,
+      wawancaraSelesaiCount: peserta.filter(
+        (p) => p.wawancaraSelesaiAt !== null && p.inovasiProper !== null
+      ).length,
     }));
 
     return NextResponse.json({ success: true, data: formatted });
@@ -77,7 +80,9 @@ export async function GET() {
       totalTim: tim.length,
       totalProper: myPeserta.filter((p) => p.inovasiProper !== null).length,
       totalSelisih: 0,
-      wawancaraSelesaiCount: myPeserta.filter((p) => p.wawancaraSelesaiAt !== null).length,
+      wawancaraSelesaiCount: myPeserta.filter(
+        (p) => p.wawancaraSelesaiAt !== null && p.inovasiProper !== null
+      ).length,
       timSaya: tim.map((t) => ({ id: t.id, namaTim: t.namaTim, linkMeeting: t.linkMeeting })),
     };
   });

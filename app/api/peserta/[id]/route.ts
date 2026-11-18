@@ -45,7 +45,11 @@ export async function GET(
       },
     });
 
-    return NextResponse.json({ success: true, data: peserta });
+    return NextResponse.json({
+      success: true,
+      canEditWawancara: guard.user.role === 'EVALUATOR',
+      data: peserta,
+    });
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error.message || 'Gagal mengambil detail peserta' },

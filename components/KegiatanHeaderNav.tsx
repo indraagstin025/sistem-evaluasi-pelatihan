@@ -39,6 +39,7 @@ export default function KegiatanHeaderNav({ kegiatan, role }: KegiatanHeaderNavP
           { label: 'Hasil Survei', href: `${base}/hasil-survei` },
           { label: 'Input Data', href: `${base}/input-data` },
           { label: 'Pembagian Tim', href: `${base}/pembagian-tim` },
+          { label: 'Peserta & Wawancara', href: `${base}/wawancara` },
           { label: 'Pantau Wawancara', href: `${base}/pantau-wawancara` },
           { label: 'Perbandingan', href: `${base}/perbandingan` },
           { label: 'Ekspose', href: `${base}/ekspose` },

@@ -117,14 +117,14 @@ export default function BottomCards({ ringkasan }: BottomCardsProps) {
 
           <div className="space-y-3 py-4 text-xs">
             <div className="flex items-center justify-between border-b border-zinc-100 pb-2">
-              <span className="font-normal text-zinc-600">Nilai L (Survei)</span>
+              <span className="font-normal text-zinc-600">Nilai Survey</span>
               <span className="font-mono text-sm font-medium text-zinc-950 tabular-nums">
                 {lVal.toFixed(2)}
               </span>
             </div>
 
             <div className="flex items-center justify-between border-b border-zinc-100 pb-2">
-              <span className="font-normal text-zinc-600">Nilai M (Wawancara)</span>
+              <span className="font-normal text-zinc-600">Nilai Wawancara</span>
               <span className="font-mono text-sm font-medium text-zinc-950 tabular-nums">
                 {mVal.toFixed(2)}
               </span>
@@ -140,7 +140,7 @@ export default function BottomCards({ ringkasan }: BottomCardsProps) {
         </div>
 
         <p className="border-t border-zinc-100 pt-3 text-xs font-normal text-zinc-600">
-          Perbandingan skor instrumen survei alumni dan wawancara evaluator.
+          Perbandingan skor instrumen survey alumni dan wawancara evaluator.
         </p>
       </div>
 
@@ -149,7 +149,7 @@ export default function BottomCards({ ringkasan }: BottomCardsProps) {
         <div>
           <div className="flex items-center gap-2 border-b border-zinc-100 pb-3">
             <MixerHorizontalIcon className="h-4 w-4 text-zinc-800" aria-hidden="true" />
-            <h2 className="text-sm font-semibold text-zinc-950">Ekstrem Selisih (M - L)</h2>
+            <h2 className="text-sm font-semibold text-zinc-950">Ekstrem Selisih</h2>
           </div>
 
           <div className="grid grid-cols-2 gap-3 py-4">
@@ -186,7 +186,7 @@ export default function BottomCards({ ringkasan }: BottomCardsProps) {
         </div>
 
         <p className="border-t border-zinc-100 pt-3 text-xs font-normal text-zinc-600">
-          Selisih paling besar antara nilai wawancara (M) dan nilai survei (L).
+          Selisih paling besar antara nilai Wawancara dan nilai Survey.
         </p>
       </div>
     </div>

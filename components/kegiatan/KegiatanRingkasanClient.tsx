@@ -254,12 +254,11 @@ export default function KegiatanRingkasanClient({
         <div className="flex flex-col justify-between gap-3 border-b border-zinc-200 pb-4 lg:flex-row lg:items-center">
           <div>
             <h2 id="jawaban-perbandingan-title" className="text-base font-semibold text-zinc-950">
-              Tabel Jawaban 3 Item Perbandingan per Peserta (IT-09)
+              Tabel Jawaban 3 Item Perbandingan per Peserta
             </h2>
             <p className="mt-1 text-xs text-zinc-600">
-              Membandingkan 3 item Survei Aksi Perubahan (skala 1-4) dengan 3 kriteria Wawancara
-              (skala 0-100) yang membentuk Survei (L) dan Wawancara (M). Rata-rata 30 soal
-              perubahan perilaku (Bab 6.7) tidak tampil pada inti ini dan tersedia di menu{' '}
+              Menampilkan perbandingan hasil Survey dan Wawancara pada 3 butir Aksi Perubahan per
+              peserta. Ringkasan kuesioner lengkap tersedia pada menu{' '}
               <Link
                 href={`/kegiatan/${kegiatanId}/hasil-survei`}
                 className="font-medium text-zinc-950 underline underline-offset-4"
@@ -324,10 +323,10 @@ export default function KegiatanRingkasanClient({
                   <th className="px-3 py-2.5 text-center font-semibold">
                     P3 / K4 (Manfaat)
                   </th>
-                  <th className="px-3 py-2.5 text-right font-semibold">Survei (L)</th>
-                  <th className="px-3 py-2.5 text-right font-semibold">Wawancara (M)</th>
-                  <th className="px-3 py-2.5 text-right font-semibold">Selisih (M-L)</th>
-                  <th className="px-3 py-2.5 text-right font-semibold">Total Form</th>
+                  <th className="px-3 py-2.5 text-right font-semibold">Survey</th>
+                  <th className="px-3 py-2.5 text-right font-semibold">Wawancara</th>
+                  <th className="px-3 py-2.5 text-right font-semibold">Selisih</th>
+                  <th className="px-3 py-2.5 text-right font-semibold">Akhir Berbobot</th>
                   <th className="px-3 py-2.5 text-right font-semibold">Aksi</th>
                 </tr>
               </thead>
