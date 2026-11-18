@@ -118,16 +118,63 @@ export async function PATCH(
   if (!guard.ok) return guard.response;
 
   try {
+    const existing = await prisma.kegiatan.findUnique({
+      where: { id: params.id },
+    });
+    if (!existing) {
+      return NextResponse.json(
+        { success: false, error: 'Kegiatan tidak ditemukan.' },
+        { status: 404 }
+      );
+    }
+
     const body = await request.json().catch(() => null);
+    const nama = body?.nama !== undefined ? String(body.nama).trim() : existing.nama;
+    const jenisPelatihan =
+      body?.jenisPelatihan !== undefined
+        ? String(body.jenisPelatihan).trim()
+        : existing.jenisPelatihan;
+    const penyelenggara =
+      body?.penyelenggara !== undefined
+        ? String(body.penyelenggara).trim()
+        : existing.penyelenggara;
+    const lokasi = body?.lokasi !== undefined ? String(body.lokasi).trim() : existing.lokasi;
+
+    if (!nama || !jenisPelatihan || !penyelenggara || !lokasi) {
+      return NextResponse.json(
+        { success: false, error: 'Nama, jenis pelatihan, penyelenggara, dan lokasi wajib diisi.' },
+        { status: 400 }
+      );
+    }
+
+    const tanggalMulai = body?.tanggalMulai ? new Date(body.tanggalMulai) : existing.tanggalMulai;
+    const tanggalSelesai = body?.tanggalSelesai
+      ? new Date(body.tanggalSelesai)
+      : existing.tanggalSelesai;
+
+    if (Number.isNaN(tanggalMulai.getTime()) || Number.isNaN(tanggalSelesai.getTime())) {
+      return NextResponse.json(
+        { success: false, error: 'Format tanggal mulai atau tanggal selesai tidak valid.' },
+        { status: 400 }
+      );
+    }
+
+    if (tanggalSelesai.getTime() < tanggalMulai.getTime()) {
+      return NextResponse.json(
+        { success: false, error: 'Tanggal selesai tidak boleh lebih awal dari tanggal mulai.' },
+        { status: 400 }
+      );
+    }
+
     const updated = await prisma.kegiatan.update({
       where: { id: params.id },
       data: {
-        ...(body?.nama ? { nama: String(body.nama).trim() } : {}),
-        ...(body?.jenisPelatihan ? { jenisPelatihan: String(body.jenisPelatihan).trim() } : {}),
-        ...(body?.penyelenggara ? { penyelenggara: String(body.penyelenggara).trim() } : {}),
-        ...(body?.lokasi ? { lokasi: String(body.lokasi).trim() } : {}),
-        ...(body?.tanggalMulai ? { tanggalMulai: new Date(body.tanggalMulai) } : {}),
-        ...(body?.tanggalSelesai ? { tanggalSelesai: new Date(body.tanggalSelesai) } : {}),
+        nama,
+        jenisPelatihan,
+        penyelenggara,
+        lokasi,
+        tanggalMulai,
+        tanggalSelesai,
       },
     });
     return NextResponse.json({ success: true, data: updated });

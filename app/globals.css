@@ -8,6 +8,10 @@
 }
 
 @layer base {
+  html {
+    font-size: 90%;
+  }
+
   body {
     color: var(--foreground);
     background-color: var(--canvas-bg);
@@ -76,6 +80,10 @@
   @page {
     size: landscape;
     margin: 1cm;
+  }
+
+  html {
+    font-size: 100% !important;
   }
 
   body {

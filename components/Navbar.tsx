@@ -304,7 +304,7 @@ export default function Navbar({ user, children }: NavbarProps) {
     <div
       className={cn(
         'min-h-screen transition-[padding-left] duration-200 print:pl-0',
-        pinned ? 'lg:pl-60 xl:pl-64' : 'lg:pl-[72px]'
+        pinned ? 'lg:pl-60 xl:pl-64' : 'lg:pl-[4.5rem]'
       )}
     >
       {/* Sidebar Utama Desktop (Mode Hover Overlay + Opsi Sematkan) */}
@@ -333,7 +333,7 @@ export default function Navbar({ user, children }: NavbarProps) {
         }}
         className={cn(
           'no-print fixed inset-y-0 left-0 z-40 hidden border-r border-zinc-200 bg-white transition-[width,box-shadow] duration-150 lg:flex lg:flex-col',
-          isExpanded ? 'w-60 xl:w-64 shadow-xl' : 'w-[72px] shadow-none'
+          isExpanded ? 'w-60 xl:w-64 shadow-xl' : 'w-[4.5rem] shadow-none'
         )}
       >
         <div
