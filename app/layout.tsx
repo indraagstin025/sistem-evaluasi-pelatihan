@@ -43,14 +43,7 @@ export default async function RootLayout({
             Lompat ke konten utama
           </a>
 
-          <Navbar user={user} />
-
-          <main
-            id="main-content"
-            className="mx-auto w-full max-w-[1320px] px-4 py-6 sm:px-6 lg:px-8 print:max-w-none print:p-0"
-          >
-            {children}
-          </main>
+          <Navbar user={user}>{children}</Navbar>
         </TooltipProvider>
       </body>
     </html>

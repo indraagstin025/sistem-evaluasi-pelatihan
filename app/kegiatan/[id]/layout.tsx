@@ -26,20 +26,19 @@ export default async function KegiatanDetailLayout({
   if (!kegiatan) notFound();
 
   return (
-    <div className="space-y-6">
-      <KegiatanHeaderNav
-        kegiatan={{
-          id: kegiatan.id,
-          nama: kegiatan.nama,
-          jenisPelatihan: kegiatan.jenisPelatihan,
-          penyelenggara: kegiatan.penyelenggara,
-          lokasi: kegiatan.lokasi,
-          tanggalMulai: kegiatan.tanggalMulai.toISOString(),
-          tanggalSelesai: kegiatan.tanggalSelesai.toISOString(),
-        }}
-        role={user.role}
-      />
+    <KegiatanHeaderNav
+      kegiatan={{
+        id: kegiatan.id,
+        nama: kegiatan.nama,
+        jenisPelatihan: kegiatan.jenisPelatihan,
+        penyelenggara: kegiatan.penyelenggara,
+        lokasi: kegiatan.lokasi,
+        tanggalMulai: kegiatan.tanggalMulai.toISOString(),
+        tanggalSelesai: kegiatan.tanggalSelesai.toISOString(),
+      }}
+      role={user.role}
+    >
       {children}
-    </div>
+    </KegiatanHeaderNav>
   );
 }

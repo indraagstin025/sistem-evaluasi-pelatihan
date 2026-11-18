@@ -11,6 +11,7 @@ import {
   ReloadIcon,
 } from '@radix-ui/react-icons';
 import { StatusBanner } from '@/components/ui/status-banner';
+import { TablePagination } from '@/components/ui/table-pagination';
 
 export default function PantauWawancaraPage({
   params,
@@ -31,6 +32,8 @@ export default function PantauWawancaraPage({
   const [statusFilter, setStatusFilter] = useState<
     'semua' | 'selesai' | 'belum' | 'sudah_proper' | 'belum_proper'
   >('semua');
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
 
   const loadData = async () => {
     try {
@@ -222,7 +225,10 @@ export default function PantauWawancaraPage({
               <input
                 type="search"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
                 placeholder="Cari peserta, tim, evaluator..."
                 className="min-h-[40px] w-full rounded-lg border border-zinc-500 bg-white pl-9 pr-3 text-xs text-zinc-950 focus:border-zinc-950 focus:outline-none sm:w-56"
               />
@@ -230,7 +236,10 @@ export default function PantauWawancaraPage({
 
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
+              onChange={(e) => {
+                setStatusFilter(e.target.value as any);
+                setPage(1);
+              }}
               aria-label="Filter status wawancara"
               className="min-h-[40px] rounded-lg border border-zinc-500 bg-white px-3 text-xs font-medium text-zinc-950 focus:border-zinc-950 focus:outline-none"
             >
@@ -258,7 +267,9 @@ export default function PantauWawancaraPage({
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-200">
-              {filtered.map((p) => (
+              {filtered
+                .slice((page - 1) * pageSize, page * pageSize)
+                .map((p) => (
                 <tr key={p.id} className="hover:bg-zinc-50">
                   <td className="px-3 py-3">
                     <div className="font-semibold text-zinc-950">{p.nama}</div>
@@ -350,6 +361,14 @@ export default function PantauWawancaraPage({
             </tbody>
           </table>
         </div>
+
+        <TablePagination
+          page={page}
+          pageSize={pageSize}
+          totalItems={filtered.length}
+          onPageChange={setPage}
+          itemLabel="peserta"
+        />
       </section>
     </div>
   );

@@ -58,6 +58,7 @@ model TimEvaluator {
 
   @@unique([kegiatanId, urutan])
   @@index([evaluatorId])
+  @@index([kegiatanId, evaluatorId])
 }
 
 model Peserta {
@@ -95,6 +96,9 @@ model Peserta {
   @@index([kegiatanId])
   @@index([timId])
   @@index([kegiatanId, nip])
+  @@index([kegiatanId, nama])
+  @@index([kegiatanId, timId, nama])
+  @@index([kegiatanId, wawancaraSelesaiAt])
 }
 
 model Survey {
@@ -156,6 +160,7 @@ model SelisihImport {
   createdAt    DateTime @default(now())
 
   @@index([kegiatanId])
+  @@index([kegiatanId, pesertaId])
 }
 
 model UploadedFile {

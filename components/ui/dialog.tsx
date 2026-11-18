@@ -40,7 +40,7 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        'no-print fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-xl border border-zinc-300 bg-white text-zinc-950 shadow-xl focus:outline-none',
+        'no-print fixed left-1/2 top-1/2 z-50 flex max-h-[90vh] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-zinc-300 bg-white p-0 text-zinc-950 shadow-2xl focus:outline-none',
         className
       )}
       {...props}
@@ -65,18 +65,32 @@ const DialogHeader = ({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
-    className={cn('flex flex-col space-y-1 border-b border-zinc-200 px-6 py-4', className)}
+    className={cn('flex shrink-0 flex-col space-y-1.5 border-b border-zinc-200 px-6 py-4 pr-12', className)}
     {...props}
   />
 );
 DialogHeader.displayName = 'DialogHeader';
+
+const DialogBody = ({
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) => (
+  <div
+    className={cn('flex-1 overflow-y-auto px-6 py-5', className)}
+    {...props}
+  />
+);
+DialogBody.displayName = 'DialogBody';
 
 const DialogFooter = ({
   className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
-    className={cn('flex flex-wrap items-center justify-end gap-2 border-t border-zinc-200 px-6 py-4', className)}
+    className={cn(
+      'flex shrink-0 flex-wrap items-center justify-end gap-2.5 border-t border-zinc-200 bg-zinc-50/70 px-6 py-4',
+      className
+    )}
     {...props}
   />
 );
@@ -114,6 +128,7 @@ export {
   DialogTrigger,
   DialogContent,
   DialogHeader,
+  DialogBody,
   DialogFooter,
   DialogTitle,
   DialogDescription,

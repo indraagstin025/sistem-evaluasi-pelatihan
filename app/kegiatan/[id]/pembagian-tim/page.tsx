@@ -10,6 +10,7 @@ import {
 } from '@radix-ui/react-icons';
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -350,7 +351,7 @@ export default function PembagianTimPage({
           if (!open) setCreateForTim(null);
         }}
       >
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Buat Akun Evaluator Baru</DialogTitle>
             <DialogDescription>
@@ -359,64 +360,66 @@ export default function PembagianTimPage({
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleCreateEvaluatorForTim} className="space-y-3.5">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-zinc-800">
-                Nama Lengkap Evaluator *
-              </label>
-              <input
-                type="text"
-                required
-                value={newNama}
-                onChange={(e) => setNewNama(e.target.value)}
-                placeholder="Contoh: Angga Wijaya, S.Sos"
-                className="min-h-[40px] w-full rounded-lg border border-zinc-500 bg-white px-3 text-sm text-zinc-950 focus:border-zinc-950 focus:outline-none"
-              />
-            </div>
+          <form onSubmit={handleCreateEvaluatorForTim} className="flex min-h-0 flex-1 flex-col">
+            <DialogBody className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-zinc-900">
+                  Nama Lengkap Evaluator <span className="text-zinc-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newNama}
+                  onChange={(e) => setNewNama(e.target.value)}
+                  placeholder="Contoh: Angga Wijaya, S.Sos"
+                  className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white px-3.5 text-sm text-zinc-950 focus:border-zinc-950 focus:outline-none"
+                />
+              </div>
 
-            <div>
-              <label className="mb-1 block text-xs font-medium text-zinc-800">
-                NIP (Username Login) *
-              </label>
-              <input
-                type="text"
-                required
-                value={newNip}
-                onChange={(e) => setNewNip(e.target.value)}
-                placeholder="198501012010011001"
-                className="min-h-[40px] w-full rounded-lg border border-zinc-500 bg-white px-3 font-mono text-sm text-zinc-950 focus:border-zinc-950 focus:outline-none"
-              />
-            </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-zinc-900">
+                  NIP (Username Login) <span className="text-zinc-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newNip}
+                  onChange={(e) => setNewNip(e.target.value)}
+                  placeholder="198501012010011001"
+                  className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white px-3.5 font-mono text-sm text-zinc-950 focus:border-zinc-950 focus:outline-none"
+                />
+              </div>
 
-            <div>
-              <label className="mb-1 block text-xs font-medium text-zinc-800">
-                Email (Opsional)
-              </label>
-              <input
-                type="email"
-                value={newEmail}
-                onChange={(e) => setNewEmail(e.target.value)}
-                placeholder="evaluator@bpsdm.jabarprov.go.id"
-                className="min-h-[40px] w-full rounded-lg border border-zinc-500 bg-white px-3 text-sm text-zinc-950 focus:border-zinc-950 focus:outline-none"
-              />
-            </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-zinc-900">
+                  Email (Opsional)
+                </label>
+                <input
+                  type="email"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  placeholder="evaluator@bpsdm.jabarprov.go.id"
+                  className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white px-3.5 text-sm text-zinc-950 focus:border-zinc-950 focus:outline-none"
+                />
+              </div>
 
-            <div>
-              <label className="mb-1 block text-xs font-medium text-zinc-800">
-                Sandi Awal (min. 6 karakter) *
-              </label>
-              <input
-                type="text"
-                required
-                minLength={6}
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Sandi sementara evaluator"
-                className="min-h-[40px] w-full rounded-lg border border-zinc-500 bg-white px-3 font-mono text-sm text-zinc-950 focus:border-zinc-950 focus:outline-none"
-              />
-            </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-zinc-900">
+                  Sandi Awal (min. 6 karakter) <span className="text-zinc-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  minLength={6}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Sandi sementara evaluator"
+                  className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white px-3.5 font-mono text-sm text-zinc-950 focus:border-zinc-950 focus:outline-none"
+                />
+              </div>
+            </DialogBody>
 
-            <DialogFooter className="pt-2">
+            <DialogFooter>
               <button
                 type="button"
                 onClick={() => setCreateForTim(null)}
@@ -427,7 +430,7 @@ export default function PembagianTimPage({
               <button
                 type="submit"
                 disabled={creatingEval}
-                className="min-h-[40px] rounded-lg bg-zinc-950 px-4 py-2 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-50"
+                className="min-h-[40px] rounded-lg bg-zinc-950 px-5 py-2 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-50"
               >
                 {creatingEval ? 'Menyimpan...' : 'Buat & Tugaskan'}
               </button>

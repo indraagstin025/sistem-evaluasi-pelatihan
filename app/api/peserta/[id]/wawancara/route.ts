@@ -73,25 +73,17 @@ export async function POST(
         );
       }
 
-      // IT-07: Angka wawancara dari impor Excel bersifat TERKUNCI jika sudah memiliki nilai
-      if (existing?.lockedFromImport && hasSubmittedNilai && submittedNilai !== existing.nilai) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: `Angka wawancara pada kriteria "${kriteria}" berasal dari impor Excel yang terkunci dan tidak dapat diubah di dalam sistem (IT-07).`,
-          },
-          { status: 403 }
-        );
-      }
-
-      const finalNilai = existing?.lockedFromImport ? existing.nilai : submittedNilai;
+      const finalNilai = hasSubmittedNilai ? submittedNilai : (existing?.nilai ?? null);
       const deskripsi =
         item.deskripsi !== undefined ? (String(item.deskripsi).trim() || null) : existing?.deskripsi ?? null;
-      const sumber = existing?.lockedFromImport
-        ? existing.sumber
-        : finalNilai !== null
-          ? 'Evaluator'
-          : 'KOSONG';
+      const isStillExcelValue =
+        Boolean(existing?.lockedFromImport) && finalNilai !== null && finalNilai === existing?.nilai;
+      const sumber =
+        finalNilai === null
+          ? 'KOSONG'
+          : isStillExcelValue
+            ? existing?.sumber || 'Form Penilaian Excel'
+            : 'Evaluator';
 
       await prisma.wawancara.upsert({
         where: {
@@ -103,6 +95,7 @@ export async function POST(
         update: {
           nilai: finalNilai,
           bobot: DEFAULT_BOBOT[kriteria],
+          lockedFromImport: isStillExcelValue,
           deskripsi,
           sumber,
           updatedById: guard.user.id,
@@ -136,7 +129,7 @@ export async function POST(
     );
 
     let completed = false;
-    if (!hasProper) {
+    if (!hasProper || (!body?.markSelesai && !allCoreFilled)) {
       await prisma.peserta.update({
         where: { id: params.id },
         data: { wawancaraSelesaiAt: null },

@@ -3,14 +3,31 @@
 import React, { useEffect, useState } from 'react';
 import { ExternalLinkIcon, ReloadIcon } from '@radix-ui/react-icons';
 import { StatusBanner } from '@/components/ui/status-banner';
-import PesertaWawancaraTable from '@/components/kegiatan/PesertaWawancaraTable';
+import PesertaWawancaraTable, {
+  type PesertaCounts,
+  type PesertaPagination,
+} from '@/components/kegiatan/PesertaWawancaraTable';
 
 export default function DaftarWawancaraTimPage({
   params,
 }: {
   params: { id: string };
 }) {
-  const [data, setData] = useState<any>(null);
+  const [metaData, setMetaData] = useState<any>(null);
+  const [initialPeserta, setInitialPeserta] = useState<any[]>([]);
+  const [initialPagination, setInitialPagination] = useState<PesertaPagination>({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 1,
+  });
+  const [initialCounts, setInitialCounts] = useState<PesertaCounts>({
+    total: 0,
+    selesai: 0,
+    belumSelesai: 0,
+    belumProper: 0,
+    adaKosong: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -19,14 +36,29 @@ export default function DaftarWawancaraTimPage({
     async function load() {
       try {
         setLoading(true);
-        const res = await fetch(`/api/kegiatan/${params.id}`, { cache: 'no-store' });
-        const json = await res.json();
+        setError(null);
+        const [kegRes, pesRes] = await Promise.all([
+          fetch(`/api/kegiatan/${params.id}?includePeserta=0`, { cache: 'no-store' }),
+          fetch(`/api/peserta?kegiatanId=${encodeURIComponent(params.id)}&page=1&limit=10`, {
+            cache: 'no-store',
+          }),
+        ]);
+        const [kegJson, pesJson] = await Promise.all([kegRes.json(), pesRes.json()]);
         if (!active) return;
-        if (!res.ok || !json.success) {
-          setError(json.error || 'Gagal memuat daftar peserta wawancara.');
+
+        if (!kegRes.ok || !kegJson.success) {
+          setError(kegJson.error || 'Gagal memuat daftar peserta wawancara.');
           return;
         }
-        setData(json.data);
+        if (!pesRes.ok || !pesJson.success) {
+          setError(pesJson.error || 'Gagal memuat daftar peserta wawancara.');
+          return;
+        }
+
+        setMetaData(kegJson.data);
+        setInitialPeserta(pesJson.data || []);
+        if (pesJson.pagination) setInitialPagination(pesJson.pagination);
+        if (pesJson.counts) setInitialCounts(pesJson.counts);
       } catch {
         if (active) setError('Terjadi gangguan koneksi saat memuat peserta wawancara.');
       } finally {
@@ -55,16 +87,14 @@ export default function DaftarWawancaraTimPage({
   }
 
   const viewerRole: 'SUPER_ADMIN' | 'EVALUATOR' =
-    data?.viewerRole === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : 'EVALUATOR';
+    metaData?.viewerRole === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : 'EVALUATOR';
   const isAdmin = viewerRole === 'SUPER_ADMIN';
-  const peserta: any[] = data?.peserta || [];
-  const teams: any[] = data?.tim || [];
+  const teams: any[] = metaData?.tim || [];
   const meetingTeams = teams.filter((t) => Boolean(t.linkMeeting));
 
-  const selesaiCount = peserta.filter((p) =>
-    Boolean(p.inovasiProper && p.wawancaraSelesaiAt)
-  ).length;
-  const properCount = peserta.filter((p) => Boolean(p.inovasiProper)).length;
+  const totalPeserta = initialCounts.total;
+  const selesaiCount = initialCounts.selesai;
+  const properCount = Math.max(0, totalPeserta - initialCounts.belumProper);
 
   return (
     <div className="space-y-6">
@@ -73,7 +103,7 @@ export default function DaftarWawancaraTimPage({
           <p className="text-xs font-medium text-zinc-600">
             {isAdmin ? 'Total Peserta Kegiatan' : 'Peserta Tim Anda'}
           </p>
-          <p className="mt-1.5 text-2xl font-semibold text-zinc-950">{peserta.length}</p>
+          <p className="mt-1.5 text-2xl font-semibold text-zinc-950">{totalPeserta}</p>
           <p className="mt-1 text-xs text-zinc-500">
             {teams.map((t) => t.namaTim).join(', ') || 'Belum tergabung tim'}
           </p>
@@ -82,7 +112,7 @@ export default function DaftarWawancaraTimPage({
         <div className="rounded-2xl border border-zinc-200 bg-white p-5">
           <p className="text-xs font-medium text-zinc-600">Status Selesai</p>
           <p className="mt-1.5 text-2xl font-semibold text-zinc-950">
-            {selesaiCount} / {peserta.length} Selesai
+            {selesaiCount} / {totalPeserta} Selesai
           </p>
           <p className="mt-1 text-xs text-zinc-500">
             Selesai bila Proper telah diunggah dan wawancara dikonfirmasi
@@ -92,7 +122,7 @@ export default function DaftarWawancaraTimPage({
         <div className="rounded-2xl border border-zinc-200 bg-white p-5">
           <p className="text-xs font-medium text-zinc-600">Unggahan Dokumen Proper</p>
           <p className="mt-1.5 text-2xl font-semibold text-zinc-950">
-            {properCount} / {peserta.length} Unggah
+            {properCount} / {totalPeserta} Unggah
           </p>
           <p className="mt-1 text-xs text-zinc-500">
             Laporan dan evidence diunggah peserta melalui Link Public
@@ -127,7 +157,9 @@ export default function DaftarWawancaraTimPage({
 
       <PesertaWawancaraTable
         kegiatanId={params.id}
-        peserta={peserta}
+        initialPeserta={initialPeserta}
+        initialPagination={initialPagination}
+        initialCounts={initialCounts}
         teams={teams}
         viewerRole={viewerRole}
       />

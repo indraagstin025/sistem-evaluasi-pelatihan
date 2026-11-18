@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ExclamationTriangleIcon,
   LockClosedIcon,
@@ -10,6 +10,7 @@ import {
 } from '@radix-ui/react-icons';
 import ImportExcelModal from '@/components/ImportExcelModal';
 import { StatusBanner } from '@/components/ui/status-banner';
+import { TablePagination } from '@/components/ui/table-pagination';
 
 export default function InputDataKegiatanPage({
   params,
@@ -17,34 +18,71 @@ export default function InputDataKegiatanPage({
   params: { id: string };
 }) {
   const [data, setData] = useState<any>(null);
+  const [peserta, setPeserta] = useState<any[]>([]);
+  const [totalPeserta, setTotalPeserta] = useState(0);
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
+
   const [loading, setLoading] = useState(true);
+  const [loadingPeserta, setLoadingPeserta] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
-  const loadData = async () => {
+  const loadHeader = useCallback(async () => {
+    const res = await fetch(`/api/kegiatan/${params.id}?includePeserta=0`, {
+      cache: 'no-store',
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json.error || 'Gagal memuat data impor kegiatan.');
+    }
+    setData(json.data);
+  }, [params.id]);
+
+  const loadPesertaPage = useCallback(
+    async (targetPage: number) => {
+      const res = await fetch(
+        `/api/peserta?kegiatanId=${encodeURIComponent(params.id)}&page=${targetPage}&limit=${pageSize}`,
+        { cache: 'no-store' }
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Gagal memuat data peserta terimpor.');
+      }
+      setPeserta(json.data || []);
+      setTotalPeserta(json.pagination?.total ?? 0);
+    },
+    [params.id]
+  );
+
+  const loadAll = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(`/api/kegiatan/${params.id}`, { cache: 'no-store' });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        setError(json.error || 'Gagal memuat data impor kegiatan.');
-        return;
-      }
-      setData(json.data);
-    } catch {
-      setError('Koneksi bermasalah saat memuat data impor.');
+      await Promise.all([loadHeader(), loadPesertaPage(page)]);
+    } catch (err: any) {
+      setError(err?.message || 'Koneksi bermasalah saat memuat data impor.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [loadHeader, loadPesertaPage, page]);
 
   useEffect(() => {
-    loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.id]);
+    loadAll();
+  }, [loadAll]);
 
-  const peserta: any[] = data?.peserta || [];
+  const handlePageChange = async (nextPage: number) => {
+    setPage(nextPage);
+    try {
+      setLoadingPeserta(true);
+      await loadPesertaPage(nextPage);
+    } catch (err: any) {
+      setError(err?.message || 'Gagal memuat halaman peserta.');
+    } finally {
+      setLoadingPeserta(false);
+    }
+  };
+
   const selisihImport: any[] = data?.selisihImport || [];
 
   return (
@@ -59,8 +97,8 @@ export default function InputDataKegiatanPage({
           </div>
           <p className="mt-1 text-xs text-zinc-600">
             Unggah file <strong>Form Penilaian</strong> dan <strong>Olah Data Survei</strong>{' '}
-            sekaligus. Nilai wawancara dari Excel otomatis terkunci sesuai sumber Form Penilaian
-            (IT-01 &amp; IT-07).
+            sekaligus. Nilai awal wawancara dari Excel dapat ditinjau dan disesuaikan kembali oleh
+            Evaluator tim saat wawancara.
           </p>
         </div>
 
@@ -139,16 +177,16 @@ export default function InputDataKegiatanPage({
         <div className="mb-4 flex items-center justify-between gap-2 border-b border-zinc-200 pb-3.5">
           <div>
             <h3 className="text-sm font-semibold text-zinc-950">
-              Pratinjau Data Terimpor (Baca Saja · {peserta.length} Peserta)
+              Pratinjau Data Terimpor (Baca Saja · {totalPeserta} Peserta)
             </h3>
             <p className="mt-0.5 text-xs text-zinc-600">
               Menampilkan identitas resmi peserta, jabatan saat pelatihan vs saat ini, tim Excel,
-              dan status penguncian nilai wawancara.
+              dan kelengkapan nilai wawancara (10 peserta per halaman).
             </p>
           </div>
           <span className="inline-flex items-center gap-1 rounded border border-zinc-400 bg-zinc-50 px-2.5 py-1 text-[11px] font-medium text-zinc-800">
             <LockClosedIcon className="h-3 w-3" aria-hidden="true" />
-            Read Only
+            Profil &amp; Survei Terkunci
           </span>
         </div>
 
@@ -157,65 +195,77 @@ export default function InputDataKegiatanPage({
             <ReloadIcon className="h-4 w-4 animate-spin" aria-hidden="true" />
             <span>Memuat data terimpor...</span>
           </div>
-        ) : peserta.length === 0 ? (
+        ) : totalPeserta === 0 ? (
           <div className="py-12 text-center text-sm text-zinc-600">
             Belum ada peserta terimpor. Klik tombol Impor / Perbarui dari Excel di atas untuk
             memulai.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-zinc-200 text-left text-xs">
-              <thead className="bg-zinc-50 text-zinc-700">
-                <tr>
-                  <th className="px-3 py-2.5 font-semibold">No</th>
-                  <th className="px-3 py-2.5 font-semibold">Nama &amp; NIP</th>
-                  <th className="px-3 py-2.5 font-semibold">Jabatan &amp; Instansi Saat Ini</th>
-                  <th className="px-3 py-2.5 font-semibold">Tim Excel</th>
-                  <th className="px-3 py-2.5 text-center font-semibold">Kriteria Terkunci</th>
-                  <th className="px-3 py-2.5 text-right font-semibold">Survey</th>
-                  <th className="px-3 py-2.5 text-right font-semibold">Wawancara</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-200">
-                {peserta.map((p, idx) => {
-                  const lockedCount = (p.wawancara || []).filter(
-                    (w: any) => w.lockedFromImport
-                  ).length;
-                  return (
-                    <tr key={p.id} className="hover:bg-zinc-50">
-                      <td className="px-3 py-2.5 font-mono text-zinc-500">{idx + 1}</td>
-                      <td className="px-3 py-2.5">
-                        <div className="font-semibold text-zinc-950">{p.nama}</div>
-                        <div className="font-mono text-[11px] text-zinc-500">{p.nip}</div>
-                      </td>
-                      <td className="px-3 py-2.5 text-zinc-700">
-                        <div>{p.jabatanSaatIni || p.jabatanPelatihan || '-'}</div>
-                        <div className="text-[11px] text-zinc-500">
-                          {p.instansi || p.instansiPelatihan || '-'}
-                        </div>
-                      </td>
-                      <td className="px-3 py-2.5 text-zinc-800">
-                        {p.tim?.namaTim || p.namaTimExcel || '-'}
-                      </td>
-                      <td className="px-3 py-2.5 text-center font-mono text-zinc-800">
-                        {lockedCount}/5
-                      </td>
-                      <td className="px-3 py-2.5 text-right font-mono">
-                        {typeof p.hasil?.rataSurveiL === 'number'
-                          ? p.hasil.rataSurveiL.toFixed(2)
-                          : '-'}
-                      </td>
-                      <td className="px-3 py-2.5 text-right font-mono font-semibold text-zinc-950">
-                        {typeof p.hasil?.rataWawancaraM === 'number'
-                          ? p.hasil.rataWawancaraM.toFixed(2)
-                          : 'KOSONG'}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-zinc-200 text-left text-xs">
+                <thead className="bg-zinc-50 text-zinc-700">
+                  <tr>
+                    <th className="px-3 py-2.5 font-semibold">No</th>
+                    <th className="px-3 py-2.5 font-semibold">Nama &amp; NIP</th>
+                    <th className="px-3 py-2.5 font-semibold">Jabatan &amp; Instansi Saat Ini</th>
+                    <th className="px-3 py-2.5 font-semibold">Tim Excel</th>
+                    <th className="px-3 py-2.5 text-center font-semibold">Nilai Terisi</th>
+                    <th className="px-3 py-2.5 text-right font-semibold">Survey</th>
+                    <th className="px-3 py-2.5 text-right font-semibold">Wawancara</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-200">
+                  {peserta.map((p, idx) => {
+                    const filledCount = (p.wawancara || []).filter(
+                      (w: any) => typeof w.nilai === 'number'
+                    ).length;
+                    const rowNumber = (page - 1) * pageSize + idx + 1;
+                    return (
+                      <tr key={p.id} className="hover:bg-zinc-50">
+                        <td className="px-3 py-2.5 font-mono text-zinc-500">{rowNumber}</td>
+                        <td className="px-3 py-2.5">
+                          <div className="font-semibold text-zinc-950">{p.nama}</div>
+                          <div className="font-mono text-[11px] text-zinc-500">{p.nip}</div>
+                        </td>
+                        <td className="px-3 py-2.5 text-zinc-700">
+                          <div>{p.jabatanSaatIni || p.jabatanPelatihan || '-'}</div>
+                          <div className="text-[11px] text-zinc-500">
+                            {p.instansi || p.instansiPelatihan || '-'}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2.5 text-zinc-800">
+                          {p.tim?.namaTim || p.namaTimExcel || '-'}
+                        </td>
+                        <td className="px-3 py-2.5 text-center font-mono text-zinc-800">
+                          {filledCount}/5
+                        </td>
+                        <td className="px-3 py-2.5 text-right font-mono">
+                          {typeof p.hasil?.rataSurveiL === 'number'
+                            ? p.hasil.rataSurveiL.toFixed(2)
+                            : '-'}
+                        </td>
+                        <td className="px-3 py-2.5 text-right font-mono font-semibold text-zinc-950">
+                          {typeof p.hasil?.rataWawancaraM === 'number'
+                            ? p.hasil.rataWawancaraM.toFixed(2)
+                            : 'KOSONG'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <TablePagination
+              page={page}
+              pageSize={pageSize}
+              totalItems={totalPeserta}
+              onPageChange={handlePageChange}
+              loading={loadingPeserta}
+              itemLabel="peserta"
+            />
+          </>
         )}
       </section>
 
@@ -225,7 +275,8 @@ export default function InputDataKegiatanPage({
         onClose={() => setModalOpen(false)}
         onSuccess={() => {
           setModalOpen(false);
-          loadData();
+          setPage(1);
+          void Promise.all([loadHeader(), loadPesertaPage(1)]);
         }}
       />
     </div>

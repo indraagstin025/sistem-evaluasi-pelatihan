@@ -6,22 +6,107 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StatusBanner } from '@/components/ui/status-banner';
 import type {
   HasilSurveyKegiatanSummary,
+  LikertSummarySide,
   SurveyQuestionSummaryItem,
 } from '@/lib/survey-summary';
 
 const KELOMPOK_TABS = [
-  { key: 'PERILAKU', label: 'Perilaku (Level 3)' },
-  { key: 'HASIL_KONTRIBUSI', label: 'Hasil & Kontribusi' },
-  { key: 'HASIL_AKSI', label: 'Aksi Perubahan (Level 4)' },
+  { key: 'PERILAKU', label: 'Perubahan Perilaku' },
+  { key: 'HASIL_KONTRIBUSI', label: 'Dampak & Kontribusi' },
+  { key: 'HASIL_AKSI', label: 'Hasil Aksi Perubahan' },
   { key: 'DUKUNGAN', label: 'Faktor Dukungan' },
   { key: 'KENDALA', label: 'Faktor Kendala' },
 ] as const;
+
+const KATEGORI_URUTAN = [
+  { index: 3, label: 'Sangat Sesuai', barClass: 'bg-zinc-950', textClass: 'text-zinc-950 font-semibold' },
+  { index: 2, label: 'Sesuai', barClass: 'bg-zinc-700', textClass: 'text-zinc-900 font-medium' },
+  { index: 1, label: 'Kurang Sesuai', barClass: 'bg-zinc-400', textClass: 'text-zinc-700' },
+  { index: 0, label: 'Tidak Sesuai', barClass: 'bg-zinc-200', textClass: 'text-zinc-600' },
+] as const;
+
+function cleanPertanyaanText(raw: string): string {
+  return String(raw || '').replace(/^\d+\.\s*/, '').trim();
+}
+
+function RespondenSummaryCell({ side }: { side: LikertSummarySide }) {
+  if (!side || side.total === 0) {
+    return (
+      <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-center text-[11px] text-zinc-500">
+        Belum ada jawaban
+      </div>
+    );
+  }
+
+  let dominantLabel: string = KATEGORI_URUTAN[0].label;
+  let dominantCount = -1;
+  for (const cat of KATEGORI_URUTAN) {
+    const count = side.counts[cat.index] ?? 0;
+    if (count > dominantCount) {
+      dominantCount = count;
+      dominantLabel = cat.label;
+    }
+  }
+  const dominantPct = Math.round((dominantCount / side.total) * 100);
+
+  return (
+    <div className="min-w-[215px] space-y-2 rounded-xl border border-zinc-200 bg-zinc-50/70 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-1.5">
+        <span className="inline-flex rounded border border-zinc-800 bg-zinc-950 px-2 py-0.5 text-[10px] font-semibold text-white">
+          Dominan: {dominantLabel} ({dominantPct}%)
+        </span>
+        <span className="text-[11px] font-medium text-zinc-600">
+          {side.total} responden
+        </span>
+      </div>
+
+      {/* Bilah Proporsi Jawaban Monokrom */}
+      <div
+        aria-hidden="true"
+        className="flex h-2 w-full overflow-hidden rounded-full bg-zinc-200"
+      >
+        {KATEGORI_URUTAN.map((cat) => {
+          const count = side.counts[cat.index] ?? 0;
+          if (count <= 0) return null;
+          const pct = (count / side.total) * 100;
+          return (
+            <div
+              key={cat.label}
+              style={{ width: `${pct}%` }}
+              className={cat.barClass}
+            />
+          );
+        })}
+      </div>
+
+      <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+        {KATEGORI_URUTAN.map((cat) => {
+          const count = side.counts[cat.index] ?? 0;
+          const pct = Math.round((count / side.total) * 100);
+          return (
+            <div
+              key={cat.label}
+              className={`flex items-center justify-between gap-1 ${
+                count === 0 ? 'text-zinc-400' : cat.textClass
+              }`}
+            >
+              <dt className="truncate">{cat.label}</dt>
+              <dd className="shrink-0 tabular-nums">
+                {count} ({pct}%)
+              </dd>
+            </div>
+          );
+        })}
+      </dl>
+    </div>
+  );
+}
 
 function QuestionTable({ items }: { items: SurveyQuestionSummaryItem[] }) {
   if (items.length === 0) {
     return (
       <div className="py-10 text-center text-xs text-zinc-600">
-        Belum ada item kuesioner terimpor untuk kelompok ini.
+        Belum ada butir pernyataan terimpor untuk kelompok ini.
       </div>
     );
   }
@@ -31,47 +116,31 @@ function QuestionTable({ items }: { items: SurveyQuestionSummaryItem[] }) {
       <table className="min-w-full divide-y divide-zinc-200 text-left text-xs">
         <thead className="bg-zinc-50 text-zinc-700">
           <tr>
-            <th className="px-3 py-2.5 font-semibold">No</th>
-            <th className="px-3 py-2.5 font-semibold">Dimensi &amp; Pernyataan</th>
-            <th className="px-3 py-2.5 text-center font-semibold">Alumni (n / Rata2)</th>
-            <th className="px-3 py-2.5 text-center font-semibold">
-              Distribusi Alumni (1/2/3/4)
-            </th>
-            <th className="px-3 py-2.5 text-center font-semibold">Atasan (n / Rata2)</th>
-            <th className="px-3 py-2.5 text-center font-semibold">
-              Distribusi Atasan (1/2/3/4)
-            </th>
+            <th className="w-12 px-3 py-3 font-semibold">No</th>
+            <th className="px-3 py-3 font-semibold">Aspek &amp; Pernyataan Kuesioner</th>
+            <th className="px-3 py-3 font-semibold">Penilaian Alumni</th>
+            <th className="px-3 py-3 font-semibold">Penilaian Atasan</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-zinc-200">
-          {items.map((q) => (
-            <tr key={q.kode} className="hover:bg-zinc-50">
-              <td className="px-3 py-2.5 font-mono text-zinc-500">{q.urutan}</td>
-              <td className="max-w-md px-3 py-2.5">
+          {items.map((q, idx) => (
+            <tr key={q.kode} className="align-top hover:bg-zinc-50/70">
+              <td className="px-3 py-3.5 font-mono text-zinc-500">{idx + 1}</td>
+              <td className="min-w-[240px] max-w-md px-3 py-3.5">
                 {q.subDimensi && (
-                  <div className="text-[11px] font-semibold text-zinc-500">
+                  <span className="inline-flex rounded border border-zinc-300 bg-zinc-50 px-2 py-0.5 text-[10px] font-semibold text-zinc-800">
                     {q.subDimensi}
-                  </div>
+                  </span>
                 )}
-                <div className="mt-0.5 text-zinc-900">{q.pertanyaan}</div>
+                <p className="mt-1.5 leading-relaxed text-zinc-900">
+                  {cleanPertanyaanText(q.pertanyaan)}
+                </p>
               </td>
-              <td className="px-3 py-2.5 text-center font-mono">
-                <div className="font-semibold text-zinc-950">
-                  {q.alumni.rataRata !== null ? q.alumni.rataRata.toFixed(2) : '-'}
-                </div>
-                <div className="text-[11px] text-zinc-500">n={q.alumni.total}</div>
+              <td className="px-3 py-3.5">
+                <RespondenSummaryCell side={q.alumni} />
               </td>
-              <td className="px-3 py-2.5 text-center font-mono text-[11px] text-zinc-700">
-                {q.alumni.counts.join(' / ')}
-              </td>
-              <td className="px-3 py-2.5 text-center font-mono">
-                <div className="font-semibold text-zinc-950">
-                  {q.atasan.rataRata !== null ? q.atasan.rataRata.toFixed(2) : '-'}
-                </div>
-                <div className="text-[11px] text-zinc-500">n={q.atasan.total}</div>
-              </td>
-              <td className="px-3 py-2.5 text-center font-mono text-[11px] text-zinc-700">
-                {q.atasan.counts.join(' / ')}
+              <td className="px-3 py-3.5">
+                <RespondenSummaryCell side={q.atasan} />
               </td>
             </tr>
           ))}
@@ -122,7 +191,7 @@ export default function HasilSurveiPage({
       <div className="flex min-h-[260px] flex-col items-center justify-center rounded-2xl border border-zinc-200 bg-white p-8">
         <ReloadIcon className="h-5 w-5 animate-spin text-zinc-700" aria-hidden="true" />
         <p className="mt-2.5 text-sm font-medium text-zinc-700">
-          Menghitung ringkasan hasil survei keseluruhan...
+          Menyiapkan ringkasan hasil survey keseluruhan...
         </p>
       </div>
     );
@@ -132,7 +201,7 @@ export default function HasilSurveiPage({
     return (
       <StatusBanner
         tone="error"
-        title="Gagal memuat hasil survei"
+        title="Gagal memuat hasil survey"
         message={error || 'Data tidak tersedia.'}
       />
     );
@@ -140,10 +209,9 @@ export default function HasilSurveiPage({
 
   return (
     <div className="space-y-6">
-      {/* Info Umum & Mutasi Jabatan (Bab 6.7 / Bahan Ekspose) */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-2xl border border-zinc-200 bg-white p-5">
-          <p className="text-xs font-medium text-zinc-600">Responden Survei</p>
+          <p className="text-xs font-medium text-zinc-600">Responden Survey</p>
           <p className="mt-1.5 text-2xl font-semibold text-zinc-950">
             {summary.jumlahRespondenAlumni} Alumni · {summary.jumlahRespondenAtasan} Atasan
           </p>
@@ -158,7 +226,7 @@ export default function HasilSurveiPage({
             {summary.mutasiJabatan.berubah} Berubah · {summary.mutasiJabatan.tetap} Tetap
           </p>
           <p className="mt-1 text-xs text-zinc-500">
-            Belum teridentifikasi: {summary.mutasiJabatan.tidakDiketahui}
+            Belum terdata: {summary.mutasiJabatan.tidakDiketahui}
           </p>
         </div>
 
@@ -191,16 +259,16 @@ export default function HasilSurveiPage({
         </div>
       </div>
 
-      {/* Ringkasan Kuesioner per Kelompok */}
+      {/* Ringkasan Jawaban Kuesioner per Kelompok */}
       <section className="rounded-2xl border border-zinc-200 bg-white p-5">
         <div className="mb-4 border-b border-zinc-200 pb-3.5">
           <h2 className="text-base font-semibold text-zinc-950">
-            Ringkasan Kuesioner Keseluruhan (Alumni vs Atasan)
+            Ringkasan Jawaban Survey (Alumni vs Atasan)
           </h2>
           <p className="mt-1 text-xs text-zinc-600">
-            Distribusi skor 1 (Tidak Sesuai / Tidak Tercapai) hingga 4 (Sangat Sesuai /
-            Sangat Tercapai) dari seluruh responden survei sebagai bahan penyusunan kesimpulan
-            Ekspose.
+            Menampilkan kecenderungan penilaian Alumni dan Atasan pada tiap pernyataan berdasarkan
+            jumlah serta persentase responden yang memilih Sangat Sesuai, Sesuai, Kurang Sesuai,
+            atau Tidak Sesuai.
           </p>
         </div>
 

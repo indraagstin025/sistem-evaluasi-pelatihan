@@ -11,6 +11,7 @@ import StatCards from '@/components/dashboard/StatCards';
 import WarningBanner from '@/components/dashboard/WarningBanner';
 import ChartEksposeOverview from '@/components/dashboard/ChartEksposeOverview';
 import { StatusBanner } from '@/components/ui/status-banner';
+import { TablePagination } from '@/components/ui/table-pagination';
 
 interface KegiatanRingkasanClientProps {
   kegiatanId: string;
@@ -39,6 +40,8 @@ export default function KegiatanRingkasanClient({
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<'semua' | 'kosong' | 'lengkap'>('semua');
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
 
   const loadData = async () => {
     try {
@@ -278,7 +281,10 @@ export default function KegiatanRingkasanClient({
               <input
                 type="search"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
                 placeholder="Cari nama, NIP, instansi, tim..."
                 className="min-h-[40px] w-full rounded-lg border border-zinc-500 bg-white pl-9 pr-3 text-xs text-zinc-950 focus:border-zinc-950 focus:outline-none sm:w-60"
               />
@@ -286,7 +292,10 @@ export default function KegiatanRingkasanClient({
 
             <select
               value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value as any)}
+              onChange={(e) => {
+                setFilterStatus(e.target.value as any);
+                setPage(1);
+              }}
               aria-label="Filter kelengkapan wawancara"
               className="min-h-[40px] rounded-lg border border-zinc-500 bg-white px-3 text-xs font-medium text-zinc-950 focus:border-zinc-950 focus:outline-none"
             >
@@ -308,44 +317,48 @@ export default function KegiatanRingkasanClient({
               : 'Tidak ada peserta yang sesuai dengan pencarian atau filter.'}
           </div>
         ) : (
-          <div className="mt-4 overflow-x-auto">
-            <table className="min-w-full divide-y divide-zinc-200 text-left text-xs">
-              <thead className="bg-zinc-50 text-zinc-700">
-                <tr>
-                  <th className="px-3 py-2.5 font-semibold">No</th>
-                  <th className="px-3 py-2.5 font-semibold">Peserta &amp; Tim</th>
-                  <th className="px-3 py-2.5 text-center font-semibold">
-                    P1 / K2 (J. Panjang)
-                  </th>
-                  <th className="px-3 py-2.5 text-center font-semibold">
-                    P2 / K3 (Tujuan)
-                  </th>
-                  <th className="px-3 py-2.5 text-center font-semibold">
-                    P3 / K4 (Manfaat)
-                  </th>
-                  <th className="px-3 py-2.5 text-right font-semibold">Survey</th>
-                  <th className="px-3 py-2.5 text-right font-semibold">Wawancara</th>
-                  <th className="px-3 py-2.5 text-right font-semibold">Selisih</th>
-                  <th className="px-3 py-2.5 text-right font-semibold">Akhir Berbobot</th>
-                  <th className="px-3 py-2.5 text-right font-semibold">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-200">
-                {filteredPeserta.map((p, idx) => {
-                  const s1 = getSurveySkor(p, 'L4_01');
-                  const s2 = getSurveySkor(p, 'L4_02');
-                  const s3 = getSurveySkor(p, 'L4_03');
-                  const w2 = getWawancaraNilai(p, 'jangkaPanjang');
-                  const w3 = getWawancaraNilai(p, 'seluruhTujuan');
-                  const w4 = getWawancaraNilai(p, 'manfaat');
-                  const l = p.hasil?.rataSurveiL ?? null;
-                  const m = p.hasil?.rataWawancaraM ?? null;
-                  const selisih = p.hasil?.selisih ?? null;
-                  const totalForm = p.hasil?.totalForm ?? null;
+          <>
+            <div className="mt-4 overflow-x-auto">
+              <table className="min-w-full divide-y divide-zinc-200 text-left text-xs">
+                <thead className="bg-zinc-50 text-zinc-700">
+                  <tr>
+                    <th className="px-3 py-2.5 font-semibold">No</th>
+                    <th className="px-3 py-2.5 font-semibold">Peserta &amp; Tim</th>
+                    <th className="px-3 py-2.5 text-center font-semibold">
+                      Jangka Panjang (Survey / Wawancara)
+                    </th>
+                    <th className="px-3 py-2.5 text-center font-semibold">
+                      Tujuan Aksi (Survey / Wawancara)
+                    </th>
+                    <th className="px-3 py-2.5 text-center font-semibold">
+                      Manfaat (Survey / Wawancara)
+                    </th>
+                    <th className="px-3 py-2.5 text-right font-semibold">Survey</th>
+                    <th className="px-3 py-2.5 text-right font-semibold">Wawancara</th>
+                    <th className="px-3 py-2.5 text-right font-semibold">Selisih</th>
+                    <th className="px-3 py-2.5 text-right font-semibold">Akhir Berbobot</th>
+                    <th className="px-3 py-2.5 text-right font-semibold">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-200">
+                  {filteredPeserta
+                    .slice((page - 1) * pageSize, page * pageSize)
+                    .map((p, idx) => {
+                    const s1 = getSurveySkor(p, 'L4_01');
+                    const s2 = getSurveySkor(p, 'L4_02');
+                    const s3 = getSurveySkor(p, 'L4_03');
+                    const w2 = getWawancaraNilai(p, 'jangkaPanjang');
+                    const w3 = getWawancaraNilai(p, 'seluruhTujuan');
+                    const w4 = getWawancaraNilai(p, 'manfaat');
+                    const l = p.hasil?.rataSurveiL ?? null;
+                    const m = p.hasil?.rataWawancaraM ?? null;
+                    const selisih = p.hasil?.selisih ?? null;
+                    const totalForm = p.hasil?.totalForm ?? null;
+                    const rowNumber = (page - 1) * pageSize + idx + 1;
 
-                  return (
-                    <tr key={p.id} className="hover:bg-zinc-50">
-                      <td className="px-3 py-3 font-mono text-zinc-500">{idx + 1}</td>
+                    return (
+                      <tr key={p.id} className="hover:bg-zinc-50">
+                        <td className="px-3 py-3 font-mono text-zinc-500">{rowNumber}</td>
                       <td className="px-3 py-3">
                         <div className="font-semibold text-zinc-950">{p.nama}</div>
                         <div className="mt-0.5 font-mono text-[11px] text-zinc-500">
@@ -413,6 +426,15 @@ export default function KegiatanRingkasanClient({
               </tbody>
             </table>
           </div>
+
+          <TablePagination
+            page={page}
+            pageSize={pageSize}
+            totalItems={filteredPeserta.length}
+            onPageChange={setPage}
+            itemLabel="peserta"
+          />
+          </>
         )}
       </section>
     </div>

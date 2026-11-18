@@ -16,6 +16,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { StatusBanner } from '@/components/ui/status-banner';
+import { TablePagination } from '@/components/ui/table-pagination';
 
 export default function KegiatanPerbandinganClient({
   kegiatanId,
@@ -32,6 +33,8 @@ export default function KegiatanPerbandinganClient({
   >('semua');
   const [sortField, setSortField] = useState<'nama' | 'selisih' | 'L' | 'M'>('selisih');
   const [sortAsc, setSortAsc] = useState(false);
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
 
   const fetchData = async () => {
     try {
@@ -90,6 +93,7 @@ export default function KegiatanPerbandinganClient({
   });
 
   const handleSort = (field: 'nama' | 'selisih' | 'L' | 'M') => {
+    setPage(1);
     if (sortField === field) {
       setSortAsc(!sortAsc);
     } else {
@@ -468,9 +472,10 @@ export default function KegiatanPerbandinganClient({
 
           <Tabs
             value={filterSelisih}
-            onValueChange={(v) =>
-              setFilterSelisih(v as 'semua' | 'positif' | 'negatif' | 'kosong')
-            }
+            onValueChange={(v) => {
+              setFilterSelisih(v as 'semua' | 'positif' | 'negatif' | 'kosong');
+              setPage(1);
+            }}
           >
             <TabsList aria-label="Filter arah selisih nilai">
               <TabsTrigger value="semua">Semua</TabsTrigger>
@@ -539,7 +544,9 @@ export default function KegiatanPerbandinganClient({
                   </td>
                 </tr>
               ) : (
-                sortedPeserta.map((p, idx) => (
+                sortedPeserta
+                  .slice((page - 1) * pageSize, page * pageSize)
+                  .map((p, idx) => (
                   <tr
                     key={p.id}
                     className={`transition-colors hover:bg-zinc-50 ${
@@ -547,7 +554,7 @@ export default function KegiatanPerbandinganClient({
                     }`}
                   >
                     <td className="px-3 py-3 text-center font-mono font-normal text-zinc-600 tabular-nums">
-                      {idx + 1}
+                      {(page - 1) * pageSize + idx + 1}
                     </td>
                     <td className="px-3 py-3">
                       <Link
@@ -612,6 +619,14 @@ export default function KegiatanPerbandinganClient({
             </tbody>
           </table>
         </div>
+
+        <TablePagination
+          page={page}
+          pageSize={pageSize}
+          totalItems={sortedPeserta.length}
+          onPageChange={setPage}
+          itemLabel="peserta"
+        />
       </div>
     </div>
   );

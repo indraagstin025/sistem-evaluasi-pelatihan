@@ -6,11 +6,14 @@ import { KRITERIA_LABEL_MAP } from '@/lib/wawancara-kriteria';
 export const dynamic = 'force-dynamic';
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   const guard = await requireSession();
   if (!guard.ok) return guard.response;
+
+  const { searchParams } = new URL(request.url);
+  const includePeserta = searchParams.get('includePeserta') !== '0';
 
   const allowed = await canAccessKegiatan(guard.user, params.id);
   if (!allowed) {
@@ -35,33 +38,36 @@ export async function GET(
     ? { kegiatanId: params.id }
     : { kegiatanId: params.id, tim: { evaluatorId: guard.user.id } };
 
-  const [peserta, selisihRaw, timRaw] = await Promise.all([
-    prisma.peserta.findMany({
-      where: pesertaWhere,
-      include: {
-        tim: {
+  const [peserta, pesertaTotal, selisihRaw, timRaw] = await Promise.all([
+    includePeserta
+      ? prisma.peserta.findMany({
+          where: pesertaWhere,
           include: {
-            evaluator: { select: { id: true, nama: true, nip: true } },
+            tim: {
+              include: {
+                evaluator: { select: { id: true, nama: true, nip: true } },
+              },
+            },
+            survey: {
+              where: { responden: 'alumni', kode: { in: ['L4_01', 'L4_02', 'L4_03'] } },
+            },
+            wawancara: true,
+            hasil: true,
+            inovasiProper: {
+              select: {
+                id: true,
+                judulProper: true,
+                jangkaMenengahStatus: true,
+                jangkaPanjangStatus: true,
+                dokumenNama: true,
+                updatedAt: true,
+              },
+            },
           },
-        },
-        survey: {
-          where: { responden: 'alumni', kode: { in: ['L4_01', 'L4_02', 'L4_03'] } },
-        },
-        wawancara: true,
-        hasil: true,
-        inovasiProper: {
-          select: {
-            id: true,
-            judulProper: true,
-            jangkaMenengahStatus: true,
-            jangkaPanjangStatus: true,
-            dokumenNama: true,
-            updatedAt: true,
-          },
-        },
-      },
-      orderBy: { nama: 'asc' },
-    }),
+          orderBy: [{ nama: 'asc' }, { id: 'asc' }],
+        })
+      : Promise.resolve([]),
+    prisma.peserta.count({ where: pesertaWhere }),
     isAdmin
       ? prisma.selisihImport.findMany({
           where: { kegiatanId: params.id },
@@ -97,6 +103,7 @@ export async function GET(
       viewerRole: guard.user.role,
       kegiatan,
       peserta,
+      pesertaTotal,
       tim: timRaw,
       selisihImport,
     },

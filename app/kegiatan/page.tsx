@@ -5,7 +5,6 @@ import Link from 'next/link';
 import {
   CalendarIcon,
   ExclamationTriangleIcon,
-  ExternalLinkIcon,
   PlusIcon,
   ReloadIcon,
   TrashIcon,
@@ -14,6 +13,7 @@ import Topbar from '@/components/Topbar';
 import { ConfirmDialog } from '@/components/ui/alert-dialog';
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -64,6 +64,7 @@ export default function DaftarKegiatanPage() {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const [form, setForm] = useState({
     nama: '',
     jenisPelatihan: 'PKP',
@@ -108,7 +109,15 @@ export default function DaftarKegiatanPage() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    setActionError(null);
+    setCreateError(null);
+    if (
+      form.tanggalMulai &&
+      form.tanggalSelesai &&
+      form.tanggalSelesai < form.tanggalMulai
+    ) {
+      setCreateError('Tanggal selesai tidak boleh lebih awal dari tanggal mulai.');
+      return;
+    }
     setCreating(true);
     try {
       const res = await fetch('/api/kegiatan', {
@@ -118,10 +127,11 @@ export default function DaftarKegiatanPage() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        setActionError(json.error || 'Gagal membuat kegiatan baru.');
+        setCreateError(json.error || 'Gagal membuat kegiatan baru.');
         return;
       }
       setCreateOpen(false);
+      setCreateError(null);
       setForm({
         nama: '',
         jenisPelatihan: 'PKP',
@@ -132,7 +142,7 @@ export default function DaftarKegiatanPage() {
       });
       await loadAll();
     } catch {
-      setActionError('Koneksi gagal saat menyimpan kegiatan.');
+      setCreateError('Koneksi gagal saat menyimpan kegiatan.');
     } finally {
       setCreating(false);
     }
@@ -172,25 +182,19 @@ export default function DaftarKegiatanPage() {
             : 'Pilih kegiatan di bawah ini untuk melihat daftar pegawai tim Anda dan mengisi wawancara'
         }
       >
-        <div className="flex flex-wrap items-center gap-2.5">
-          <Link
-            href="/unggah-inovasi"
-            className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-zinc-500 bg-white px-3.5 py-2 text-xs font-medium text-zinc-950 transition hover:bg-zinc-100"
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={() => {
+              setCreateError(null);
+              setCreateOpen(true);
+            }}
+            className="inline-flex min-h-[42px] items-center gap-1.5 rounded-lg bg-zinc-950 px-4 py-2 text-xs font-semibold text-white transition hover:bg-zinc-800"
           >
-            <span>Link Public Proper</span>
-            <ExternalLinkIcon className="h-3.5 w-3.5 text-zinc-700" aria-hidden="true" />
-          </Link>
-          {isAdmin && (
-            <button
-              type="button"
-              onClick={() => setCreateOpen(true)}
-              className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg bg-zinc-950 px-4 py-2 text-xs font-semibold text-white transition hover:bg-zinc-800"
-            >
-              <PlusIcon className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>Buat Kegiatan</span>
-            </button>
-          )}
-        </div>
+            <PlusIcon className="h-3.5 w-3.5" aria-hidden="true" />
+            <span>Buat Kegiatan</span>
+          </button>
+        )}
       </Topbar>
 
       {actionError && (
@@ -339,8 +343,14 @@ export default function DaftarKegiatanPage() {
       )}
 
       {/* Modal Buat Kegiatan (5 isian wajib UR-F-08) */}
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="max-w-lg">
+      <Dialog
+        open={createOpen}
+        onOpenChange={(open) => {
+          setCreateOpen(open);
+          if (!open) setCreateError(null);
+        }}
+      >
+        <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle>Buat Kegiatan Baru</DialogTitle>
             <DialogDescription>
@@ -348,122 +358,146 @@ export default function DaftarKegiatanPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleCreate} className="mt-2 space-y-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div className="sm:col-span-2">
-                <label htmlFor="keg-nama" className="mb-1 block text-xs font-medium text-zinc-900">
-                  Nama Kegiatan
-                </label>
-                <input
-                  id="keg-nama"
-                  type="text"
-                  required
-                  value={form.nama}
-                  onChange={(e) => setForm({ ...form, nama: e.target.value })}
-                  placeholder="Contoh: PKP Angkatan VII Kabupaten Bogor"
-                  className="w-full rounded-lg border border-zinc-500 bg-white px-3 py-2 text-xs text-zinc-950 focus:border-zinc-950 focus:outline-none"
+          <form onSubmit={handleCreate} className="flex min-h-0 flex-1 flex-col">
+            <DialogBody className="space-y-4">
+              {createError && (
+                <StatusBanner
+                  tone="error"
+                  message={createError}
+                  onDismiss={() => setCreateError(null)}
                 />
-              </div>
-              <div>
-                <label htmlFor="keg-jenis" className="mb-1 block text-xs font-medium text-zinc-900">
-                  Pelatihan
-                </label>
-                <Select
-                  value={form.jenisPelatihan}
-                  onValueChange={(v) => setForm({ ...form, jenisPelatihan: v })}
-                >
-                  <SelectTrigger id="keg-jenis" className="h-[34px] border-zinc-500 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="PKP">PKP</SelectItem>
-                    <SelectItem value="PKA">PKA</SelectItem>
-                    <SelectItem value="PKN">PKN</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+              )}
 
-            <div>
-              <label
-                htmlFor="keg-penyelenggara"
-                className="mb-1 block text-xs font-medium text-zinc-900"
-              >
-                Penyelenggara
-              </label>
-              <input
-                id="keg-penyelenggara"
-                type="text"
-                required
-                value={form.penyelenggara}
-                onChange={(e) => setForm({ ...form, penyelenggara: e.target.value })}
-                placeholder="Contoh: BPSDM Provinsi Jawa Barat"
-                className="w-full rounded-lg border border-zinc-500 bg-white px-3 py-2 text-xs text-zinc-950 focus:border-zinc-950 focus:outline-none"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="keg-lokasi" className="mb-1 block text-xs font-medium text-zinc-900">
-                Lokasi
-              </label>
-              <input
-                id="keg-lokasi"
-                type="text"
-                required
-                value={form.lokasi}
-                onChange={(e) => setForm({ ...form, lokasi: e.target.value })}
-                placeholder="Contoh: Kabupaten Bogor"
-                className="w-full rounded-lg border border-zinc-500 bg-white px-3 py-2 text-xs text-zinc-950 focus:border-zinc-950 focus:outline-none"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
-                <label
-                  htmlFor="keg-mulai"
-                  className="mb-1 block text-xs font-medium text-zinc-900"
-                >
-                  Tanggal Mulai
-                </label>
-                <input
-                  id="keg-mulai"
-                  type="date"
-                  required
-                  value={form.tanggalMulai}
-                  onChange={(e) => setForm({ ...form, tanggalMulai: e.target.value })}
-                  className="w-full rounded-lg border border-zinc-500 bg-white px-3 py-2 text-xs text-zinc-950 focus:border-zinc-950 focus:outline-none"
-                />
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div className="sm:col-span-2">
+                  <label
+                    htmlFor="keg-nama"
+                    className="mb-1.5 block text-xs font-semibold text-zinc-900"
+                  >
+                    Nama Kegiatan <span className="text-zinc-500">*</span>
+                  </label>
+                  <input
+                    id="keg-nama"
+                    type="text"
+                    required
+                    value={form.nama}
+                    onChange={(e) => setForm({ ...form, nama: e.target.value })}
+                    placeholder="Contoh: PKP Angkatan VII Kabupaten Bogor"
+                    className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white px-3.5 text-sm text-zinc-950 placeholder:text-zinc-400 focus:border-zinc-950 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="keg-jenis"
+                    className="mb-1.5 block text-xs font-semibold text-zinc-900"
+                  >
+                    Pelatihan <span className="text-zinc-500">*</span>
+                  </label>
+                  <Select
+                    value={form.jenisPelatihan}
+                    onValueChange={(v) => setForm({ ...form, jenisPelatihan: v })}
+                  >
+                    <SelectTrigger
+                      id="keg-jenis"
+                      className="h-[42px] rounded-lg border-zinc-500 px-3.5 text-sm"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PKP">PKP</SelectItem>
+                      <SelectItem value="PKA">PKA</SelectItem>
+                      <SelectItem value="PKN">PKN</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div>
-                <label
-                  htmlFor="keg-selesai"
-                  className="mb-1 block text-xs font-medium text-zinc-900"
-                >
-                  Tanggal Selesai
-                </label>
-                <input
-                  id="keg-selesai"
-                  type="date"
-                  required
-                  value={form.tanggalSelesai}
-                  onChange={(e) => setForm({ ...form, tanggalSelesai: e.target.value })}
-                  className="w-full rounded-lg border border-zinc-500 bg-white px-3 py-2 text-xs text-zinc-950 focus:border-zinc-950 focus:outline-none"
-                />
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor="keg-penyelenggara"
+                    className="mb-1.5 block text-xs font-semibold text-zinc-900"
+                  >
+                    Penyelenggara <span className="text-zinc-500">*</span>
+                  </label>
+                  <input
+                    id="keg-penyelenggara"
+                    type="text"
+                    required
+                    value={form.penyelenggara}
+                    onChange={(e) => setForm({ ...form, penyelenggara: e.target.value })}
+                    placeholder="Contoh: BPSDM Provinsi Jawa Barat"
+                    className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white px-3.5 text-sm text-zinc-950 placeholder:text-zinc-400 focus:border-zinc-950 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="keg-lokasi"
+                    className="mb-1.5 block text-xs font-semibold text-zinc-900"
+                  >
+                    Lokasi <span className="text-zinc-500">*</span>
+                  </label>
+                  <input
+                    id="keg-lokasi"
+                    type="text"
+                    required
+                    value={form.lokasi}
+                    onChange={(e) => setForm({ ...form, lokasi: e.target.value })}
+                    placeholder="Contoh: Kabupaten Bogor"
+                    className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white px-3.5 text-sm text-zinc-950 placeholder:text-zinc-400 focus:border-zinc-950 focus:outline-none"
+                  />
+                </div>
               </div>
-            </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor="keg-mulai"
+                    className="mb-1.5 block text-xs font-semibold text-zinc-900"
+                  >
+                    Tanggal Mulai <span className="text-zinc-500">*</span>
+                  </label>
+                  <input
+                    id="keg-mulai"
+                    type="date"
+                    required
+                    value={form.tanggalMulai}
+                    onChange={(e) => setForm({ ...form, tanggalMulai: e.target.value })}
+                    className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white px-3.5 text-sm text-zinc-950 focus:border-zinc-950 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="keg-selesai"
+                    className="mb-1.5 block text-xs font-semibold text-zinc-900"
+                  >
+                    Tanggal Selesai <span className="text-zinc-500">*</span>
+                  </label>
+                  <input
+                    id="keg-selesai"
+                    type="date"
+                    required
+                    value={form.tanggalSelesai}
+                    onChange={(e) => setForm({ ...form, tanggalSelesai: e.target.value })}
+                    className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white px-3.5 text-sm text-zinc-950 focus:border-zinc-950 focus:outline-none"
+                  />
+                </div>
+              </div>
+            </DialogBody>
 
             <DialogFooter>
               <button
                 type="button"
                 onClick={() => setCreateOpen(false)}
-                className="min-h-[38px] rounded-lg border border-zinc-500 bg-white px-4 py-2 text-xs font-medium text-zinc-950 hover:bg-zinc-100"
+                className="min-h-[40px] rounded-lg border border-zinc-500 bg-white px-4 py-2 text-xs font-medium text-zinc-950 transition hover:bg-zinc-100"
               >
                 Batal
               </button>
               <button
                 type="submit"
                 disabled={creating}
-                className="min-h-[38px] rounded-lg bg-zinc-950 px-4 py-2 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-50"
+                className="min-h-[40px] rounded-lg bg-zinc-950 px-5 py-2 text-xs font-semibold text-white transition hover:bg-zinc-800 disabled:opacity-50"
               >
                 {creating ? 'Menyimpan...' : 'Simpan Kegiatan'}
               </button>
