@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireSession } from '@/lib/auth';
 import { generatePembahasanTemplate, type PembahasanItem } from '@/lib/ai';
 import { getRekapGrafikMap, PEMBAHASAN_KEYS } from '@/lib/pembahasan-server';
 import { generateEksposePptxBuffer } from '@/lib/pptx-ekspose';
@@ -7,13 +8,29 @@ import { generateEksposePptxBuffer } from '@/lib/pptx-ekspose';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-/**
- * GET /api/ekspose/pptx
- * Menghasilkan dan mengunduh 6 slide Ekspose resmi dalam format PowerPoint (.pptx).
- */
-export async function GET() {
+export async function GET(request: Request) {
+  const guard = await requireSession(['SUPER_ADMIN']);
+  if (!guard.ok) return guard.response;
+
   try {
-    const totalPeserta = await prisma.peserta.count();
+    const { searchParams } = new URL(request.url);
+    const kegiatanId = searchParams.get('kegiatanId') || '';
+    if (!kegiatanId) {
+      return NextResponse.json(
+        { success: false, error: 'Parameter kegiatanId wajib diisi.' },
+        { status: 400 }
+      );
+    }
+
+    const kegiatan = await prisma.kegiatan.findUnique({ where: { id: kegiatanId } });
+    if (!kegiatan) {
+      return NextResponse.json(
+        { success: false, error: 'Kegiatan tidak ditemukan.' },
+        { status: 404 }
+      );
+    }
+
+    const totalPeserta = await prisma.peserta.count({ where: { kegiatanId } });
     if (totalPeserta === 0) {
       return NextResponse.json(
         { success: false, error: 'Belum ada data peserta untuk diekspor ke PPTX.' },
@@ -22,8 +39,8 @@ export async function GET() {
     }
 
     const [rekapMap, saved] = await Promise.all([
-      getRekapGrafikMap(),
-      prisma.pembahasan.findMany(),
+      getRekapGrafikMap(kegiatanId),
+      prisma.pembahasan.findMany({ where: { kegiatanId } }),
     ]);
 
     const pembahasanMap: Record<string, PembahasanItem> = {};
@@ -50,12 +67,17 @@ export async function GET() {
     }
 
     const pptxBuffer = await generateEksposePptxBuffer({
+      kegiatanNama: kegiatan.nama,
       rekapMap,
       pembahasanMap,
     });
 
     const dateStamp = new Date().toISOString().slice(0, 10);
-    const filename = `Ekspose_PKP_Angkatan_VII_${dateStamp}.pptx`;
+    const slug = kegiatan.nama
+      .replace(/[^a-zA-Z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 40);
+    const filename = `Ekspose_${slug || 'Kegiatan'}_${dateStamp}.pptx`;
 
     return new NextResponse(new Uint8Array(pptxBuffer), {
       status: 200,

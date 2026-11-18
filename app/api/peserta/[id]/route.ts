@@ -1,26 +1,49 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { canAccessPeserta, requireSession } from '@/lib/auth';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(
-  request: Request,
+  _request: Request,
   { params }: { params: { id: string } }
 ) {
-  try {
-    const peserta = await prisma.peserta.findUnique({
-      where: { id: params.id },
-      include: {
-        survey: true,
-        wawancara: true,
-        hasil: true,
-      },
-    });
+  const guard = await requireSession();
+  if (!guard.ok) return guard.response;
 
-    if (!peserta) {
+  try {
+    const access = await canAccessPeserta(guard.user, params.id);
+    if (!access.peserta) {
       return NextResponse.json(
         { success: false, error: 'Peserta tidak ditemukan' },
         { status: 404 }
       );
     }
+    if (!access.allowed) {
+      return NextResponse.json(
+        { success: false, error: 'Anda tidak memiliki akses pada peserta di luar tim Anda.' },
+        { status: 403 }
+      );
+    }
+
+    const peserta = await prisma.peserta.findUnique({
+      where: { id: params.id },
+      include: {
+        kegiatan: true,
+        tim: {
+          include: {
+            evaluator: { select: { id: true, nama: true, nip: true } },
+          },
+        },
+        survey: {
+          where: { kode: { in: ['L4_01', 'L4_02', 'L4_03', 'HK_33', 'HK_34'] } },
+        },
+        wawancara: true,
+        hasil: true,
+        inovasiProper: true,
+        selisihImport: true,
+      },
+    });
 
     return NextResponse.json({ success: true, data: peserta });
   } catch (error: any) {
@@ -31,48 +54,24 @@ export async function GET(
   }
 }
 
-export async function PUT(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const body = await request.json();
-    const { nama, nip, jabatanPelatihan, jabatanSaatIni, instansi } = body;
-
-    const updated = await prisma.peserta.update({
-      where: { id: params.id },
-      data: {
-        nama: nama?.trim(),
-        nip: nip !== undefined ? (nip?.trim() || null) : undefined,
-        jabatanPelatihan: jabatanPelatihan !== undefined ? (jabatanPelatihan?.trim() || null) : undefined,
-        jabatanSaatIni: jabatanSaatIni !== undefined ? (jabatanSaatIni?.trim() || null) : undefined,
-        instansi: instansi !== undefined ? (instansi?.trim() || null) : undefined,
-      },
-    });
-
-    return NextResponse.json({ success: true, data: updated });
-  } catch (error: any) {
-    return NextResponse.json(
-      { success: false, error: error.message || 'Gagal memperbarui data peserta' },
-      { status: 500 }
-    );
-  }
+export async function PUT() {
+  return NextResponse.json(
+    {
+      success: false,
+      error:
+        'Data profil peserta hasil impor Excel bersifat terkunci dan tidak dapat diubah di dalam sistem (UR-F-10 / UR-N-07).',
+    },
+    { status: 403 }
+  );
 }
 
-export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
-  try {
-    await prisma.peserta.delete({
-      where: { id: params.id },
-    });
-
-    return NextResponse.json({ success: true, message: 'Peserta berhasil dihapus' });
-  } catch (error: any) {
-    return NextResponse.json(
-      { success: false, error: error.message || 'Gagal menghapus peserta' },
-      { status: 500 }
-    );
-  }
+export async function DELETE() {
+  return NextResponse.json(
+    {
+      success: false,
+      error:
+        'Data peserta hasil impor Excel bersifat terkunci dan tidak dapat dihapus dari dalam sistem (UR-N-07).',
+    },
+    { status: 403 }
+  );
 }

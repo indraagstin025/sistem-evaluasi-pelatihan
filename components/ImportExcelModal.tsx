@@ -23,6 +23,7 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 interface ImportExcelModalProps {
+  kegiatanId: string;
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
@@ -35,6 +36,7 @@ interface DetectedFile {
 }
 
 export default function ImportExcelModal({
+  kegiatanId,
   isOpen,
   onClose,
   onSuccess,
@@ -143,6 +145,7 @@ export default function ImportExcelModal({
       const activeInterviewFile = interviewFiles.length > 0 ? interviewFiles[0].file : null;
 
       const formData = new FormData();
+      formData.append('kegiatanId', kegiatanId);
       formData.append('file', activeSurveyFile);
       if (activeInterviewFile) {
         formData.append('formFile', activeInterviewFile);
@@ -155,11 +158,12 @@ export default function ImportExcelModal({
       });
 
       const json = await res.json();
-      if (json.success) {
+      if (json.success || json.ok) {
         setSuccessMessage(
-          activeInterviewFile
-            ? 'File survei dan Form Penilaian Wawancara berhasil diimpor.'
-            : 'File survei berhasil diimpor. Nilai wawancara berstatus KOSONG.'
+          json.message ||
+            (activeInterviewFile
+              ? 'File survei dan Form Penilaian Wawancara berhasil diimpor.'
+              : 'File survei berhasil diimpor. Teknik Komunikasi & Total Form berstatus KOSONG.')
         );
         setTimeout(() => {
           onSuccess();

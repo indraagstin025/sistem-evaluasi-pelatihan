@@ -4,3 +4,5 @@ prisma/dev.db-journal
 .env*.local
 *.log
 .vercel
+*.xlsx
+docs/

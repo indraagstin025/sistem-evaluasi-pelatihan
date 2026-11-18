@@ -1,31 +1,69 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import {
-  hapusSemuaDataPeserta,
-  simpanPesertaDenganDetail,
-} from '@/lib/peserta-db';
+import { canAccessKegiatan, requireSession } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
+  const guard = await requireSession();
+  if (!guard.ok) return guard.response;
+
   try {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search') || '';
+    const kegiatanId = searchParams.get('kegiatanId') || '';
 
+    if (!kegiatanId) {
+      return NextResponse.json(
+        { success: false, error: 'Parameter kegiatanId wajib diisi.' },
+        { status: 400 }
+      );
+    }
+
+    const allowed = await canAccessKegiatan(guard.user, kegiatanId);
+    if (!allowed) {
+      return NextResponse.json(
+        { success: false, error: 'Anda tidak memiliki akses pada kegiatan ini.' },
+        { status: 403 }
+      );
+    }
+
+    const isAdmin = guard.user.role === 'SUPER_ADMIN';
     const peserta = await prisma.peserta.findMany({
-      where: search
-        ? {
-            OR: [
-              { nama: { contains: search, mode: 'insensitive' } },
-              { nip: { contains: search, mode: 'insensitive' } },
-              { instansi: { contains: search, mode: 'insensitive' } },
-            ],
-          }
-        : undefined,
+      where: {
+        kegiatanId,
+        ...(isAdmin ? {} : { tim: { evaluatorId: guard.user.id } }),
+        ...(search
+          ? {
+              OR: [
+                { nama: { contains: search, mode: 'insensitive' } },
+                { nip: { contains: search, mode: 'insensitive' } },
+                { instansi: { contains: search, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+      },
       include: {
-        survey: true,
+        tim: {
+          include: {
+            evaluator: { select: { id: true, nama: true, nip: true } },
+          },
+        },
+        survey: {
+          where: { responden: 'alumni', kode: { in: ['L4_01', 'L4_02', 'L4_03'] } },
+        },
         wawancara: true,
         hasil: true,
+        inovasiProper: {
+          select: {
+            id: true,
+            judulProper: true,
+            jangkaMenengahStatus: true,
+            jangkaPanjangStatus: true,
+            dokumenNama: true,
+            updatedAt: true,
+          },
+        },
       },
       orderBy: { nama: 'asc' },
     });
@@ -40,68 +78,24 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
-  try {
-    const body = await request.json();
-
-    // Tambah satu peserta baru secara manual
-    const { nama, nip, jabatanPelatihan, jabatanSaatIni, instansi, pelatihan, angkatan, tahun } =
-      body;
-
-    if (!nama || nama.trim() === '') {
-      return NextResponse.json(
-        { success: false, error: 'Nama peserta wajib diisi.' },
-        { status: 400 }
-      );
-    }
-
-    const baru = await simpanPesertaDenganDetail({
-      nama: nama.trim(),
-      nip: nip ? nip.trim() : null,
-      jabatanPelatihan: jabatanPelatihan?.trim() || null,
-      jabatanSaatIni: jabatanSaatIni?.trim() || null,
-      instansi: instansi?.trim() || null,
-      pelatihan: pelatihan || 'PKP',
-      angkatan: angkatan || 'VII',
-      tahun: tahun ? Number(tahun) : 2023,
-      metode: body.metode?.trim() || 'Blended Learning',
-      sumber: 'Form',
-      sumberSurvey: 'Form',
-      sumberWawancara: 'Form',
-      sumberKomunikasi: 'Form',
-      s_panjang: body.s_panjang ?? null,
-      s_tujuan: body.s_tujuan ?? null,
-      s_manfaat: body.s_manfaat ?? null,
-      w_menengah: body.w_menengah ?? null,
-      w_panjang: body.w_panjang ?? null,
-      w_tujuan: body.w_tujuan ?? null,
-      w_manfaat: body.w_manfaat ?? null,
-      w_komunikasi: body.w_komunikasi ?? null,
-    });
-
-    return NextResponse.json({ success: true, data: baru }, { status: 201 });
-  } catch (error: any) {
-    console.error('POST /api/peserta error:', error);
-    return NextResponse.json(
-      { success: false, error: error.message || 'Gagal menyimpan data peserta' },
-      { status: 500 }
-    );
-  }
+export async function POST() {
+  return NextResponse.json(
+    {
+      success: false,
+      error:
+        'Penambahan peserta manual dinonaktifkan. Data peserta hanya masuk melalui impor berkas Excel (UR-F-10).',
+    },
+    { status: 403 }
+  );
 }
 
 export async function DELETE() {
-  try {
-    await hapusSemuaDataPeserta(true);
-
-    return NextResponse.json({
-      success: true,
-      message: 'Seluruh data peserta berhasil dikosongkan.',
-    });
-  } catch (error: any) {
-    console.error('DELETE /api/peserta error:', error);
-    return NextResponse.json(
-      { success: false, error: error.message || 'Gagal mengosongkan data peserta' },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json(
+    {
+      success: false,
+      error:
+        'Penghapusan massal peserta langsung dinonaktifkan (UR-N-07). Gunakan fitur Impor Ulang Excel atau Hapus Kegiatan oleh Super Admin.',
+    },
+    { status: 403 }
+  );
 }

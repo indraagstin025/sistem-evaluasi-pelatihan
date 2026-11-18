@@ -29,6 +29,7 @@ export interface PembahasanItem {
 export interface KesimpulanContext {
   totalPeserta: number;
   rekapMap?: Record<string, RekapGrafikData>;
+  extraSurveySummary?: string;
 }
 
 /**
@@ -412,9 +413,13 @@ export async function buatPembahasanGrafikWithMeta(
         ? ` — wajib cantumkan angka total ${kesimpulanCtx.totalPeserta} peserta`
         : '';
 
+    const surveyContextBlock = kesimpulanCtx?.extraSurveySummary
+      ? `\nRingkasan Hasil Survei Keseluruhan (Alumni vs Atasan):\n${kesimpulanCtx.extraSurveySummary}\n`
+      : '';
+
     const promptKesimpulan = `Anda adalah analis evaluasi pasca pelatihan di BPSDM Provinsi Jawa Barat.
 Berikut adalah data rekapitulasi aktual dari ${kesimpulanCtx?.totalPeserta ?? 'seluruh'} peserta terdaftar:
-${ringkasanTeks}
+${ringkasanTeks}${surveyContextBlock}
 
 Susunlah narasi resmi Slide Kesimpulan & Rekomendasi berbasis data aktual di atas (jangan mengarang angka di luar data):
 - "poin1": Paragraf kesimpulan umum tentang capaian implementasi aksi perubahan peserta berdasarkan data survei dan wawancara aktual${totalPesertaLabel}.

@@ -1,14 +1,16 @@
 import { prisma } from '@/lib/prisma';
 import { buatPembahasanGrafikWithMeta } from '@/lib/ai';
 import { getRekapGrafikMap, PEMBAHASAN_KEYS, type PembahasanKey } from '@/lib/pembahasan-server';
+import { getHasilSurveyKegiatan, ringkasHasilSurveyUntukAi } from '@/lib/survey-summary';
 
 export const DEFAULT_COOLDOWN_MS = 1_200;
 export const STALE_PROCESSING_MS = 90_000;
 export const RATE_LIMIT_BACKOFF_BASE_MS = 4_000;
-export const MAX_JOB_ATTEMPTS = 3; // 1 percobaan awal + maksimal 2x retry
+export const MAX_JOB_ATTEMPTS = 3;
 
 export interface AiQueueJobDTO {
   id: string;
+  kegiatanId: string;
   batchId: string | null;
   grafikKey: string;
   status: string;
@@ -34,6 +36,7 @@ export interface QueueSnapshot {
 function toJobDto(job: any): AiQueueJobDTO {
   return {
     id: job.id,
+    kegiatanId: job.kegiatanId,
     batchId: job.batchId,
     grafikKey: job.grafikKey,
     status: job.status,
@@ -50,12 +53,13 @@ function toJobDto(job: any): AiQueueJobDTO {
 }
 
 /**
- * Memulihkan job yang macet di status "processing" (mis. koneksi/tab terputus).
+ * Memulihkan job yang macet di status "processing" untuk suatu kegiatan.
  */
-export async function recoverStaleJobs(): Promise<void> {
+export async function recoverStaleJobs(kegiatanId: string): Promise<void> {
   const staleBefore = new Date(Date.now() - STALE_PROCESSING_MS);
   const staleJobs = await prisma.aiJob.findMany({
     where: {
+      kegiatanId,
       status: 'processing',
       startedAt: { lt: staleBefore },
     },
@@ -88,19 +92,20 @@ export async function recoverStaleJobs(): Promise<void> {
 }
 
 /**
- * Mengambil ringkasan antrian aktif beserta riwayat singkat 10 menit terakhir.
+ * Mengambil ringkasan antrean aktif beserta riwayat singkat 10 menit terakhir per kegiatan.
  */
-export async function getQueueSnapshot(): Promise<QueueSnapshot> {
-  await recoverStaleJobs();
+export async function getQueueSnapshot(kegiatanId: string): Promise<QueueSnapshot> {
+  await recoverStaleJobs(kegiatanId);
 
   const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
   const [activeRaw, recentRaw] = await Promise.all([
     prisma.aiJob.findMany({
-      where: { status: { in: ['queued', 'processing'] } },
+      where: { kegiatanId, status: { in: ['queued', 'processing'] } },
       orderBy: [{ nextRunAt: 'asc' }, { createdAt: 'asc' }],
     }),
     prisma.aiJob.findMany({
       where: {
+        kegiatanId,
         status: { in: ['done', 'failed'] },
         updatedAt: { gte: tenMinutesAgo },
       },
@@ -131,10 +136,12 @@ export async function getQueueSnapshot(): Promise<QueueSnapshot> {
 }
 
 /**
- * Menambahkan 1 slide atau seluruh 6 slide ke dalam tabel antrian AiJob
- * dengan deduplikasi agar grafikKey yang sedang antre/diproses tidak ganda.
+ * Menambahkan 1 slide atau seluruh 6 slide ke dalam antrean AiJob untuk suatu kegiatan.
  */
-export async function enqueueAiJobs(grafikKeyInput: string): Promise<
+export async function enqueueAiJobs(
+  kegiatanId: string,
+  grafikKeyInput: string
+): Promise<
   | { ok: false; status: number; error: string }
   | {
       ok: true;
@@ -153,7 +160,7 @@ export async function enqueueAiJobs(grafikKeyInput: string): Promise<
     };
   }
 
-  const totalPeserta = await prisma.peserta.count();
+  const totalPeserta = await prisma.peserta.count({ where: { kegiatanId } });
   if (totalPeserta === 0) {
     return {
       ok: false,
@@ -162,7 +169,7 @@ export async function enqueueAiJobs(grafikKeyInput: string): Promise<
     };
   }
 
-  await recoverStaleJobs();
+  await recoverStaleJobs(kegiatanId);
 
   const targetKeys: PembahasanKey[] =
     grafikKeyInput === 'all'
@@ -171,6 +178,7 @@ export async function enqueueAiJobs(grafikKeyInput: string): Promise<
 
   const existingActive = await prisma.aiJob.findMany({
     where: {
+      kegiatanId,
       grafikKey: { in: targetKeys },
       status: { in: ['queued', 'processing'] },
     },
@@ -190,6 +198,7 @@ export async function enqueueAiJobs(grafikKeyInput: string): Promise<
           keysToCreate.map((key, idx) =>
             prisma.aiJob.create({
               data: {
+                kegiatanId,
                 batchId,
                 grafikKey: key,
                 status: 'queued',
@@ -202,7 +211,7 @@ export async function enqueueAiJobs(grafikKeyInput: string): Promise<
         )
       : [];
 
-  const snapshot = await getQueueSnapshot();
+  const snapshot = await getQueueSnapshot(kegiatanId);
   return {
     ok: true,
     batchId,
@@ -213,18 +222,18 @@ export async function enqueueAiJobs(grafikKeyInput: string): Promise<
 }
 
 /**
- * Membatalkan semua job yang masih berstatus "queued".
+ * Membatalkan semua job berstatus "queued" pada kegiatan tertentu.
  */
-export async function cancelQueuedJobs() {
+export async function cancelQueuedJobs(kegiatanId: string) {
   const res = await prisma.aiJob.updateMany({
-    where: { status: 'queued' },
+    where: { kegiatanId, status: 'queued' },
     data: {
       status: 'failed',
       lastError: 'Dibatalkan oleh pengguna',
       finishedAt: new Date(),
     },
   });
-  const snapshot = await getQueueSnapshot();
+  const snapshot = await getQueueSnapshot(kegiatanId);
   return {
     cancelledCount: res.count,
     snapshot,
@@ -266,27 +275,25 @@ function buildProcessResult(
 }
 
 /**
- * Mengklaim dan memproses tepat 1 job tertua yang sudah siap (nextRunAt <= now).
+ * Mengklaim dan memproses 1 job tertua yang siap untuk suatu kegiatan.
  */
-export async function processNextAiJob(): Promise<ProcessAiJobResult> {
-  await recoverStaleJobs();
+export async function processNextAiJob(kegiatanId: string): Promise<ProcessAiJobResult> {
+  await recoverStaleJobs(kegiatanId);
 
   let claimedJob: any = null;
 
-  // Maksimal 3 percobaan klaim atomik bila worker lain mendahului
   for (let probe = 0; probe < 3; probe++) {
     const now = new Date();
     const candidate = await prisma.aiJob.findFirst({
       where: {
+        kegiatanId,
         status: 'queued',
         nextRunAt: { lte: now },
       },
       orderBy: [{ nextRunAt: 'asc' }, { createdAt: 'asc' }],
     });
 
-    if (!candidate) {
-      break;
-    }
+    if (!candidate) break;
 
     const claim = await prisma.aiJob.updateMany({
       where: {
@@ -312,17 +319,16 @@ export async function processNextAiJob(): Promise<ProcessAiJobResult> {
   }
 
   if (!claimedJob) {
-    const snapshot = await getQueueSnapshot();
-    const waitingBackoff = snapshot.queuedCount > 0;
+    const snapshot = await getQueueSnapshot(kegiatanId);
     return buildProcessResult(snapshot, {
       processed: false,
-      waitingBackoff,
+      waitingBackoff: snapshot.queuedCount > 0,
       nextWaitMs: snapshot.nextWaitMs,
     });
   }
 
   try {
-    const totalPeserta = await prisma.peserta.count();
+    const totalPeserta = await prisma.peserta.count({ where: { kegiatanId } });
     if (totalPeserta === 0) {
       const failed = await prisma.aiJob.update({
         where: { id: claimedJob.id },
@@ -332,7 +338,7 @@ export async function processNextAiJob(): Promise<ProcessAiJobResult> {
           lastError: 'Data peserta kosong (0 peserta)',
         },
       });
-      const snapshot = await getQueueSnapshot();
+      const snapshot = await getQueueSnapshot(kegiatanId);
       return buildProcessResult(snapshot, {
         processed: false,
         job: toJobDto(failed),
@@ -341,7 +347,7 @@ export async function processNextAiJob(): Promise<ProcessAiJobResult> {
       });
     }
 
-    const rekapMap = await getRekapGrafikMap();
+    const rekapMap = await getRekapGrafikMap(kegiatanId);
     const rekap =
       claimedJob.grafikKey === 'kesimpulan'
         ? undefined
@@ -356,7 +362,7 @@ export async function processNextAiJob(): Promise<ProcessAiJobResult> {
           lastError: `Rekap grafik "${claimedJob.grafikKey}" tidak ditemukan`,
         },
       });
-      const snapshot = await getQueueSnapshot();
+      const snapshot = await getQueueSnapshot(kegiatanId);
       return buildProcessResult(snapshot, {
         processed: true,
         job: toJobDto(failed),
@@ -364,13 +370,20 @@ export async function processNextAiJob(): Promise<ProcessAiJobResult> {
       });
     }
 
+    let extraSurveySummary: string | undefined;
+    if (claimedJob.grafikKey === 'kesimpulan') {
+      const surveySummary = await getHasilSurveyKegiatan(kegiatanId);
+      extraSurveySummary = ringkasHasilSurveyUntukAi(surveySummary);
+    }
+
     const meta = await buatPembahasanGrafikWithMeta(
       claimedJob.grafikKey,
       rekap,
-      claimedJob.grafikKey === 'kesimpulan' ? { totalPeserta, rekapMap } : undefined
+      claimedJob.grafikKey === 'kesimpulan'
+        ? { totalPeserta, rekapMap, extraSurveySummary }
+        : undefined
     );
 
-    // Jika semua model Gemini kena rate limit / timeout dan masih ada jatah retry
     if (meta.rateLimited && claimedJob.attempts < claimedJob.maxAttempts) {
       const backoffMs = RATE_LIMIT_BACKOFF_BASE_MS * claimedJob.attempts;
       const retryAt = new Date(Date.now() + backoffMs);
@@ -379,10 +392,10 @@ export async function processNextAiJob(): Promise<ProcessAiJobResult> {
         data: {
           status: 'queued',
           nextRunAt: retryAt,
-          lastError: `${meta.errorMessage || 'Rate limit Gemini'} — retry ke-${claimedJob.attempts} dalam ${backoffMs / 1000}d`,
+          lastError: `${meta.errorMessage || 'Rate limit Gemini'} - retry ke-${claimedJob.attempts} dalam ${backoffMs / 1000}d`,
         },
       });
-      const snapshot = await getQueueSnapshot();
+      const snapshot = await getQueueSnapshot(kegiatanId);
       return buildProcessResult(snapshot, {
         processed: true,
         retrying: true,
@@ -403,9 +416,15 @@ export async function processNextAiJob(): Promise<ProcessAiJobResult> {
     };
 
     const savedPembahasan = await prisma.pembahasan.upsert({
-      where: { grafikKey: claimedJob.grafikKey },
+      where: {
+        kegiatanId_grafikKey: {
+          kegiatanId,
+          grafikKey: claimedJob.grafikKey,
+        },
+      },
       update: payload,
       create: {
+        kegiatanId,
         grafikKey: claimedJob.grafikKey,
         ...payload,
       },
@@ -417,11 +436,12 @@ export async function processNextAiJob(): Promise<ProcessAiJobResult> {
         status: 'done',
         finishedAt: new Date(),
         modelUsed: meta.modelUsed || 'template-kp05',
-        lastError: meta.item.sumber === 'ai' ? null : meta.errorMessage || 'Memakai templat resmi KP-05',
+        lastError:
+          meta.item.sumber === 'ai' ? null : meta.errorMessage || 'Memakai templat resmi KP-05',
       },
     });
 
-    const snapshot = await getQueueSnapshot();
+    const snapshot = await getQueueSnapshot(kegiatanId);
     return buildProcessResult(snapshot, {
       processed: true,
       retrying: false,
@@ -442,10 +462,10 @@ export async function processNextAiJob(): Promise<ProcessAiJobResult> {
         : {
             status: 'queued',
             nextRunAt: new Date(Date.now() + RATE_LIMIT_BACKOFF_BASE_MS),
-            lastError: `${msg} — dijadwalkan ulang`,
+            lastError: `${msg} - dijadwalkan ulang`,
           },
     });
-    const snapshot = await getQueueSnapshot();
+    const snapshot = await getQueueSnapshot(kegiatanId);
     return buildProcessResult(snapshot, {
       processed: false,
       retrying: !isFinal,

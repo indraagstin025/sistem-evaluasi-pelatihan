@@ -1,10 +1,10 @@
-import { prisma } from '@/lib/prisma';
+import { prisma } from './prisma';
 import {
   hitungDistribusiRentang,
   tentukanRentang,
   tentukanRentangItemSurvei,
-} from '@/lib/hitung';
-import type { RekapGrafikData } from '@/lib/ai';
+} from './hitung';
+import type { RekapGrafikData } from './ai';
 
 export const PEMBAHASAN_KEYS = [
   'grafik1',
@@ -18,13 +18,15 @@ export const PEMBAHASAN_KEYS = [
 export type PembahasanKey = (typeof PEMBAHASAN_KEYS)[number];
 
 /**
- * Menghitung rekapitulasi 5 grafik ekspose dari data peserta aktual di database.
- * Digunakan bersama oleh /api/ai/pembahasan dan /api/ai/queue/process.
+ * Menghitung rekapitulasi 5 grafik ekspose dari data peserta aktual dalam satu kegiatan.
  */
-export async function getRekapGrafikMap(): Promise<
+export async function getRekapGrafikMap(
+  kegiatanId: string
+): Promise<
   Record<'grafik1' | 'grafik2' | 'grafik3' | 'grafik4' | 'grafik5', RekapGrafikData>
 > {
   const listPeserta = await prisma.peserta.findMany({
+    where: { kegiatanId },
     include: {
       survey: true,
       wawancara: true,

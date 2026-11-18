@@ -1,12 +1,24 @@
 import { NextResponse } from 'next/server';
+import { requireSession } from '@/lib/auth';
 import { cancelQueuedJobs, enqueueAiJobs, getQueueSnapshot } from '@/lib/ai-queue';
 
 export const dynamic = 'force-dynamic';
 
-// GET: Ambil status antrian AI saat ini (memulihkan progres pasca-refresh)
-export async function GET() {
+export async function GET(request: Request) {
+  const guard = await requireSession(['SUPER_ADMIN']);
+  if (!guard.ok) return guard.response;
+
   try {
-    const snapshot = await getQueueSnapshot();
+    const { searchParams } = new URL(request.url);
+    const kegiatanId = searchParams.get('kegiatanId') || '';
+    if (!kegiatanId) {
+      return NextResponse.json(
+        { success: false, error: 'Parameter kegiatanId wajib diisi.' },
+        { status: 400 }
+      );
+    }
+
+    const snapshot = await getQueueSnapshot(kegiatanId);
     return NextResponse.json({
       success: true,
       ...snapshot,
@@ -20,13 +32,24 @@ export async function GET() {
   }
 }
 
-// POST: Masukkan 1 atau seluruh slide ('all') ke dalam antrian AiJob
 export async function POST(request: Request) {
+  const guard = await requireSession(['SUPER_ADMIN']);
+  if (!guard.ok) return guard.response;
+
   try {
     const body = await request.json().catch(() => ({}));
+    const url = new URL(request.url);
+    const kegiatanId = String(body.kegiatanId || url.searchParams.get('kegiatanId') || '').trim();
     const grafikKey = String(body.grafikKey || 'all').trim();
 
-    const result = await enqueueAiJobs(grafikKey);
+    if (!kegiatanId) {
+      return NextResponse.json(
+        { success: false, error: 'Parameter kegiatanId wajib diisi.' },
+        { status: 400 }
+      );
+    }
+
+    const result = await enqueueAiJobs(kegiatanId, grafikKey);
     if (!result.ok) {
       return NextResponse.json(
         { success: false, error: result.error },
@@ -62,10 +85,21 @@ export async function POST(request: Request) {
   }
 }
 
-// DELETE: Batalkan semua job yang masih menunggu (status: queued)
-export async function DELETE() {
+export async function DELETE(request: Request) {
+  const guard = await requireSession(['SUPER_ADMIN']);
+  if (!guard.ok) return guard.response;
+
   try {
-    const res = await cancelQueuedJobs();
+    const { searchParams } = new URL(request.url);
+    const kegiatanId = searchParams.get('kegiatanId') || '';
+    if (!kegiatanId) {
+      return NextResponse.json(
+        { success: false, error: 'Parameter kegiatanId wajib diisi.' },
+        { status: 400 }
+      );
+    }
+
+    const res = await cancelQueuedJobs(kegiatanId);
     return NextResponse.json({
       success: true,
       message:

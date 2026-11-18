@@ -20,6 +20,7 @@ interface ChartColumnData {
 
 interface ChartEksposeOverviewProps {
   peserta?: any[];
+  eksposeHref?: string;
 }
 
 function hitungRataKolom(peserta: any[], field: string, pengali = 1): number {
@@ -30,7 +31,10 @@ function hitungRataKolom(peserta: any[], field: string, pengali = 1): number {
   return (valid.reduce((acc, v) => acc + v, 0) / valid.length) * pengali;
 }
 
-export default function ChartEksposeOverview({ peserta = [] }: ChartEksposeOverviewProps) {
+export default function ChartEksposeOverview({
+  peserta = [],
+  eksposeHref = '/ekspose',
+}: ChartEksposeOverviewProps) {
   const columns: ChartColumnData[] = [
     {
       num: '01',
@@ -89,7 +93,7 @@ export default function ChartEksposeOverview({ peserta = [] }: ChartEksposeOverv
           <h2 className="text-sm font-semibold text-zinc-950">Ringkasan Grafik Ekspose</h2>
         </div>
         <Link
-          href="/ekspose"
+          href={eksposeHref}
           className="text-xs font-medium text-zinc-950 underline underline-offset-4 transition hover:text-zinc-600"
         >
           Buka Semua Slide Ekspose

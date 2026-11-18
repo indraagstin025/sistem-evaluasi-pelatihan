@@ -1,8 +1,9 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import { Plus_Jakarta_Sans, JetBrains_Mono } from 'next/font/google';
+import { JetBrains_Mono, Plus_Jakarta_Sans } from 'next/font/google';
 import Navbar from '@/components/Navbar';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { getSessionUser } from '@/lib/auth';
 
 const plusJakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
@@ -19,34 +20,37 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Sistem Evaluasi Pasca Pelatihan - BPSDM',
-  description: 'Dashboard evaluasi pasca pelatihan PKP di BPSDM Provinsi Jawa Barat',
+  title: 'Sistem Evaluasi Pasca Pelatihan | BPSDM Provinsi Jawa Barat',
+  description:
+    'Platform terpadu pengelolaan kegiatan, unggahan Inovasi/Proper, penilaian wawancara, dan ekspose hasil evaluasi pasca pelatihan.',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const user = await getSessionUser();
+
   return (
     <html lang="id" className={`${plusJakarta.variable} ${jetbrainsMono.variable}`}>
-      <body className="bg-canvas font-sans text-zinc-950 antialiased">
+      <body className="min-h-screen bg-canvas font-sans text-zinc-950 antialiased">
         <TooltipProvider delayDuration={200}>
           <a
             href="#main-content"
-            className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-zinc-950 focus:px-4 focus:py-2 focus:text-xs focus:font-medium focus:text-white"
+            className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-zinc-950 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white focus:shadow-lg"
           >
-            Langsung ke konten utama
+            Lompat ke konten utama
           </a>
-          <div className="flex min-h-screen flex-col">
-            <Navbar />
-            <main
-              id="main-content"
-              className="mx-auto w-full max-w-[1320px] flex-1 px-4 py-6 sm:px-6 lg:px-8"
-            >
-              {children}
-            </main>
-          </div>
+
+          <Navbar user={user} />
+
+          <main
+            id="main-content"
+            className="mx-auto w-full max-w-[1320px] px-4 py-6 sm:px-6 lg:px-8 print:max-w-none print:p-0"
+          >
+            {children}
+          </main>
         </TooltipProvider>
       </body>
     </html>

@@ -25,3 +25,6 @@ next-env.d.ts
 .idea/
 .DS_Store
 Thumbs.db
+
+# Excel participant source datasets (contains NIP / PII, keep local only)
+*.xlsx

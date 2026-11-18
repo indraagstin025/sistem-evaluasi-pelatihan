@@ -17,6 +17,7 @@ import {
 } from './ekspose-config';
 
 export interface EksposePptxInput {
+  kegiatanNama?: string;
   rekapMap: Record<'grafik1' | 'grafik2' | 'grafik3' | 'grafik4' | 'grafik5', RekapGrafikData>;
   pembahasanMap: Record<string, PembahasanItem>;
 }
@@ -284,7 +285,9 @@ function addHorizontalEksposeChart(
 export async function generateEksposePptxBuffer(input: EksposePptxInput): Promise<Buffer> {
   const pres = new PptxGenJS();
   pres.layout = 'LAYOUT_WIDE';
-  pres.title = 'Ekspose Evaluasi Pasca Pelatihan PKP Angkatan VII';
+  pres.title = input.kegiatanNama
+    ? `Ekspose - ${input.kegiatanNama}`
+    : 'Ekspose Evaluasi Pasca Pelatihan';
   pres.subject = 'Hasil Evaluasi Pasca Pelatihan BPSDM Provinsi Jawa Barat';
   pres.company = 'BPSDM Provinsi Jawa Barat';
   pres.author = 'Sistem Evaluasi Pasca Pelatihan';
