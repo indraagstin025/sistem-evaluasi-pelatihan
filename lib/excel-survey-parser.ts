@@ -93,15 +93,36 @@ export function parseJawabanSheetRows(rows: any[][]): ParsedJawabanRow[] {
   if (rows.length < 3) return results;
 
   const headerRow = rows[1] || [];
+  let namaCol = 1;
+  let instansiCol = 3;
+  let jabPelCol = 4;
+  let jabIniCol = 5;
+  let metodeCol = 6;
+  let alumniQStart = 7;
+
+  for (let c = 0; c < Math.min(headerRow.length, 45); c++) {
+    const h = String(headerRow[c] ?? '').toLowerCase().trim();
+    if (!h) continue;
+    if (c <= 6 && (h === 'nama' || h.includes('nama peserta'))) namaCol = c;
+    else if (c <= 10 && h.includes('nama instansi')) instansiCol = c;
+    else if (c <= 10 && h.includes('jabatan saat pelatihan')) jabPelCol = c;
+    else if (c <= 10 && h.includes('jabatan saat ini')) jabIniCol = c;
+    else if (c <= 10 && h.includes('metode pelaksanaan')) metodeCol = c;
+    else if (h.startsWith('1.') && c >= 4 && c <= 15) {
+      alumniQStart = c;
+      break;
+    }
+  }
+
   const hasPerilakuCols =
-    String(headerRow[7] ?? '').trim().startsWith('1.') ||
-    String(headerRow[36] ?? '').trim().startsWith('30.');
+    String(headerRow[alumniQStart] ?? '').trim().startsWith('1.') ||
+    String(headerRow[alumniQStart + 29] ?? '').trim().startsWith('30.');
 
   if (!hasPerilakuCols) return results;
 
   // Cari batas awal blok Atasan Alumni (kolom "Nama Responden")
   let atasanStartCol = -1;
-  for (let c = 50; c < headerRow.length; c++) {
+  for (let c = alumniQStart + 40; c < headerRow.length; c++) {
     const h = String(headerRow[c] ?? '').toLowerCase().trim();
     if (h.includes('nama responden')) {
       atasanStartCol = c;
@@ -111,22 +132,22 @@ export function parseJawabanSheetRows(rows: any[][]): ParsedJawabanRow[] {
 
   for (let i = 2; i < rows.length; i++) {
     const r = rows[i];
-    if (!r || !r[1]) continue;
+    if (!r || !r[namaCol]) continue;
 
-    const raw = String(r[1]).trim();
+    const raw = String(r[namaCol]).trim();
     const parts = raw.split('|').map((p) => p.trim());
     const nama = parts[0];
     if (!nama) continue;
 
     const nip = parts.length > 1 ? parts[1] : null;
-    const instansi = cleanStr(r[3]);
-    const jabatanPelatihan = cleanStr(r[4]);
-    const jabatanSaatIni = cleanStr(r[5]);
-    const metode = cleanStr(r[6]) || undefined;
+    const instansi = cleanStr(r[instansiCol]);
+    const jabatanPelatihan = cleanStr(r[jabPelCol]);
+    const jabatanSaatIni = cleanStr(r[jabIniCol]);
+    const metode = cleanStr(r[metodeCol]) || undefined;
 
     const surveyItems: SurveyExtraItem[] = [];
 
-    // 1. SISI ALUMNI (kolom 7..54)
+    // 1. Sisi Alumni (berbasis alumniQStart dinamis)
     for (let qIdx = 0; qIdx < 30; qIdx++) {
       const no = qIdx + 1;
       pushLikertItem(
@@ -135,19 +156,20 @@ export function parseJawabanSheetRows(rows: any[][]): ParsedJawabanRow[] {
         `L3_${String(no).padStart(2, '0')}`,
         'PERILAKU',
         getPerilakuSubDimensi(no),
-        cleanStr(headerRow[7 + qIdx]),
-        r[7 + qIdx]
+        cleanStr(headerRow[alumniQStart + qIdx]),
+        r[alumniQStart + qIdx]
       );
     }
 
+    const hkOffset = alumniQStart + 30;
     pushLikertItem(
       surveyItems,
       'alumni',
       'HK_33',
       'HASIL_KONTRIBUSI',
       'Produktivitas',
-      cleanStr(headerRow[37]),
-      r[37]
+      cleanStr(headerRow[hkOffset]),
+      r[hkOffset]
     );
     pushLikertItem(
       surveyItems,
@@ -155,14 +177,14 @@ export function parseJawabanSheetRows(rows: any[][]): ParsedJawabanRow[] {
       'HK_34',
       'HASIL_KONTRIBUSI',
       'Produktivitas',
-      cleanStr(headerRow[38]),
-      r[38]
+      cleanStr(headerRow[hkOffset + 1]),
+      r[hkOffset + 1]
     );
 
     const l4JawabanTeks = {
-      L4_01: cleanStr(r[39]),
-      L4_02: cleanStr(r[41]),
-      L4_03: cleanStr(r[43]),
+      L4_01: cleanStr(r[hkOffset + 2]),
+      L4_02: cleanStr(r[hkOffset + 4]),
+      L4_03: cleanStr(r[hkOffset + 6]),
     };
 
     for (let dIdx = 0; dIdx < 5; dIdx++) {
@@ -172,8 +194,8 @@ export function parseJawabanSheetRows(rows: any[][]): ParsedJawabanRow[] {
         `DUK_${38 + dIdx}`,
         'DUKUNGAN',
         'Faktor Dukungan',
-        cleanStr(headerRow[45 + dIdx]),
-        r[45 + dIdx]
+        cleanStr(headerRow[hkOffset + 8 + dIdx]),
+        r[hkOffset + 8 + dIdx]
       );
     }
     pushOpenTextItem(
@@ -182,8 +204,8 @@ export function parseJawabanSheetRows(rows: any[][]): ParsedJawabanRow[] {
       'DUK_TEXT',
       'DUKUNGAN',
       'Faktor Dukungan',
-      cleanStr(headerRow[50]),
-      r[50]
+      cleanStr(headerRow[hkOffset + 13]),
+      r[hkOffset + 13]
     );
 
     for (let kIdx = 0; kIdx < 3; kIdx++) {
@@ -193,8 +215,8 @@ export function parseJawabanSheetRows(rows: any[][]): ParsedJawabanRow[] {
         `KND_${43 + kIdx}`,
         'KENDALA',
         'Faktor Kendala',
-        cleanStr(headerRow[51 + kIdx]),
-        r[51 + kIdx]
+        cleanStr(headerRow[hkOffset + 14 + kIdx]),
+        r[hkOffset + 14 + kIdx]
       );
     }
     pushOpenTextItem(
@@ -203,11 +225,11 @@ export function parseJawabanSheetRows(rows: any[][]): ParsedJawabanRow[] {
       'KND_TEXT',
       'KENDALA',
       'Faktor Kendala',
-      cleanStr(headerRow[54]),
-      r[54]
+      cleanStr(headerRow[hkOffset + 17]),
+      r[hkOffset + 17]
     );
 
-    // 2. SISI ATASAN ALUMNI (mulai atasanStartCol)
+    // 2. Sisi Atasan Alumni (mulai atasanStartCol)
     let namaAtasan: string | null = cleanStr(r[0]);
     let instansiAtasan: string | null = null;
     let jabatanAtasan: string | null = null;

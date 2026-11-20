@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { attachSessionCookie, requireSession } from '@/lib/auth';
-import { hashPassword, verifyPassword } from '@/lib/password';
+import { hashPassword, encryptVaultPassword, verifyPassword } from '@/lib/password';
 
 export async function POST(request: Request) {
   const guard = await requireSession(undefined, { allowDuringPasswordChange: true });
@@ -45,6 +45,9 @@ export async function POST(request: Request) {
       where: { id: dbUser.id },
       data: {
         passwordHash: hashPassword(newPassword),
+        ...(dbUser.role === 'EVALUATOR'
+          ? { passwordEncrypted: encryptVaultPassword(newPassword) }
+          : {}),
         mustChangePassword: false,
       },
       select: {

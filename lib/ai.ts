@@ -32,6 +32,25 @@ export interface KesimpulanContext {
   extraSurveySummary?: string;
 }
 
+function ringkasRentangDominan(dataA: number[], dataB: number[]) {
+  const labels = ['0%', '1-25%', '26-50%', '51-75%', '76-100%'];
+  let bestIdx = 4;
+  let bestTotal = -1;
+  for (let i = 0; i < 5; i++) {
+    const sum = (dataA[i] ?? 0) + (dataB[i] ?? 0);
+    if (sum >= bestTotal) {
+      bestTotal = sum;
+      bestIdx = i;
+    }
+  }
+  return {
+    idx: bestIdx,
+    label: labels[bestIdx],
+    a: dataA[bestIdx] ?? 0,
+    b: dataB[bestIdx] ?? 0,
+  };
+}
+
 /**
  * RUMUS PEMBAHASAN TEMPLAT BAKU RESMI (KP-05 & PPTX BPSDM)
  * Menghasilkan butir pembahasan yang 100% cocok dengan angka rekapitulasi data
@@ -51,6 +70,7 @@ export function generatePembahasanTemplate(
   const b2 = dataB[2] ?? 0;
   const b3 = dataB[3] ?? 0;
   const b4 = dataB[4] ?? 0;
+  const dom = ringkasRentangDominan(dataA, dataB);
 
   let poin1 = '';
   let poin2 = '';
@@ -94,9 +114,9 @@ export function generatePembahasanTemplate(
       // Slide 7 PPT: Seluruh Tujuan Aksi Perubahan Dapat Tercapai
       judul = 'Seluruh Tujuan Aksi Perubahan Dapat Tercapai';
       poin1 = `Sebaran pencapaian seluruh tujuan aksi perubahan antara hasil survei dan wawancara.`;
-      poin2 = `Rentang Dominan (51-75%): Hasil survei (${a3} orang) dibanding hasil wawancara (${b3} orang).`;
+      poin2 = `Rentang Dominan (${dom.label}): Hasil survei (${dom.a} orang) dibanding hasil wawancara (${dom.b} orang).`;
       poin3 = `Rentang Optimal (76-100%): Hasil wawancara (${b4} orang) dibanding hasil survei (${a4} orang).`;
-      poin4 = `Rentang Rendah (26-50%): Hasil survei (${a2} orang) dibanding hasil wawancara (${b2} orang).`;
+      poin4 = `Rentang Menengah & Rendah: Pada 51-75% tercatat ${a3} survei dan ${b3} wawancara; pada 26-50% tercatat ${a2} survei dan ${b2} wawancara.`;
       break;
 
     case 'grafik4':
@@ -104,17 +124,17 @@ export function generatePembahasanTemplate(
       judul = 'Manfaat Aksi Perubahan';
       poin1 = `Penilaian terhadap manfaat aksi perubahan antara hasil survei dan wawancara.`;
       poin2 = `Rentang Optimal (76-100%): Hasil wawancara (${b4} orang) dibanding hasil survei (${a4} orang).`;
-      poin3 = `Rentang Dominan (51-75%): Hasil survei (${a3} orang) dibanding hasil wawancara (${b3} orang).`;
-      poin4 = `Rentang Rendah (26-50%): Hasil survei (${a2} orang) dan hasil wawancara (${b2} orang).`;
+      poin3 = `Rentang Dominan (${dom.label}): Hasil survei (${dom.a} orang) dibanding hasil wawancara (${dom.b} orang).`;
+      poin4 = `Rentang Menengah & Rendah: Pada 51-75% tercatat ${a3} survei dan ${b3} wawancara; pada 26-50% tercatat ${a2} survei dan ${b2} wawancara.`;
       break;
 
     case 'grafik5':
       // Slide 9 PPT: Nilai Keseluruhan
       judul = 'Nilai Keseluruhan';
       poin1 = `Rekapitulasi nilai keseluruhan antara rata-rata survei (L) dan wawancara (M).`;
-      poin2 = `Rentang Dominan (51-75%): Hasil wawancara (${b3} orang) dibanding hasil survei (${a3} orang).`;
+      poin2 = `Rentang Dominan (${dom.label}): Hasil wawancara (${dom.b} orang) dibanding hasil survei (${dom.a} orang).`;
       poin3 = `Rentang Optimal (76-100%): Hasil survei (${a4} orang) dibanding hasil wawancara (${b4} orang).`;
-      poin4 = `Rentang Rendah (26-50%): Hasil survei (${a2} orang) dan hasil wawancara (${b2} orang).`;
+      poin4 = `Rentang Menengah & Rendah: Pada 51-75% tercatat ${a3} survei dan ${b3} wawancara; pada 26-50% tercatat ${a2} survei dan ${b2} wawancara.`;
       break;
 
     case 'kesimpulan':

@@ -8,7 +8,9 @@ import {
   TableIcon,
   UploadIcon,
 } from '@radix-ui/react-icons';
-import ImportExcelModal from '@/components/ImportExcelModal';
+import ImportExcelModal, {
+  type ImportedEvaluatorAccount,
+} from '@/components/ImportExcelModal';
 import { StatusBanner } from '@/components/ui/status-banner';
 import { TablePagination } from '@/components/ui/table-pagination';
 
@@ -26,6 +28,10 @@ export default function InputDataKegiatanPage({
   const [loading, setLoading] = useState(true);
   const [loadingPeserta, setLoadingPeserta] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [importSummary, setImportSummary] = useState<{
+    message: string;
+    accounts: ImportedEvaluatorAccount[];
+  } | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
   const loadHeader = useCallback(async () => {
@@ -130,6 +136,64 @@ export default function InputDataKegiatanPage({
 
       {error && <StatusBanner tone="error" title="Kesalahan" message={error} />}
 
+      {importSummary && (
+        <section className="rounded-2xl border border-zinc-900 bg-white p-5 space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-semibold text-zinc-950">
+                Hasil Impor &amp; Akun Evaluator Otomatis
+              </h3>
+              <p className="mt-0.5 text-xs text-zinc-700">{importSummary.message}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setImportSummary(null)}
+              className="rounded-lg border border-zinc-500 bg-white px-2.5 py-1 text-[11px] font-medium text-zinc-900 hover:bg-zinc-100"
+            >
+              Tutup
+            </button>
+          </div>
+
+          {importSummary.accounts.length > 0 && (
+            <div className="overflow-x-auto rounded-xl border border-zinc-200">
+              <table className="min-w-full divide-y divide-zinc-200 text-left text-xs">
+                <caption className="sr-only">
+                  Daftar akun evaluator yang dibuat atau ditautkan otomatis saat impor Excel
+                </caption>
+                <thead className="bg-zinc-50 text-zinc-700">
+                  <tr>
+                    <th scope="col" className="px-3 py-2 font-semibold">Tim</th>
+                    <th scope="col" className="px-3 py-2 font-semibold">Nama Akun</th>
+                    <th scope="col" className="px-3 py-2 font-semibold">Username / NIP Login</th>
+                    <th scope="col" className="px-3 py-2 font-semibold">Kata Sandi Awal</th>
+                    <th scope="col" className="px-3 py-2 font-semibold">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-200">
+                  {importSummary.accounts.map((acc) => (
+                    <tr key={acc.timId}>
+                      <td className="px-3 py-2 font-medium text-zinc-950">{acc.namaTim}</td>
+                      <td className="px-3 py-2 text-zinc-800">{acc.nama}</td>
+                      <td className="px-3 py-2 font-mono text-zinc-950">{acc.username}</td>
+                      <td className="px-3 py-2 font-mono font-semibold text-zinc-950">
+                        {acc.sandiAwal || 'Sudah ada / lihat di Akun Evaluator'}
+                      </td>
+                      <td className="px-3 py-2">
+                        <span className="inline-flex rounded border border-zinc-400 bg-zinc-50 px-2 py-0.5 text-[11px] font-medium text-zinc-800">
+                          {acc.status === 'created'
+                            ? 'Akun baru (wajib ganti sandi)'
+                            : 'Ditautkan ke akun aktif'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      )}
+
       {selisihImport.length > 0 && (
         <section className="rounded-2xl border border-zinc-900 bg-zinc-50 p-5">
           <div className="flex items-start gap-2.5">
@@ -150,14 +214,17 @@ export default function InputDataKegiatanPage({
 
           <div className="mt-4 overflow-x-auto rounded-xl border border-zinc-200 bg-white">
             <table className="min-w-full divide-y divide-zinc-200 text-left text-xs">
+              <caption className="sr-only">
+                Daftar selisih nilai antara file Form Penilaian dan sheet Ekspose
+              </caption>
               <thead className="bg-zinc-50 text-zinc-700">
                 <tr>
-                  <th className="px-3 py-2.5 font-semibold">Peserta</th>
-                  <th className="px-3 py-2.5 font-semibold">NIP (Nomor Induk Pegawai)</th>
-                  <th className="px-3 py-2.5 font-semibold">Kriteria</th>
-                  <th className="px-3 py-2.5 text-right font-semibold">Form Penilaian</th>
-                  <th className="px-3 py-2.5 text-right font-semibold">Ekspose</th>
-                  <th className="px-3 py-2.5 font-semibold">Catatan</th>
+                  <th scope="col" className="px-3 py-2.5 font-semibold">Peserta</th>
+                  <th scope="col" className="px-3 py-2.5 font-semibold">NIP (Nomor Induk Pegawai)</th>
+                  <th scope="col" className="px-3 py-2.5 font-semibold">Kriteria</th>
+                  <th scope="col" className="px-3 py-2.5 text-right font-semibold">Form Penilaian</th>
+                  <th scope="col" className="px-3 py-2.5 text-right font-semibold">Ekspose</th>
+                  <th scope="col" className="px-3 py-2.5 font-semibold">Catatan</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-200">
@@ -214,17 +281,20 @@ export default function InputDataKegiatanPage({
           <>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-zinc-200 text-left text-xs">
+                <caption className="sr-only">
+                  Pratinjau daftar peserta terimpor beserta jabatan, tim, dan ringkasan skor survei serta wawancara
+                </caption>
                 <thead className="bg-zinc-50 text-zinc-700">
                   <tr>
-                    <th className="px-3 py-2.5 font-semibold">No</th>
-                    <th className="px-3 py-2.5 font-semibold">Nama &amp; NIP</th>
-                    <th className="px-3 py-2.5 font-semibold">Jabatan &amp; Instansi Saat Ini</th>
-                    <th className="px-3 py-2.5 font-semibold">Tim (dari Excel)</th>
-                    <th className="px-3 py-2.5 text-center font-semibold">
+                    <th scope="col" className="px-3 py-2.5 font-semibold">No</th>
+                    <th scope="col" className="px-3 py-2.5 font-semibold">Nama &amp; NIP</th>
+                    <th scope="col" className="px-3 py-2.5 font-semibold">Jabatan &amp; Instansi Saat Ini</th>
+                    <th scope="col" className="px-3 py-2.5 font-semibold">Tim (dari Excel)</th>
+                    <th scope="col" className="px-3 py-2.5 text-center font-semibold">
                       Nilai Terisi (dari 5 kriteria)
                     </th>
-                    <th className="px-3 py-2.5 text-right font-semibold">Survei</th>
-                    <th className="px-3 py-2.5 text-right font-semibold">Wawancara</th>
+                    <th scope="col" className="px-3 py-2.5 text-right font-semibold">Survei</th>
+                    <th scope="col" className="px-3 py-2.5 text-right font-semibold">Wawancara</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-200">
@@ -285,9 +355,15 @@ export default function InputDataKegiatanPage({
         kegiatanId={params.id}
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
-        onSuccess={() => {
+        onSuccess={(payload) => {
           setModalOpen(false);
           setPage(1);
+          if (payload?.message) {
+            setImportSummary({
+              message: payload.message,
+              accounts: payload.evaluatorAccounts || [],
+            });
+          }
           void Promise.all([loadHeader(), loadPesertaPage(1)]);
         }}
       />

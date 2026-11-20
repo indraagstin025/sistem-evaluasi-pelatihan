@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { canAccessKegiatan, requireSession } from '@/lib/auth';
-import { hashPassword } from '@/lib/password';
-import { bagiTimDariExcelAtauAuto, bagiTimOtomatis10 } from '@/lib/pembagian-tim';
+import { encryptVaultPassword, hashPassword } from '@/lib/password';
+import {
+  bagiTimAcakOtomatis,
+  bagiTimDariExcelAtauAuto,
+  bagiTimOtomatis10,
+} from '@/lib/pembagian-tim';
 
 export const dynamic = 'force-dynamic';
 
@@ -79,16 +83,35 @@ export async function POST(
 
   try {
     const body = await request.json().catch(() => null);
-    const mode = body?.mode === 'from_excel' ? 'from_excel' : 'auto_10';
+    const mode =
+      body?.mode === 'from_excel'
+        ? 'from_excel'
+        : body?.mode === 'random'
+          ? 'random'
+          : 'auto_10';
+
     const result =
       mode === 'from_excel'
         ? await bagiTimDariExcelAtauAuto(params.id)
-        : await bagiTimOtomatis10(params.id);
+        : mode === 'random'
+          ? await bagiTimAcakOtomatis(params.id)
+          : await bagiTimOtomatis10(params.id);
+
+    const createdCount = result.evaluatorAccounts.filter((a) => a.status === 'created').length;
+    const modeLabel =
+      mode === 'random'
+        ? 'Pembagian acak peserta & evaluator selesai'
+        : mode === 'from_excel'
+          ? 'Pembagian tim dari Excel selesai'
+          : 'Pembagian tim selesai';
 
     return NextResponse.json({
       success: true,
       data: result,
-      message: `Pembagian tim selesai (${result.teamCount} tim untuk ${result.totalPeserta} peserta).`,
+      message:
+        `${modeLabel} (${result.teamCount} tim untuk ${result.totalPeserta} peserta` +
+        (createdCount > 0 ? `, ${createdCount} akun evaluator baru dibuat` : '') +
+        ').',
     });
   } catch (error: any) {
     console.error('POST /api/kegiatan/[id]/tim error:', error);
@@ -108,6 +131,40 @@ export async function PATCH(
 
   try {
     const body = await request.json().catch(() => null);
+
+    // Opsi pemindahan 1 peserta ke tim lain
+    if (body?.movePeserta) {
+      const pesertaId = String(body.movePeserta.pesertaId || '').trim();
+      const targetTimId = String(body.movePeserta.targetTimId || '').trim();
+      if (!pesertaId || !targetTimId) {
+        return NextResponse.json(
+          { success: false, error: 'pesertaId dan targetTimId wajib diisi.' },
+          { status: 400 }
+        );
+      }
+
+      const [peserta, targetTim] = await Promise.all([
+        prisma.peserta.findFirst({ where: { id: pesertaId, kegiatanId: params.id } }),
+        prisma.timEvaluator.findFirst({ where: { id: targetTimId, kegiatanId: params.id } }),
+      ]);
+      if (!peserta || !targetTim) {
+        return NextResponse.json(
+          { success: false, error: 'Peserta atau tim tujuan tidak ditemukan.' },
+          { status: 404 }
+        );
+      }
+
+      await prisma.peserta.update({
+        where: { id: peserta.id },
+        data: { timId: targetTim.id },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: `${peserta.nama} dipindahkan ke ${targetTim.namaTim}.`,
+      });
+    }
+
     const timId = String(body?.timId || '');
     if (!timId) {
       return NextResponse.json({ success: false, error: 'timId wajib diisi.' }, { status: 400 });
@@ -123,7 +180,6 @@ export async function PATCH(
     let evaluatorId: string | null | undefined =
       body?.evaluatorId !== undefined ? (body.evaluatorId || null) : undefined;
 
-    // Opsional: buat akun Evaluator langsung saat tim dibentuk (IT-10)
     if (body?.newEvaluator) {
       const nama = String(body.newEvaluator.nama || '').trim();
       const nip = String(body.newEvaluator.nip || '').trim();
@@ -134,16 +190,18 @@ export async function PATCH(
         return NextResponse.json(
           {
             success: false,
-            error: 'Akun Evaluator baru memerlukan Nama, NIP, dan sandi awal minimal 6 karakter.',
+            error: 'Akun Evaluator baru memerlukan Nama, NIP/username, dan sandi awal minimal 6 karakter.',
           },
           { status: 400 }
         );
       }
 
-      const existing = await prisma.user.findUnique({ where: { nip } });
+      const existing = await prisma.user.findFirst({
+        where: { nip: { equals: nip, mode: 'insensitive' } },
+      });
       if (existing) {
         return NextResponse.json(
-          { success: false, error: `NIP ${nip} sudah terdaftar sebagai pengguna.` },
+          { success: false, error: `NIP/username ${nip} sudah terdaftar sebagai pengguna.` },
           { status: 400 }
         );
       }
@@ -155,6 +213,7 @@ export async function PATCH(
           email: emailRaw || null,
           role: 'EVALUATOR',
           passwordHash: hashPassword(password),
+          passwordEncrypted: encryptVaultPassword(password),
           mustChangePassword: true,
           aktif: true,
         },

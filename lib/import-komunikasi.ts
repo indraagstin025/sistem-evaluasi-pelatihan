@@ -201,7 +201,7 @@ function parseSingleFormSheet(sheet: XLSX.WorkSheet, sheetLabel: string): FormPe
       nilai.manfaat = rawVal;
       deskripsi.manfaat = rawDesk;
     } else if (label.includes('teknik komunikasi')) {
-      nilai.komunikasi = rawVal ?? parseAngkaExcel(sheet['H33']?.v);
+      nilai.komunikasi = rawVal;
       deskripsi.komunikasi = rawDesk;
     }
   }

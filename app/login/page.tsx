@@ -3,13 +3,20 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { EnterIcon, ExternalLinkIcon, LockClosedIcon } from '@radix-ui/react-icons';
+import {
+  EnterIcon,
+  ExternalLinkIcon,
+  EyeClosedIcon,
+  EyeOpenIcon,
+  LockClosedIcon,
+} from '@radix-ui/react-icons';
 import { StatusBanner } from '@/components/ui/status-banner';
 
 export default function LoginPage() {
   const router = useRouter();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -55,7 +62,7 @@ export default function LoginPage() {
             Masuk ke Sistem Evaluasi Pasca Pelatihan
           </h1>
           <p className="mt-1.5 text-sm font-normal text-zinc-600">
-            Super Admin masuk dengan email, Evaluator masuk dengan NIP (Nomor Induk Pegawai).
+            Super Admin masuk dengan email. Evaluator masuk dengan NIP atau username akun Evaluator.
           </p>
         </div>
 
@@ -74,17 +81,21 @@ export default function LoginPage() {
               htmlFor="login-identifier"
               className="mb-1.5 block text-xs font-medium text-zinc-900"
             >
-              Email atau NIP
+              Email, NIP, atau Username Evaluator
             </label>
             <input
               id="login-identifier"
+              name="identifier"
               type="text"
               autoComplete="username"
+              spellCheck={false}
+              autoCapitalize="none"
+              enterKeyHint="next"
               required
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
-              placeholder="Contoh: admin@bpsdm.jabarprov.go.id atau 197905012009021001"
-              className="w-full rounded-lg border border-zinc-500 bg-white px-3.5 py-2.5 text-sm text-zinc-950 placeholder:text-zinc-500 focus:border-zinc-950 focus:outline-none"
+              placeholder="Contoh: admin@bpsdm.jabarprov.go.id, 197905012009021001, atau pakangga"
+              className="w-full rounded-lg border border-zinc-500 bg-white px-3.5 py-2.5 text-sm text-zinc-950 placeholder:text-zinc-500 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
             />
           </div>
 
@@ -95,16 +106,33 @@ export default function LoginPage() {
             >
               Kata Sandi
             </label>
-            <input
-              id="login-password"
-              type="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Masukkan kata sandi"
-              className="w-full rounded-lg border border-zinc-500 bg-white px-3.5 py-2.5 text-sm text-zinc-950 placeholder:text-zinc-500 focus:border-zinc-950 focus:outline-none"
-            />
+            <div className="relative">
+              <input
+                id="login-password"
+                name="password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
+                enterKeyHint="done"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Masukkan kata sandi"
+                className="w-full rounded-lg border border-zinc-500 bg-white py-2.5 pl-3.5 pr-12 text-sm text-zinc-950 placeholder:text-zinc-500 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                aria-label={showPassword ? 'Sembunyikan kata sandi' : 'Lihat kata sandi'}
+                aria-pressed={showPassword}
+                className="absolute right-0.5 top-1/2 inline-flex h-[44px] w-[44px] -translate-y-1/2 items-center justify-center rounded-md text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-950 sm:right-1 sm:h-9 sm:w-9"
+              >
+                {showPassword ? (
+                  <EyeClosedIcon className="h-4 w-4" aria-hidden="true" />
+                ) : (
+                  <EyeOpenIcon className="h-4 w-4" aria-hidden="true" />
+                )}
+              </button>
+            </div>
           </div>
 
           <button

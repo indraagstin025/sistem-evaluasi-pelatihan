@@ -22,11 +22,26 @@ import {
 } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
+export interface ImportedEvaluatorAccount {
+  userId: string;
+  timId: string;
+  namaTim: string;
+  nama: string;
+  username: string;
+  sandiAwal: string | null;
+  status: 'created' | 'linked';
+}
+
+export interface ImportSuccessPayload {
+  message?: string;
+  evaluatorAccounts?: ImportedEvaluatorAccount[];
+}
+
 interface ImportExcelModalProps {
   kegiatanId: string;
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (payload?: ImportSuccessPayload) => void;
 }
 
 interface DetectedFile {
@@ -166,7 +181,12 @@ export default function ImportExcelModal({
               : 'File survei berhasil diimpor. Nilai Wawancara dan Nilai Akhir Berbobot berstatus Belum dinilai.')
         );
         setTimeout(() => {
-          onSuccess();
+          onSuccess({
+            message: json.message,
+            evaluatorAccounts: Array.isArray(json.evaluatorAccounts)
+              ? json.evaluatorAccounts
+              : [],
+          });
           onClose();
         }, 900);
       } else {
@@ -289,7 +309,7 @@ export default function ImportExcelModal({
                       onClick={() => handleRemoveFile(idx)}
                       disabled={isProcessing}
                       aria-label={`Hapus file ${item.file.name}`}
-                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-950 disabled:opacity-40"
+                      className="inline-flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-lg text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-950 disabled:opacity-40 sm:h-8 sm:w-8"
                     >
                       <TrashIcon className="h-4 w-4" aria-hidden="true" />
                     </button>

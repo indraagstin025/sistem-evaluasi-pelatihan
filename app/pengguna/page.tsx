@@ -2,9 +2,12 @@
 
 import React, { useEffect, useState } from 'react';
 import {
+  CheckIcon,
+  CopyIcon,
   EyeClosedIcon,
   EyeOpenIcon,
   LockClosedIcon,
+  Pencil1Icon,
   PlusIcon,
   ReloadIcon,
 } from '@radix-ui/react-icons';
@@ -27,6 +30,7 @@ interface EvaluatorUser {
   nama: string;
   nip: string | null;
   email: string | null;
+  revealedPassword?: string | null;
   mustChangePassword: boolean;
   aktif: boolean;
   timDiampu: Array<{
@@ -59,6 +63,51 @@ export default function KelolaEvaluatorPage() {
 
   const [deactivateTarget, setDeactivateTarget] = useState<EvaluatorUser | null>(null);
   const [togglingAktif, setTogglingAktif] = useState(false);
+
+  const [visiblePassIds, setVisiblePassIds] = useState<Record<string, boolean>>({});
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const [editTarget, setEditTarget] = useState<EvaluatorUser | null>(null);
+  const [editForm, setEditForm] = useState({ nama: '', nip: '', email: '' });
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  const handleCopyPassword = async (id: string, pwd: string) => {
+    try {
+      await navigator.clipboard.writeText(pwd);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId((prev) => (prev === id ? null : prev)), 1800);
+    } catch {
+      setBanner({ tone: 'error', text: 'Gagal menyalin kata sandi ke clipboard.' });
+    }
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editTarget) return;
+    setSavingEdit(true);
+    setEditError(null);
+    setBanner(null);
+    try {
+      const res = await fetch(`/api/users/${editTarget.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editForm),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        setEditError(json.error || 'Gagal memperbarui profil Evaluator.');
+        return;
+      }
+      setEditTarget(null);
+      setBanner({ tone: 'success', text: `Data Evaluator ${json.data.nama} berhasil diperbarui.` });
+      await loadUsers();
+    } catch {
+      setEditError('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
 
   const loadUsers = async () => {
     setLoading(true);
@@ -222,20 +271,26 @@ export default function KelolaEvaluatorPage() {
         <div className="rounded-2xl border border-zinc-200 bg-white p-5">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-left text-xs">
+              <caption className="sr-only">
+                Daftar akun evaluator beserta NIP, tim yang ditangani, status kata sandi, dan status keaktifan
+              </caption>
               <thead>
                 <tr className="border-b border-zinc-200 bg-zinc-50 font-semibold text-zinc-800">
-                  <th className="px-4 py-3">Nama Evaluator</th>
-                  <th className="px-4 py-3">NIP</th>
-                  <th className="px-4 py-3">Tim yang Ditangani</th>
-                  <th className="px-4 py-3">Kata Sandi Awal</th>
-                  <th className="px-4 py-3">Keaktifan Akun</th>
-                  <th className="px-4 py-3 text-right">Aksi</th>
+                  <th scope="col" className="px-4 py-3">Nama Evaluator</th>
+                  <th scope="col" className="px-4 py-3">NIP / Username</th>
+                  <th scope="col" className="px-4 py-3">Tim yang Ditangani</th>
+                  <th scope="col" className="px-4 py-3">Kata Sandi Saat Ini</th>
+                  <th scope="col" className="px-4 py-3">Status Sandi &amp; Akun</th>
+                  <th scope="col" className="px-4 py-3 text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-200">
                 {users
                   .slice((page - 1) * pageSize, page * pageSize)
-                  .map((u) => (
+                  .map((u) => {
+                    const isVisible = Boolean(visiblePassIds[u.id]);
+                    const hasVaultPass = Boolean(u.revealedPassword);
+                    return (
                     <tr key={u.id} className="hover:bg-zinc-50/70">
                       <td className="px-4 py-3">
                         <p className="font-semibold text-zinc-950">{u.nama}</p>
@@ -248,29 +303,88 @@ export default function KelolaEvaluatorPage() {
                           : 'Belum ditugaskan ke tim mana pun'}
                       </td>
                       <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex rounded border px-2 py-0.5 text-[11px] font-medium ${
-                            u.mustChangePassword
-                              ? 'border-zinc-900 bg-zinc-100 text-zinc-950'
-                              : 'border-zinc-300 bg-white text-zinc-700'
-                          }`}
-                        >
-                          {u.mustChangePassword
-                            ? 'Wajib Ganti Kata Sandi'
-                            : 'Sudah diganti dari kata sandi awal'}
-                        </span>
+                        {hasVaultPass ? (
+                          <div className="inline-flex items-center gap-1.5">
+                            <span className="min-w-[96px] rounded border border-zinc-300 bg-zinc-50 px-2 py-1 font-mono text-[11px] font-medium text-zinc-950">
+                              {isVisible ? u.revealedPassword : '••••••••'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setVisiblePassIds((prev) => ({
+                                  ...prev,
+                                  [u.id]: !prev[u.id],
+                                }))
+                              }
+                              aria-label={isVisible ? `Sembunyikan sandi ${u.nama}` : `Lihat sandi ${u.nama}`}
+                              aria-pressed={isVisible}
+                              className="inline-flex h-[44px] w-[44px] items-center justify-center rounded-lg border border-zinc-500 bg-white text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-950 sm:h-8 sm:w-8"
+                            >
+                              {isVisible ? (
+                                <EyeClosedIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                              ) : (
+                                <EyeOpenIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void handleCopyPassword(u.id, u.revealedPassword!)}
+                              aria-label={`Salin sandi ${u.nama}`}
+                              className="inline-flex h-[44px] w-[44px] items-center justify-center rounded-lg border border-zinc-500 bg-white text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-950 sm:h-8 sm:w-8"
+                            >
+                              {copiedId === u.id ? (
+                                <CheckIcon className="h-3.5 w-3.5 text-zinc-950" aria-hidden="true" />
+                              ) : (
+                                <CopyIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                              )}
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-zinc-600">
+                            Belum terekam (reset sandi untuk rekam ulang)
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex rounded px-2 py-0.5 text-[11px] font-medium ${
-                            u.aktif ? 'bg-zinc-950 text-white' : 'border border-zinc-400 text-zinc-600'
-                          }`}
-                        >
-                          {u.aktif ? 'Aktif' : 'Nonaktif'}
-                        </span>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span
+                            className={`inline-flex rounded px-2 py-0.5 text-[11px] font-medium ${
+                              u.aktif ? 'bg-zinc-950 text-white' : 'border border-zinc-500 text-zinc-600'
+                            }`}
+                          >
+                            {u.aktif ? 'Aktif' : 'Nonaktif'}
+                          </span>
+                          <span
+                            className={`inline-flex rounded border px-2 py-0.5 text-[11px] font-medium ${
+                              u.mustChangePassword
+                                ? 'border-zinc-900 bg-zinc-100 text-zinc-950'
+                                : 'border-zinc-400 bg-white text-zinc-700'
+                            }`}
+                          >
+                            {u.mustChangePassword
+                              ? 'Wajib ganti saat masuk'
+                              : 'Sudah diubah sendiri'}
+                          </span>
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <div className="inline-flex items-center gap-2">
+                        <div className="inline-flex flex-wrap items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditTarget(u);
+                              setEditForm({
+                                nama: u.nama || '',
+                                nip: u.nip || '',
+                                email: u.email || '',
+                              });
+                              setEditError(null);
+                            }}
+                            className="inline-flex min-h-[34px] items-center gap-1 rounded-lg border border-zinc-500 bg-white px-2.5 py-1 text-[11px] font-medium text-zinc-950 hover:bg-zinc-100"
+                          >
+                            <Pencil1Icon className="h-3 w-3" aria-hidden="true" />
+                            <span>Ubah</span>
+                          </button>
                           <button
                             type="button"
                             onClick={() => {
@@ -282,7 +396,7 @@ export default function KelolaEvaluatorPage() {
                             className="inline-flex min-h-[34px] items-center gap-1 rounded-lg border border-zinc-500 bg-white px-2.5 py-1 text-[11px] font-medium text-zinc-950 hover:bg-zinc-100"
                           >
                             <LockClosedIcon className="h-3 w-3" aria-hidden="true" />
-                            <span>Reset Kata Sandi</span>
+                            <span>Reset Sandi</span>
                           </button>
                           <button
                             type="button"
@@ -298,14 +412,15 @@ export default function KelolaEvaluatorPage() {
                                 ? 'Nonaktifkan (Evaluator tidak bisa masuk)'
                                 : 'Aktifkan kembali akun Evaluator'
                             }
-                            className="min-h-[34px] rounded-lg border border-zinc-300 bg-white px-2.5 py-1 text-[11px] font-medium text-zinc-700 hover:border-zinc-950 hover:text-zinc-950"
+                            className="min-h-[34px] rounded-lg border border-zinc-500 bg-white px-2.5 py-1 text-[11px] font-medium text-zinc-800 hover:bg-zinc-100 hover:text-zinc-950"
                           >
-                            {u.aktif ? 'Nonaktifkan (tidak bisa masuk)' : 'Aktifkan'}
+                            {u.aktif ? 'Nonaktifkan' : 'Aktifkan'}
                           </button>
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
               </tbody>
             </table>
           </div>
@@ -351,16 +466,18 @@ export default function KelolaEvaluatorPage() {
                   htmlFor="ev-nama"
                   className="mb-1.5 block text-xs font-semibold text-zinc-900"
                 >
-                  Nama Lengkap Evaluator <span className="text-zinc-500">*</span>
+                  Nama Lengkap Evaluator <span className="text-zinc-600">*</span>
                 </label>
                 <input
                   id="ev-nama"
+                  name="nama"
                   type="text"
+                  autoComplete="name"
                   required
                   value={form.nama}
                   onChange={(e) => setForm({ ...form, nama: e.target.value })}
                   placeholder="Contoh: Budi Santoso"
-                  className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white px-3.5 text-sm text-zinc-950 placeholder:text-zinc-400 focus:border-zinc-950 focus:outline-none"
+                  className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white px-3.5 text-sm text-zinc-950 placeholder:text-zinc-500 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
                 />
               </div>
 
@@ -369,18 +486,21 @@ export default function KelolaEvaluatorPage() {
                   htmlFor="ev-nip"
                   className="mb-1.5 block text-xs font-semibold text-zinc-900"
                 >
-                  NIP <span className="text-zinc-500">*</span>
+                  NIP <span className="text-zinc-600">*</span>
                 </label>
                 <input
                   id="ev-nip"
+                  name="nip"
                   type="text"
+                  autoComplete="off"
+                  inputMode="numeric"
                   required
                   value={form.nip}
                   onChange={(e) => setForm({ ...form, nip: e.target.value })}
                   placeholder="Contoh: 197905012009021001"
-                  className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white px-3.5 font-mono text-sm text-zinc-950 placeholder:text-zinc-400 focus:border-zinc-950 focus:outline-none"
+                  className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white px-3.5 font-mono text-sm text-zinc-950 placeholder:text-zinc-500 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
                 />
-                <p className="mt-1 text-[11px] text-zinc-500">
+                <p className="mt-1 text-[11px] text-zinc-600">
                   Masukkan NIP 18 digit tanpa spasi (contoh: 197905012009021001).
                 </p>
               </div>
@@ -394,11 +514,14 @@ export default function KelolaEvaluatorPage() {
                 </label>
                 <input
                   id="ev-email"
+                  name="email"
                   type="email"
+                  autoComplete="email"
+                  spellCheck={false}
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                   placeholder="Contoh: evaluator@bpsdm.jabarprov.go.id"
-                  className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white px-3.5 text-sm text-zinc-950 placeholder:text-zinc-400 focus:border-zinc-950 focus:outline-none"
+                  className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white px-3.5 text-sm text-zinc-950 placeholder:text-zinc-500 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
                 />
               </div>
 
@@ -407,24 +530,27 @@ export default function KelolaEvaluatorPage() {
                   htmlFor="ev-pass"
                   className="mb-1.5 block text-xs font-semibold text-zinc-900"
                 >
-                  Kata Sandi Awal (minimal 6 karakter) <span className="text-zinc-500">*</span>
+                  Kata Sandi Awal (minimal 6 karakter) <span className="text-zinc-600">*</span>
                 </label>
                 <div className="relative">
                   <input
                     id="ev-pass"
+                    name="new-password"
                     type={showCreatePass ? 'text' : 'password'}
+                    autoComplete="new-password"
                     required
                     minLength={6}
                     value={form.password}
                     onChange={(e) => setForm({ ...form, password: e.target.value })}
                     placeholder="Masukkan kata sandi awal"
-                    className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white pl-3.5 pr-11 font-mono text-sm text-zinc-950 placeholder:text-zinc-400 focus:border-zinc-950 focus:outline-none"
+                    className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white pl-3.5 pr-12 font-mono text-sm text-zinc-950 placeholder:text-zinc-500 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
                   />
                   <button
                     type="button"
                     onClick={() => setShowCreatePass((prev) => !prev)}
                     aria-label={showCreatePass ? 'Sembunyikan kata sandi' : 'Lihat kata sandi'}
-                    className="absolute right-1.5 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-950"
+                    aria-pressed={showCreatePass}
+                    className="absolute right-0.5 top-1/2 inline-flex h-[44px] w-[44px] -translate-y-1/2 items-center justify-center rounded-md text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-950 sm:right-1 sm:h-8 sm:w-8"
                   >
                     {showCreatePass ? (
                       <EyeClosedIcon className="h-4 w-4" aria-hidden="true" />
@@ -494,19 +620,22 @@ export default function KelolaEvaluatorPage() {
                 <div className="relative">
                   <input
                     id="reset-pass"
+                    name="reset-new-password"
                     type={showResetPass ? 'text' : 'password'}
+                    autoComplete="new-password"
                     required
                     minLength={6}
                     value={resetPassword}
                     onChange={(e) => setResetPassword(e.target.value)}
                     placeholder="Masukkan kata sandi baru"
-                    className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white pl-3.5 pr-11 font-mono text-sm text-zinc-950 placeholder:text-zinc-400 focus:border-zinc-950 focus:outline-none"
+                    className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white pl-3.5 pr-12 font-mono text-sm text-zinc-950 placeholder:text-zinc-500 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
                   />
                   <button
                     type="button"
                     onClick={() => setShowResetPass((prev) => !prev)}
                     aria-label={showResetPass ? 'Sembunyikan kata sandi' : 'Lihat kata sandi'}
-                    className="absolute right-1.5 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-950"
+                    aria-pressed={showResetPass}
+                    className="absolute right-0.5 top-1/2 inline-flex h-[44px] w-[44px] -translate-y-1/2 items-center justify-center rounded-md text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-950 sm:right-1 sm:h-8 sm:w-8"
                   >
                     {showResetPass ? (
                       <EyeClosedIcon className="h-4 w-4" aria-hidden="true" />
@@ -532,6 +661,99 @@ export default function KelolaEvaluatorPage() {
                 className="min-h-[40px] rounded-lg bg-zinc-950 px-5 py-2 text-xs font-semibold text-white transition hover:bg-zinc-800 disabled:opacity-50"
               >
                 {resetting ? 'Mereset...' : 'Reset Kata Sandi'}
+              </button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={editTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditTarget(null);
+            setEditError(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Ubah Profil &amp; NIP Evaluator</DialogTitle>
+            <DialogDescription>
+              Perbarui nama tampilan, NIP / username login, atau email Evaluator {editTarget?.nama}.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSaveEdit} className="flex min-h-0 flex-1 flex-col">
+            <DialogBody className="space-y-4">
+              {editError && (
+                <StatusBanner
+                  tone="error"
+                  message={editError}
+                  onDismiss={() => setEditError(null)}
+                />
+              )}
+              <div>
+                <label
+                  htmlFor="edit-ev-nama"
+                  className="mb-1.5 block text-xs font-semibold text-zinc-900"
+                >
+                  Nama Lengkap Evaluator <span className="text-zinc-600">*</span>
+                </label>
+                <input
+                  id="edit-ev-nama"
+                  type="text"
+                  required
+                  value={editForm.nama}
+                  onChange={(e) => setEditForm({ ...editForm, nama: e.target.value })}
+                  className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white px-3.5 text-sm text-zinc-950 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="edit-ev-nip"
+                  className="mb-1.5 block text-xs font-semibold text-zinc-900"
+                >
+                  NIP / Username Login <span className="text-zinc-600">*</span>
+                </label>
+                <input
+                  id="edit-ev-nip"
+                  type="text"
+                  required
+                  value={editForm.nip}
+                  onChange={(e) => setEditForm({ ...editForm, nip: e.target.value })}
+                  className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white px-3.5 font-mono text-sm text-zinc-950 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="edit-ev-email"
+                  className="mb-1.5 block text-xs font-semibold text-zinc-900"
+                >
+                  Email (Opsional)
+                </label>
+                <input
+                  id="edit-ev-email"
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                  className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white px-3.5 text-sm text-zinc-950 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
+                />
+              </div>
+            </DialogBody>
+            <DialogFooter>
+              <button
+                type="button"
+                onClick={() => setEditTarget(null)}
+                className="min-h-[40px] rounded-lg border border-zinc-500 bg-white px-4 py-2 text-xs font-medium text-zinc-950 transition hover:bg-zinc-100"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                disabled={savingEdit}
+                className="min-h-[40px] rounded-lg bg-zinc-950 px-5 py-2 text-xs font-semibold text-white transition hover:bg-zinc-800 disabled:opacity-50"
+              >
+                {savingEdit ? 'Menyimpan...' : 'Simpan Perubahan'}
               </button>
             </DialogFooter>
           </form>

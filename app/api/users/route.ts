@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireSession } from '@/lib/auth';
-import { hashPassword } from '@/lib/password';
+import { decryptVaultPassword, encryptVaultPassword, hashPassword } from '@/lib/password';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +17,7 @@ export async function GET() {
       email: true,
       nip: true,
       role: true,
+      passwordEncrypted: true,
       mustChangePassword: true,
       aktif: true,
       createdAt: true,
@@ -31,7 +32,12 @@ export async function GET() {
     orderBy: [{ createdAt: 'desc' }, { nama: 'asc' }],
   });
 
-  return NextResponse.json({ success: true, data: users });
+  const data = users.map(({ passwordEncrypted, ...rest }) => ({
+    ...rest,
+    revealedPassword: decryptVaultPassword(passwordEncrypted),
+  }));
+
+  return NextResponse.json({ success: true, data });
 }
 
 export async function POST(request: Request) {
@@ -48,7 +54,7 @@ export async function POST(request: Request) {
 
     if (!nama || !nip || !password) {
       return NextResponse.json(
-        { success: false, error: 'Nama, NIP (username), dan sandi awal wajib diisi.' },
+        { success: false, error: 'Nama, NIP/username, dan sandi awal wajib diisi.' },
         { status: 400 }
       );
     }
@@ -60,10 +66,12 @@ export async function POST(request: Request) {
       );
     }
 
-    const dupNip = await prisma.user.findUnique({ where: { nip } });
+    const dupNip = await prisma.user.findFirst({
+      where: { nip: { equals: nip, mode: 'insensitive' } },
+    });
     if (dupNip) {
       return NextResponse.json(
-        { success: false, error: `NIP ${nip} sudah terdaftar.` },
+        { success: false, error: `NIP/username ${nip} sudah terdaftar.` },
         { status: 400 }
       );
     }
@@ -85,6 +93,7 @@ export async function POST(request: Request) {
         email,
         role: 'EVALUATOR',
         passwordHash: hashPassword(password),
+        passwordEncrypted: encryptVaultPassword(password),
         mustChangePassword: true,
         aktif: true,
       },
@@ -103,8 +112,8 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         success: true,
-        data: created,
-        message: `Akun Evaluator ${created.nama} (NIP: ${created.nip}) berhasil dibuat.`,
+        data: { ...created, revealedPassword: password },
+        message: `Akun Evaluator ${created.nama} (${created.nip}) berhasil dibuat.`,
       },
       { status: 201 }
     );

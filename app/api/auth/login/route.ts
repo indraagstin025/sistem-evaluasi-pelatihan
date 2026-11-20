@@ -11,25 +11,42 @@ export async function POST(request: Request) {
 
     if (!identifier || !password) {
       return NextResponse.json(
-        { success: false, error: 'Email atau NIP dan kata sandi wajib diisi.' },
+        { success: false, error: 'Email, NIP, atau username dan kata sandi wajib diisi.' },
         { status: 400 }
       );
     }
 
     const cleanNip = identifier.replace(/[^0-9]/g, '');
-    const user = await prisma.user.findFirst({
+    const collapsedUsername = identifier.replace(/[^a-zA-Z0-9]/g, '');
+    let user = await prisma.user.findFirst({
       where: {
         OR: [
           { email: { equals: identifier.toLowerCase(), mode: 'insensitive' } },
-          { nip: identifier },
+          { nip: { equals: identifier, mode: 'insensitive' } },
+          ...(collapsedUsername && collapsedUsername.toLowerCase() !== identifier.toLowerCase()
+            ? [{ nip: { equals: collapsedUsername, mode: 'insensitive' as const } }]
+            : []),
           ...(cleanNip.length >= 8 ? [{ nip: cleanNip }] : []),
         ],
       },
     });
 
+    if (!user && !identifier.includes('@')) {
+      const byName = await prisma.user.findMany({
+        where: {
+          role: 'EVALUATOR',
+          nama: { equals: identifier, mode: 'insensitive' },
+        },
+        take: 2,
+      });
+      if (byName.length === 1) {
+        user = byName[0];
+      }
+    }
+
     if (!user || !verifyPassword(password, user.passwordHash)) {
       return NextResponse.json(
-        { success: false, error: 'Email/NIP atau kata sandi salah.' },
+        { success: false, error: 'Email/NIP/username atau kata sandi salah.' },
         { status: 401 }
       );
     }

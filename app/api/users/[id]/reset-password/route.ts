@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireSession } from '@/lib/auth';
-import { hashPassword } from '@/lib/password';
+import { encryptVaultPassword, hashPassword } from '@/lib/password';
 
 export async function POST(
   request: Request,
@@ -33,6 +33,7 @@ export async function POST(
       where: { id: params.id },
       data: {
         passwordHash: hashPassword(newPassword),
+        passwordEncrypted: encryptVaultPassword(newPassword),
         mustChangePassword: true,
       },
     });

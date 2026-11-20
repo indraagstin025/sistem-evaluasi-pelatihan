@@ -14,7 +14,10 @@ import {
   type PesertaDetailInput,
   type SelisihImportInput,
 } from './peserta-db';
-import { bagiTimDariExcelAtauAuto } from './pembagian-tim';
+import {
+  bagiTimDariExcelAtauAuto,
+  type GeneratedEvaluatorSummary,
+} from './pembagian-tim';
 
 export function detectWorkbookType(wb: XLSX.WorkBook): 'olah_data' | 'form_penilaian' | 'unknown' {
   const sheetNames = wb.SheetNames.map((s) => s.trim().toLowerCase());
@@ -30,6 +33,89 @@ export function detectWorkbookType(wb: XLSX.WorkBook): 'olah_data' | 'form_penil
     return 'form_penilaian';
   }
   return 'unknown';
+}
+
+function extractAngkatanTahun(
+  primaryWb: XLSX.WorkBook,
+  secondaryWb: XLSX.WorkBook | null,
+  kegiatanNama: string,
+  tanggalMulai: Date
+): { angkatan: string | null; tahun: number | null } {
+  let angkatan: string | null = null;
+  let tahun: number | null = null;
+
+  // 1. Dari sheet "Informasi Umum" di Olah Data
+  const infoSheetName = primaryWb.SheetNames.find(
+    (s) => s.trim().toLowerCase() === 'informasi umum'
+  );
+  if (infoSheetName) {
+    const rows: any[][] = XLSX.utils.sheet_to_json(primaryWb.Sheets[infoSheetName], {
+      header: 1,
+      defval: '',
+    });
+    for (const r of rows.slice(0, 15)) {
+      const joined = r.map((c) => String(c || '').trim()).filter(Boolean).join(' ');
+      if (!joined) continue;
+      if (!angkatan) {
+        const mAng = joined.match(/angkatan\s*[:\-]?\s*([A-Za-z0-9]+)/i);
+        if (mAng && mAng[1]) angkatan = mAng[1].toUpperCase();
+      }
+      if (!tahun) {
+        const mThn = joined.match(/\b(20\d{2})\b/);
+        if (mThn) tahun = Number(mThn[1]);
+      }
+    }
+  }
+
+  // 2. Dari header formulir pertama di Form Penilaian (mis. "... PKP ANGKATAN VII TAHUN 2023 ...")
+  if (secondaryWb) {
+    const numbered = secondaryWb.SheetNames.find((s) => /^\d+\.\s*(.+)$/.test(s.trim()));
+    if (numbered) {
+      const rows: any[][] = XLSX.utils.sheet_to_json(secondaryWb.Sheets[numbered], {
+        header: 1,
+        defval: '',
+      });
+      for (const r of rows.slice(0, 12)) {
+        const joined = r.map((c) => String(c || '').trim()).filter(Boolean).join(' ');
+        if (!joined) continue;
+        if (!angkatan) {
+          const mAng = joined.match(/angkatan\s+([A-Za-z0-9]+)/i);
+          if (mAng && mAng[1]) angkatan = mAng[1].toUpperCase();
+        }
+        if (!tahun) {
+          const mThn = joined.match(/tahun\s+(20\d{2})/i);
+          if (mThn) tahun = Number(mThn[1]);
+        }
+      }
+    }
+  }
+
+  // 3. Fallback dari nama / tahun kegiatan aktif
+  if (!angkatan) {
+    const mAng = kegiatanNama.match(/angkatan\s+([A-Za-z0-9]+)/i);
+    if (mAng && mAng[1]) angkatan = mAng[1].toUpperCase();
+  }
+  if (!tahun && !Number.isNaN(tanggalMulai.getTime())) {
+    tahun = tanggalMulai.getFullYear();
+  }
+
+  return { angkatan, tahun };
+}
+
+function findHeaderColIndex(
+  headerRow: any[],
+  keywords: string[],
+  fallbackIdx: number,
+  fromIdx = 0
+): number {
+  for (let c = fromIdx; c < headerRow.length; c++) {
+    const text = String(headerRow[c] ?? '').toLowerCase().replace(/\s+/g, ' ').trim();
+    if (!text) continue;
+    if (keywords.some((kw) => text.includes(kw))) {
+      return c;
+    }
+  }
+  return fallbackIdx;
 }
 
 export interface ExecuteImportParams {
@@ -50,6 +136,7 @@ export interface ExecuteImportResult {
     totalPeserta: number;
     mode: string;
   };
+  evaluatorAccounts: GeneratedEvaluatorSummary[];
   hasFormPenilaian: boolean;
   message: string;
 }
@@ -66,7 +153,7 @@ export async function executeExcelImport(
 
   const kegiatan = await prisma.kegiatan.findUnique({
     where: { id: kegiatanId },
-    select: { id: true, jenisPelatihan: true },
+    select: { id: true, nama: true, jenisPelatihan: true, tanggalMulai: true },
   });
   if (!kegiatan) {
     return { ok: false, status: 404, error: 'Kegiatan tidak ditemukan.' };
@@ -110,6 +197,13 @@ export async function executeExcelImport(
     };
   }
 
+  const { angkatan: defaultAngkatan, tahun: defaultTahun } = extractAngkatanTahun(
+    primaryWb,
+    secondaryWb,
+    kegiatan.nama,
+    kegiatan.tanggalMulai
+  );
+
   const formLookup = buildFormPenilaianLookup(secondaryWb);
   const hasFormSheets = formLookup.hasFormPenilaianSheets;
 
@@ -119,7 +213,9 @@ export async function executeExcelImport(
     {
       jabatanSaatIni: string | null;
       jabatanPelatihan: string | null;
+      instansiPelatihan: string | null;
       instansi: string | null;
+      angkatan?: string | null;
       metode?: string;
       jawabanRow?: ParsedJawabanRow;
     }
@@ -131,7 +227,9 @@ export async function executeExcelImport(
     patch: {
       jabatanSaatIni?: string | null;
       jabatanPelatihan?: string | null;
+      instansiPelatihan?: string | null;
       instansi?: string | null;
+      angkatan?: string | null;
       metode?: string;
       jawabanRow?: ParsedJawabanRow;
     },
@@ -140,7 +238,12 @@ export async function executeExcelImport(
     const cleanNip = nip ? String(nip).replace(/[^0-9]/g, '') : '';
     const cleanNama = nama.toLowerCase().trim();
     const apply = (prev?: (typeof metaMap)[string]) => {
-      const base = prev || { jabatanSaatIni: null, jabatanPelatihan: null, instansi: null };
+      const base = prev || {
+        jabatanSaatIni: null,
+        jabatanPelatihan: null,
+        instansiPelatihan: null,
+        instansi: null,
+      };
       return {
         jabatanSaatIni: overwrite
           ? patch.jabatanSaatIni || base.jabatanSaatIni
@@ -148,9 +251,13 @@ export async function executeExcelImport(
         jabatanPelatihan: overwrite
           ? patch.jabatanPelatihan || base.jabatanPelatihan
           : base.jabatanPelatihan || patch.jabatanPelatihan || null,
+        instansiPelatihan: overwrite
+          ? patch.instansiPelatihan || base.instansiPelatihan
+          : base.instansiPelatihan || patch.instansiPelatihan || null,
         instansi: overwrite
           ? patch.instansi || base.instansi
           : base.instansi || patch.instansi || null,
+        angkatan: patch.angkatan || base.angkatan || null,
         metode: patch.metode || base.metode,
         jawabanRow: patch.jawabanRow || base.jawabanRow,
       };
@@ -166,20 +273,29 @@ export async function executeExcelImport(
     const rows: any[][] = XLSX.utils.sheet_to_json(primaryWb.Sheets[sheetDataPesertaName], {
       header: 1,
     });
+    const dpHeader = rows[0] || [];
+    const angCol = findHeaderColIndex(dpHeader, ['angkatan'], 0);
+    const namaCol = findHeaderColIndex(dpHeader, ['nama peserta', 'nama'], 1);
+    const jabCol = findHeaderColIndex(dpHeader, ['jabatan'], 2);
+    const instCol = findHeaderColIndex(dpHeader, ['instansi'], 3);
+
     for (let i = 1; i < rows.length; i++) {
       const r = rows[i];
-      if (!r || !r[1]) continue;
-      const parts = String(r[1])
+      if (!r || !r[namaCol]) continue;
+      const parts = String(r[namaCol])
         .trim()
         .split('|')
         .map((p) => p.trim());
+      const rowAngkatan = r[angCol] !== undefined && r[angCol] !== '' ? String(r[angCol]).trim() : null;
       mergeMeta(
         parts[0],
         parts[1],
         {
-          jabatanSaatIni: r[2] ? String(r[2]).trim() : null,
-          jabatanPelatihan: r[2] ? String(r[2]).trim() : null,
-          instansi: r[3] ? String(r[3]).trim() : null,
+          angkatan: rowAngkatan,
+          jabatanSaatIni: r[jabCol] ? String(r[jabCol]).trim() : null,
+          jabatanPelatihan: r[jabCol] ? String(r[jabCol]).trim() : null,
+          instansiPelatihan: r[instCol] ? String(r[instCol]).trim() : null,
+          instansi: r[instCol] ? String(r[instCol]).trim() : null,
         },
         false
       );
@@ -209,13 +325,27 @@ export async function executeExcelImport(
     }
   }
 
-  const sheetDataName = primaryWb.SheetNames.find((s) => s.trim().toLowerCase() === 'data');
-  if (sheetDataName) {
-    const rows: any[][] = XLSX.utils.sheet_to_json(primaryWb.Sheets[sheetDataName], { header: 1 });
+  // Sheet "data" berada pada workbook Form Penilaian (secondaryWb) atau fallback di primaryWb
+  for (const wbCandidate of [secondaryWb, primaryWb]) {
+    if (!wbCandidate) continue;
+    const sheetDataName = wbCandidate.SheetNames.find((s) => s.trim().toLowerCase() === 'data');
+    if (!sheetDataName) continue;
+
+    const rows: any[][] = XLSX.utils.sheet_to_json(wbCandidate.Sheets[sheetDataName], {
+      header: 1,
+      defval: '',
+    });
+    const dHeader = rows[0] || [];
+    const namaCol = findHeaderColIndex(dHeader, ['nama'], 0);
+    const jabPelCol = findHeaderColIndex(dHeader, ['jabatan saat pelatihan'], 2);
+    const instPelCol = findHeaderColIndex(dHeader, ['instansi saat pelatihan'], 3);
+    const jabSurvCol = findHeaderColIndex(dHeader, ['jabatan saat survey', 'jabatan saat ini'], 7);
+    const instSurvCol = findHeaderColIndex(dHeader, ['instansi saat survey', 'instansi saat ini'], 8);
+
     for (let i = 1; i < rows.length; i++) {
       const r = rows[i];
-      if (!r || !r[0]) continue;
-      const parts = String(r[0])
+      if (!r || !r[namaCol]) continue;
+      const parts = String(r[namaCol])
         .trim()
         .split('|')
         .map((p) => p.trim());
@@ -223,9 +353,14 @@ export async function executeExcelImport(
         parts[0],
         parts[1],
         {
-          jabatanPelatihan: r[2] ? String(r[2]).trim() : null,
-          jabatanSaatIni: r[7] ? String(r[7]).trim() : null,
-          instansi: r[8] ? String(r[8]).trim() : r[3] ? String(r[3]).trim() : null,
+          jabatanPelatihan: r[jabPelCol] ? String(r[jabPelCol]).trim() : null,
+          instansiPelatihan: r[instPelCol] ? String(r[instPelCol]).trim() : null,
+          jabatanSaatIni: r[jabSurvCol] ? String(r[jabSurvCol]).trim() : null,
+          instansi: r[instSurvCol]
+            ? String(r[instSurvCol]).trim()
+            : r[instPelCol]
+              ? String(r[instPelCol]).trim()
+              : null,
         },
         true
       );
@@ -245,12 +380,22 @@ export async function executeExcelImport(
     const rows: any[][] = XLSX.utils.sheet_to_json(primaryWb.Sheets[eksposeSheetName], {
       header: 1,
     });
+    const expHeader = rows[0] || [];
+    const expNamaCol = findHeaderColIndex(expHeader, ['nama peserta', 'nama'], 0);
+    const expMenCol = findHeaderColIndex(expHeader, ['jangka menengah'], 1);
+    const sPanjangCol = findHeaderColIndex(expHeader, ['jangka panjang'], 2);
+    const expPanCol = findHeaderColIndex(expHeader, ['nilai wawancara'], sPanjangCol + 2, sPanjangCol + 1);
+    const sTujuanCol = findHeaderColIndex(expHeader, ['seluruh tujuan'], 5);
+    const expTujCol = findHeaderColIndex(expHeader, ['nilai wawancara'], sTujuanCol + 2, sTujuanCol + 1);
+    const sManfaatCol = findHeaderColIndex(expHeader, ['manfaat'], 8);
+    const expManCol = findHeaderColIndex(expHeader, ['nilai wawancara'], sManfaatCol + 2, sManfaatCol + 1);
+    const expTimCol = findHeaderColIndex(expHeader, ['nama tim', 'tim evaluator', 'evaluator'], 13);
 
     const eksposeFirstNameCount: Record<string, number> = {};
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
-      if (!row || !row[0] || String(row[0]).trim() === '') continue;
-      const rawNama = String(row[0]).trim();
+      if (!row || !row[expNamaCol] || String(row[expNamaCol]).trim() === '') continue;
+      const rawNama = String(row[expNamaCol]).trim();
       if (rawNama.toLowerCase().startsWith('rentang') || rawNama.toLowerCase().startsWith('total')) {
         break;
       }
@@ -262,9 +407,9 @@ export async function executeExcelImport(
 
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
-      if (!row || !row[0] || String(row[0]).trim() === '') continue;
+      if (!row || !row[expNamaCol] || String(row[expNamaCol]).trim() === '') continue;
 
-      const rawNama = String(row[0]).trim();
+      const rawNama = String(row[expNamaCol]).trim();
       if (rawNama.toLowerCase().startsWith('rentang') || rawNama.toLowerCase().startsWith('total')) {
         break;
       }
@@ -276,13 +421,13 @@ export async function executeExcelImport(
       const meta = (cleanNip ? metaMap[cleanNip] : null) || metaMap[nama.toLowerCase().trim()];
       const formEntry = formLookup.cariPeserta(nama, batchItems.length, eksposeFirstNameCount);
 
-      const expMen = parseNum(row[1]);
-      const expPan = parseNum(row[4]);
-      const expTuj = parseNum(row[7]);
-      const expMan = parseNum(row[10]);
-      const namaTimExcel = row[13] ? String(row[13]).trim() : null;
+      const expMen = parseNum(row[expMenCol]);
+      const expPan = parseNum(row[expPanCol]);
+      const expTuj = parseNum(row[expTujCol]);
+      const expMan = parseNum(row[expManCol]);
+      const namaTimExcel = row[expTimCol] ? String(row[expTimCol]).trim() : null;
 
-      // IT-01 Interim: Jika Form Penilaian dilampirkan, nilai wawancara memakai Form Penilaian
+      // IT-01: Jika Form Penilaian dilampirkan, nilai wawancara memakai Form Penilaian
       // dan setiap selisih terhadap sheet ekspose dicatat ke SelisihImport.
       const w_menengah = hasFormSheets && formEntry ? formEntry.nilai.menengah : expMen;
       const w_panjang = hasFormSheets && formEntry ? formEntry.nilai.jangkaPanjang : expPan;
@@ -320,13 +465,13 @@ export async function executeExcelImport(
         nama,
         nip: nip || formEntry?.nipDariHeader || null,
         jabatanPelatihan: meta?.jabatanPelatihan || formEntry?.jabatanPelatihan || null,
-        instansiPelatihan: formEntry?.instansiPelatihan || null,
+        instansiPelatihan: meta?.instansiPelatihan || formEntry?.instansiPelatihan || null,
         jabatanSaatIni: meta?.jabatanSaatIni || formEntry?.jabatanSaatSurvey || meta?.jabatanPelatihan || null,
-        instansi: meta?.instansi || formEntry?.instansiSaatSurvey || formEntry?.instansiPelatihan || null,
+        instansi: meta?.instansi || formEntry?.instansiSaatSurvey || meta?.instansiPelatihan || formEntry?.instansiPelatihan || null,
         pelatihan: kegiatan.jenisPelatihan,
-        angkatan: 'VII',
-        tahun: 2023,
-        metode: meta?.metode || 'Blended Learning',
+        angkatan: meta?.angkatan || defaultAngkatan || '-',
+        tahun: defaultTahun ?? kegiatan.tanggalMulai.getFullYear(),
+        metode: meta?.metode,
         judulAksiPerubahan: formEntry?.judulAksiPerubahan || null,
         periodeMenengah: formEntry?.periodeMenengah || null,
         periodePanjang: formEntry?.periodePanjang || null,
@@ -343,9 +488,9 @@ export async function executeExcelImport(
         tambahanSurvey: meta?.jawabanRow?.surveyItems,
         wawancaraDeskripsi: formEntry?.deskripsi,
         selisihImport: selisihList,
-        s_panjang: parseNum(row[2]),
-        s_tujuan: parseNum(row[5]),
-        s_manfaat: parseNum(row[8]),
+        s_panjang: parseNum(row[sPanjangCol]),
+        s_tujuan: parseNum(row[sTujuanCol]),
+        s_manfaat: parseNum(row[sManfaatCol]),
         w_menengah,
         w_panjang,
         w_tujuan,
@@ -379,6 +524,10 @@ export async function executeExcelImport(
       const meta = (cleanNip ? metaMap[cleanNip] : null) || metaMap[String(nama).toLowerCase().trim()];
       const rowJabatan = findVal('jabatanSaatIni', 'jabatansaatini', 'jabatan', 'jabatansurvey');
       const rowInstansi = findVal('instansi', 'namainstansi', 'instansisaatini');
+      const rowAngkatan = findVal('angkatan');
+      const rowTahun = parseNum(findVal('tahun'));
+      const rowMetode = findVal('metode', 'metodepelaksanaan');
+      const rowTim = findVal('namatimevaluator', 'namatim', 'tim');
       const w_komunikasi = parseNum(
         findVal('wawancara_teknik_komunikasi', 'wawancara_komunikasi', 'w_komunikasi', 'komunikasi')
       );
@@ -390,8 +539,12 @@ export async function executeExcelImport(
         jabatanSaatIni: rowJabatan ? String(rowJabatan).trim() : meta?.jabatanSaatIni || null,
         instansi: rowInstansi ? String(rowInstansi).trim() : meta?.instansi || null,
         jabatanPelatihan: meta?.jabatanPelatihan || null,
+        instansiPelatihan: meta?.instansiPelatihan || null,
         pelatihan: kegiatan.jenisPelatihan,
-        metode: meta?.metode || 'Blended Learning',
+        angkatan: rowAngkatan ? String(rowAngkatan).trim() : meta?.angkatan || defaultAngkatan || '-',
+        tahun: rowTahun ?? defaultTahun ?? kegiatan.tanggalMulai.getFullYear(),
+        metode: rowMetode ? String(rowMetode).trim() : meta?.metode,
+        namaTimExcel: rowTim ? String(rowTim).trim() : null,
         lockedImport: true,
         sumber: 'Form',
         sumberSurvey: 'Jawaban',
@@ -413,6 +566,7 @@ export async function executeExcelImport(
 
   const importedCount = await simpanBatchPesertaDenganDetail(batchItems);
   const timResult = await bagiTimDariExcelAtauAuto(kegiatanId);
+  const createdAccountsCount = timResult.evaluatorAccounts.filter((a) => a.status === 'created').length;
 
   return {
     ok: true,
@@ -424,7 +578,12 @@ export async function executeExcelImport(
       totalPeserta: timResult.totalPeserta,
       mode: timResult.mode,
     },
+    evaluatorAccounts: timResult.evaluatorAccounts,
     hasFormPenilaian: hasFormSheets,
-    message: `Berhasil mengimpor ${importedCount} peserta dari ${primaryFilename} (${timResult.teamCount} tim terbentuk).`,
+    message:
+      `Berhasil mengimpor ${importedCount} peserta dari ${primaryFilename} ` +
+      `(${timResult.teamCount} tim terbentuk` +
+      (createdAccountsCount > 0 ? `, ${createdAccountsCount} akun Evaluator dibuat otomatis` : '') +
+      ').',
   };
 }

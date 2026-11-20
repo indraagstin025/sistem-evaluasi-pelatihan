@@ -19,13 +19,60 @@ export async function PATCH(
       );
     }
 
+    const nextNip =
+      body?.nip !== undefined ? String(body.nip || '').trim() : undefined;
+    if (nextNip !== undefined) {
+      if (!nextNip) {
+        return NextResponse.json(
+          { success: false, error: 'NIP atau username Evaluator tidak boleh kosong.' },
+          { status: 400 }
+        );
+      }
+      const dupNip = await prisma.user.findFirst({
+        where: {
+          id: { not: params.id },
+          nip: { equals: nextNip, mode: 'insensitive' },
+        },
+      });
+      if (dupNip) {
+        return NextResponse.json(
+          { success: false, error: `NIP/username ${nextNip} sudah digunakan akun lain.` },
+          { status: 400 }
+        );
+      }
+    }
+
+    const nextEmail =
+      body?.email !== undefined
+        ? String(body.email || '').trim().toLowerCase() || null
+        : undefined;
+    if (nextEmail) {
+      const dupEmail = await prisma.user.findFirst({
+        where: { id: { not: params.id }, email: nextEmail },
+      });
+      if (dupEmail) {
+        return NextResponse.json(
+          { success: false, error: `Email ${nextEmail} sudah digunakan akun lain.` },
+          { status: 400 }
+        );
+      }
+    }
+
+    const nextNama =
+      body?.nama !== undefined ? String(body.nama || '').trim() : undefined;
+    if (nextNama !== undefined && !nextNama) {
+      return NextResponse.json(
+        { success: false, error: 'Nama Evaluator tidak boleh kosong.' },
+        { status: 400 }
+      );
+    }
+
     const updated = await prisma.user.update({
       where: { id: params.id },
       data: {
-        ...(body?.nama !== undefined ? { nama: String(body.nama).trim() } : {}),
-        ...(body?.email !== undefined
-          ? { email: String(body.email).trim().toLowerCase() || null }
-          : {}),
+        ...(nextNama !== undefined ? { nama: nextNama } : {}),
+        ...(nextNip !== undefined ? { nip: nextNip } : {}),
+        ...(nextEmail !== undefined ? { email: nextEmail } : {}),
         ...(typeof body?.aktif === 'boolean' ? { aktif: body.aktif } : {}),
       },
       select: {
