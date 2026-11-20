@@ -211,15 +211,18 @@ export default function KegiatanRingkasanClient({
 
           <div className="mt-4 overflow-x-auto rounded-xl border border-zinc-200 bg-white">
             <table className="min-w-full divide-y divide-zinc-200 text-left text-xs">
+              <caption className="sr-only">
+                Daftar selisih nilai wawancara antara Form Penilaian dan Ekspose Excel
+              </caption>
               <thead className="bg-zinc-50 text-zinc-700">
                 <tr>
-                  <th className="px-3.5 py-2.5 font-semibold">Nama Peserta</th>
-                  <th className="px-3.5 py-2.5 font-semibold">Kriteria</th>
-                  <th className="px-3.5 py-2.5 text-right font-semibold">
+                  <th scope="col" className="px-3.5 py-2.5 font-semibold">Nama Peserta</th>
+                  <th scope="col" className="px-3.5 py-2.5 font-semibold">Kriteria</th>
+                  <th scope="col" className="px-3.5 py-2.5 text-right font-semibold">
                     Form Penilaian (dipakai)
                   </th>
-                  <th className="px-3.5 py-2.5 text-right font-semibold">Ekspose</th>
-                  <th className="px-3.5 py-2.5 font-semibold">Catatan</th>
+                  <th scope="col" className="px-3.5 py-2.5 text-right font-semibold">Ekspose</th>
+                  <th scope="col" className="px-3.5 py-2.5 font-semibold">Catatan</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-200">
@@ -280,13 +283,14 @@ export default function KegiatanRingkasanClient({
               />
               <input
                 type="search"
+                aria-label="Cari nama, NIP, instansi, atau tim"
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value);
                   setPage(1);
                 }}
                 placeholder="Cari nama, NIP, instansi, tim..."
-                className="min-h-[40px] w-full rounded-lg border border-zinc-500 bg-white pl-9 pr-3 text-xs text-zinc-950 focus:border-zinc-950 focus:outline-none sm:w-60"
+                className="min-h-[40px] w-full rounded-lg border border-zinc-500 bg-white pl-9 pr-3 text-xs text-zinc-950 placeholder:text-zinc-500 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950 sm:w-60"
               />
             </div>
 
@@ -297,7 +301,7 @@ export default function KegiatanRingkasanClient({
                 setPage(1);
               }}
               aria-label="Filter kelengkapan wawancara"
-              className="min-h-[40px] rounded-lg border border-zinc-500 bg-white px-3 text-xs font-medium text-zinc-950 focus:border-zinc-950 focus:outline-none"
+              className="min-h-[40px] rounded-lg border border-zinc-500 bg-white px-3 text-xs font-medium text-zinc-950 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
             >
               <option value="semua">Semua ({peserta.length})</option>
               <option value="kosong">
@@ -320,24 +324,27 @@ export default function KegiatanRingkasanClient({
           <>
             <div className="mt-4 overflow-x-auto">
               <table className="min-w-full divide-y divide-zinc-200 text-left text-xs">
+                <caption className="sr-only">
+                  Perbandingan 3 butir Aksi Perubahan (Survei dan Wawancara), selisih, serta nilai akhir berbobot per peserta
+                </caption>
                 <thead className="bg-zinc-50 text-zinc-700">
                   <tr>
-                    <th className="px-3 py-2.5 font-semibold">No</th>
-                    <th className="px-3 py-2.5 font-semibold">Peserta &amp; Tim</th>
-                    <th className="px-3 py-2.5 text-center font-semibold">
+                    <th scope="col" className="px-3 py-2.5 font-semibold">No</th>
+                    <th scope="col" className="px-3 py-2.5 font-semibold">Peserta &amp; Tim</th>
+                    <th scope="col" className="px-3 py-2.5 text-center font-semibold">
                       Jangka Panjang (Survei / Wawancara)
                     </th>
-                    <th className="px-3 py-2.5 text-center font-semibold">
+                    <th scope="col" className="px-3 py-2.5 text-center font-semibold">
                       Tujuan Aksi (Survei / Wawancara)
                     </th>
-                    <th className="px-3 py-2.5 text-center font-semibold">
+                    <th scope="col" className="px-3 py-2.5 text-center font-semibold">
                       Manfaat (Survei / Wawancara)
                     </th>
-                    <th className="px-3 py-2.5 text-right font-semibold">Survei</th>
-                    <th className="px-3 py-2.5 text-right font-semibold">Wawancara</th>
-                    <th className="px-3 py-2.5 text-right font-semibold">Selisih</th>
-                    <th className="px-3 py-2.5 text-right font-semibold">Nilai Akhir Berbobot</th>
-                    <th className="px-3 py-2.5 text-right font-semibold">Aksi</th>
+                    <th scope="col" className="px-3 py-2.5 text-right font-semibold">Survei</th>
+                    <th scope="col" className="px-3 py-2.5 text-right font-semibold">Wawancara</th>
+                    <th scope="col" className="px-3 py-2.5 text-right font-semibold">Selisih</th>
+                    <th scope="col" className="px-3 py-2.5 text-right font-semibold">Nilai Akhir Berbobot</th>
+                    <th scope="col" className="px-3 py-2.5 text-right font-semibold">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-200">
@@ -370,8 +377,8 @@ export default function KegiatanRingkasanClient({
                         <span className="font-semibold text-zinc-950">
                           {s1 ?? 'Belum dinilai'}
                         </span>{' '}
-                        <span className="text-zinc-400">/</span>{' '}
-                        <span className={w2 === null ? 'text-zinc-400' : 'font-semibold text-zinc-950'}>
+                        <span className="text-zinc-600">/</span>{' '}
+                        <span className={w2 === null ? 'text-zinc-600' : 'font-semibold text-zinc-950'}>
                           {w2 === null ? 'Belum dinilai' : w2}
                         </span>
                       </td>
@@ -379,8 +386,8 @@ export default function KegiatanRingkasanClient({
                         <span className="font-semibold text-zinc-950">
                           {s2 ?? 'Belum dinilai'}
                         </span>{' '}
-                        <span className="text-zinc-400">/</span>{' '}
-                        <span className={w3 === null ? 'text-zinc-400' : 'font-semibold text-zinc-950'}>
+                        <span className="text-zinc-600">/</span>{' '}
+                        <span className={w3 === null ? 'text-zinc-600' : 'font-semibold text-zinc-950'}>
                           {w3 === null ? 'Belum dinilai' : w3}
                         </span>
                       </td>
@@ -388,8 +395,8 @@ export default function KegiatanRingkasanClient({
                         <span className="font-semibold text-zinc-950">
                           {s3 ?? 'Belum dinilai'}
                         </span>{' '}
-                        <span className="text-zinc-400">/</span>{' '}
-                        <span className={w4 === null ? 'text-zinc-400' : 'font-semibold text-zinc-950'}>
+                        <span className="text-zinc-600">/</span>{' '}
+                        <span className={w4 === null ? 'text-zinc-600' : 'font-semibold text-zinc-950'}>
                           {w4 === null ? 'Belum dinilai' : w4}
                         </span>
                       </td>

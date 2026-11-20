@@ -97,11 +97,11 @@ export async function GET(request: Request) {
     const withDiff = mapped.filter((p) => isValidNumber(p.selisih));
     const maxPositive =
       withDiff.length > 0
-        ? [...withDiff].sort((a, b) => (b.selisih || 0) - (a.selisih || 0))[0]
+        ? withDiff.toSorted((a, b) => (b.selisih || 0) - (a.selisih || 0))[0]
         : null;
     const maxNegative =
       withDiff.length > 0
-        ? [...withDiff].sort((a, b) => (a.selisih || 0) - (b.selisih || 0))[0]
+        ? withDiff.toSorted((a, b) => (a.selisih || 0) - (b.selisih || 0))[0]
         : null;
 
     const kosongList = mapped.filter((p) => p.isWawancaraKosong);

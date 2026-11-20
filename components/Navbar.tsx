@@ -155,7 +155,7 @@ function KegiatanDropdownList({
             <SubIcon
               className={cn(
                 'h-3.5 w-3.5 shrink-0',
-                subActive ? 'text-white' : 'text-zinc-500'
+                subActive ? 'text-white' : 'text-zinc-600'
               )}
               aria-hidden="true"
             />
@@ -362,7 +362,7 @@ export default function Navbar({ user, children }: NavbarProps) {
                   'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition',
                   pinned
                     ? 'border-zinc-950 bg-zinc-950 text-white'
-                    : 'border-zinc-300 bg-white text-zinc-700 hover:border-zinc-500 hover:bg-zinc-100 hover:text-zinc-950'
+                    : 'border-zinc-500 bg-white text-zinc-700 hover:bg-zinc-100 hover:text-zinc-950'
                 )}
               >
                 {pinned ? (
@@ -496,7 +496,7 @@ export default function Navbar({ user, children }: NavbarProps) {
               onClick={handleLogout}
               disabled={loggingOut}
               aria-label="Keluar"
-              className="flex min-h-[40px] w-full items-center justify-center rounded-xl border border-zinc-400 bg-white text-zinc-950 transition hover:bg-zinc-100 disabled:opacity-50"
+              className="flex min-h-[40px] w-full items-center justify-center rounded-xl border border-zinc-500 bg-white text-zinc-950 transition hover:bg-zinc-100 disabled:opacity-50"
             >
               <ExitIcon className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -536,7 +536,7 @@ export default function Navbar({ user, children }: NavbarProps) {
               <button
                 type="button"
                 aria-label="Buka menu navigasi"
-                className="inline-flex min-h-[42px] items-center gap-2 rounded-lg border border-zinc-400 bg-white px-3 text-xs font-semibold text-zinc-950 transition hover:bg-zinc-100"
+                className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-zinc-500 bg-white px-3 text-xs font-semibold text-zinc-950 transition hover:bg-zinc-100"
               >
                 <HamburgerMenuIcon className="h-4 w-4" aria-hidden="true" />
                 <span>Menu</span>
@@ -546,7 +546,7 @@ export default function Navbar({ user, children }: NavbarProps) {
               <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-zinc-950/45 backdrop-blur-[1px]" />
               <DialogPrimitive.Content
                 aria-describedby={undefined}
-                className="fixed inset-y-0 left-0 z-50 flex w-[285px] max-w-[85vw] flex-col border-r border-zinc-200 bg-white focus:outline-none"
+                className="fixed inset-y-0 left-0 z-50 flex w-[285px] max-w-[85vw] flex-col border-r border-zinc-200 bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-zinc-950"
               >
                 <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-4">
                   <div className="min-w-0 pr-2">
@@ -563,7 +563,7 @@ export default function Navbar({ user, children }: NavbarProps) {
                     <button
                       type="button"
                       aria-label="Tutup menu navigasi"
-                      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-zinc-700 transition hover:bg-zinc-100"
+                      className="inline-flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-lg text-zinc-700 transition hover:bg-zinc-100"
                     >
                       <Cross2Icon className="h-4 w-4" aria-hidden="true" />
                     </button>

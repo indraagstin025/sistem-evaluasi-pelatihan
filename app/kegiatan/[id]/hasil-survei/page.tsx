@@ -32,7 +32,7 @@ function cleanPertanyaanText(raw: string): string {
 function RespondenSummaryCell({ side }: { side: LikertSummarySide }) {
   if (!side || side.total === 0) {
     return (
-      <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-center text-[11px] text-zinc-500">
+      <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-center text-[11px] text-zinc-600">
         Belum ada jawaban
       </div>
     );
@@ -90,7 +90,7 @@ function RespondenSummaryCell({ side }: { side: LikertSummarySide }) {
             <div
               key={cat.label}
               className={`flex items-center justify-between gap-1 ${
-                count === 0 ? 'text-zinc-400' : cat.textClass
+                count === 0 ? 'text-zinc-600' : cat.textClass
               }`}
             >
               <dt className="truncate">{cat.label}</dt>
@@ -117,12 +117,15 @@ function QuestionTable({ items }: { items: SurveyQuestionSummaryItem[] }) {
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full divide-y divide-zinc-200 text-left text-xs">
+        <caption className="sr-only">
+          Rekapitulasi pernyataan kuesioner survei beserta sebaran jawaban alumni dan atasan
+        </caption>
         <thead className="bg-zinc-50 text-zinc-700">
           <tr>
-            <th className="w-12 px-3 py-3 font-semibold">No</th>
-            <th className="px-3 py-3 font-semibold">Aspek &amp; Pernyataan Kuesioner</th>
-            <th className="px-3 py-3 font-semibold">Penilaian Alumni</th>
-            <th className="px-3 py-3 font-semibold">Penilaian Atasan</th>
+            <th scope="col" className="w-12 px-3 py-3 font-semibold">No</th>
+            <th scope="col" className="px-3 py-3 font-semibold">Aspek &amp; Pernyataan Kuesioner</th>
+            <th scope="col" className="px-3 py-3 font-semibold">Penilaian Alumni</th>
+            <th scope="col" className="px-3 py-3 font-semibold">Penilaian Atasan</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-zinc-200">

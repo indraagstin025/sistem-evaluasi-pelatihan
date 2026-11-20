@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { CheckIcon, LockClosedIcon } from '@radix-ui/react-icons';
+import { CheckIcon, EyeClosedIcon, EyeOpenIcon, LockClosedIcon } from '@radix-ui/react-icons';
 import { StatusBanner } from '@/components/ui/status-banner';
 
 export default function GantiSandiPage() {
@@ -10,6 +10,9 @@ export default function GantiSandiPage() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -87,15 +90,33 @@ export default function GantiSandiPage() {
             >
               Kata Sandi Saat Ini
             </label>
-            <input
-              id="sandi-lama"
-              type="password"
-              required
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              placeholder="Masukkan kata sandi awal / sementara"
-              className="w-full rounded-lg border border-zinc-500 bg-white px-3.5 py-2.5 text-sm text-zinc-950 focus:border-zinc-950 focus:outline-none"
-            />
+            <div className="relative">
+              <input
+                id="sandi-lama"
+                name="current-password"
+                type={showCurrent ? 'text' : 'password'}
+                autoComplete="current-password"
+                enterKeyHint="next"
+                required
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="Masukkan kata sandi awal / sementara"
+                className="w-full rounded-lg border border-zinc-500 bg-white py-2.5 pl-3.5 pr-12 text-sm text-zinc-950 placeholder:text-zinc-500 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
+              />
+              <button
+                type="button"
+                onClick={() => setShowCurrent((prev) => !prev)}
+                aria-label={showCurrent ? 'Sembunyikan kata sandi saat ini' : 'Lihat kata sandi saat ini'}
+                aria-pressed={showCurrent}
+                className="absolute right-0.5 top-1/2 inline-flex h-[44px] w-[44px] -translate-y-1/2 items-center justify-center rounded-md text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-950 sm:right-1 sm:h-9 sm:w-9"
+              >
+                {showCurrent ? (
+                  <EyeClosedIcon className="h-4 w-4" aria-hidden="true" />
+                ) : (
+                  <EyeOpenIcon className="h-4 w-4" aria-hidden="true" />
+                )}
+              </button>
+            </div>
           </div>
 
           <div>
@@ -105,16 +126,34 @@ export default function GantiSandiPage() {
             >
               Kata Sandi Baru (minimal 6 karakter)
             </label>
-            <input
-              id="sandi-baru"
-              type="password"
-              required
-              minLength={6}
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="Masukkan kata sandi baru"
-              className="w-full rounded-lg border border-zinc-500 bg-white px-3.5 py-2.5 text-sm text-zinc-950 focus:border-zinc-950 focus:outline-none"
-            />
+            <div className="relative">
+              <input
+                id="sandi-baru"
+                name="new-password"
+                type={showNew ? 'text' : 'password'}
+                autoComplete="new-password"
+                enterKeyHint="next"
+                required
+                minLength={6}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Masukkan kata sandi baru"
+                className="w-full rounded-lg border border-zinc-500 bg-white py-2.5 pl-3.5 pr-12 text-sm text-zinc-950 placeholder:text-zinc-500 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
+              />
+              <button
+                type="button"
+                onClick={() => setShowNew((prev) => !prev)}
+                aria-label={showNew ? 'Sembunyikan kata sandi baru' : 'Lihat kata sandi baru'}
+                aria-pressed={showNew}
+                className="absolute right-0.5 top-1/2 inline-flex h-[44px] w-[44px] -translate-y-1/2 items-center justify-center rounded-md text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-950 sm:right-1 sm:h-9 sm:w-9"
+              >
+                {showNew ? (
+                  <EyeClosedIcon className="h-4 w-4" aria-hidden="true" />
+                ) : (
+                  <EyeOpenIcon className="h-4 w-4" aria-hidden="true" />
+                )}
+              </button>
+            </div>
           </div>
 
           <div>
@@ -124,16 +163,34 @@ export default function GantiSandiPage() {
             >
               Ulangi Kata Sandi Baru
             </label>
-            <input
-              id="sandi-konfirmasi"
-              type="password"
-              required
-              minLength={6}
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Ketik ulang kata sandi baru"
-              className="w-full rounded-lg border border-zinc-500 bg-white px-3.5 py-2.5 text-sm text-zinc-950 focus:border-zinc-950 focus:outline-none"
-            />
+            <div className="relative">
+              <input
+                id="sandi-konfirmasi"
+                name="confirm-new-password"
+                type={showConfirm ? 'text' : 'password'}
+                autoComplete="new-password"
+                enterKeyHint="done"
+                required
+                minLength={6}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Ketik ulang kata sandi baru"
+                className="w-full rounded-lg border border-zinc-500 bg-white py-2.5 pl-3.5 pr-12 text-sm text-zinc-950 placeholder:text-zinc-500 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirm((prev) => !prev)}
+                aria-label={showConfirm ? 'Sembunyikan ulangi kata sandi' : 'Lihat ulangi kata sandi'}
+                aria-pressed={showConfirm}
+                className="absolute right-0.5 top-1/2 inline-flex h-[44px] w-[44px] -translate-y-1/2 items-center justify-center rounded-md text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-950 sm:right-1 sm:h-9 sm:w-9"
+              >
+                {showConfirm ? (
+                  <EyeClosedIcon className="h-4 w-4" aria-hidden="true" />
+                ) : (
+                  <EyeOpenIcon className="h-4 w-4" aria-hidden="true" />
+                )}
+              </button>
+            </div>
           </div>
 
           <button

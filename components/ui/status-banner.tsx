@@ -21,10 +21,10 @@ interface StatusBannerProps {
 }
 
 const TONE_STYLES: Record<BannerTone, string> = {
-  success: 'border-zinc-300 bg-white text-zinc-900',
+  success: 'border-zinc-500 bg-white text-zinc-900',
   error: 'border-zinc-950 bg-zinc-950 text-white',
   warning: 'border-zinc-900 bg-zinc-100 text-zinc-950',
-  info: 'border-zinc-200 bg-zinc-50 text-zinc-800',
+  info: 'border-zinc-400 bg-zinc-50 text-zinc-900',
 };
 
 /**
@@ -48,8 +48,8 @@ export function StatusBanner({
 
   return (
     <div
-      role={tone === 'error' || tone === 'warning' ? 'alert' : 'status'}
-      aria-live="polite"
+      role={tone === 'error' ? 'alert' : 'status'}
+      aria-live={tone === 'error' ? 'assertive' : 'polite'}
       className={cn(
         'flex flex-col gap-3 rounded-xl border px-4 py-3 text-xs sm:flex-row sm:items-center sm:justify-between',
         TONE_STYLES[tone],
@@ -86,7 +86,7 @@ export function StatusBanner({
             onClick={onDismiss}
             aria-label="Tutup pemberitahuan"
             className={cn(
-              'inline-flex h-7 w-7 items-center justify-center rounded-lg text-current transition',
+              'inline-flex h-[44px] w-[44px] items-center justify-center rounded-lg text-current transition sm:h-8 sm:w-8',
               isInverted ? 'hover:bg-white/15' : 'hover:bg-black/5'
             )}
           >

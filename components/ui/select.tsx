@@ -20,7 +20,7 @@ const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      'flex min-h-[40px] w-full items-center justify-between gap-2 rounded-xl border border-zinc-500 bg-white px-3.5 py-2 text-left text-xs font-medium text-zinc-950 transition hover:border-zinc-950 focus:border-zinc-950 focus:outline-none disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-600',
+      'flex min-h-[40px] w-full items-center justify-between gap-2 rounded-xl border border-zinc-500 bg-white px-3.5 py-2 text-left text-xs font-medium text-zinc-950 transition hover:border-zinc-950 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-600',
       className
     )}
     {...props}
@@ -69,7 +69,7 @@ const SelectItem = React.forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      'relative flex w-full cursor-pointer select-none items-center rounded-lg py-2 pl-8 pr-3 text-xs font-normal text-zinc-800 outline-none focus:bg-zinc-950 focus:text-white data-[highlighted]:bg-zinc-950 data-[highlighted]:text-white',
+      'relative flex w-full cursor-pointer select-none items-center rounded-lg py-2 pl-8 pr-3 text-xs font-normal text-zinc-800 focus:outline-none focus:bg-zinc-950 focus:text-white data-[highlighted]:bg-zinc-950 data-[highlighted]:text-white',
       className
     )}
     {...props}

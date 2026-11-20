@@ -569,9 +569,9 @@ export default function KegiatanEksposeClient({
           <p className="text-xs font-normal text-zinc-600">
             Format slide PowerPoint (PPTX) · Badan Pengembangan Sumber Daya Manusia (BPSDM) Provinsi Jawa Barat
           </p>
-          <h1 className="mt-1 text-2xl font-semibold leading-tight tracking-tight text-zinc-950">
+          <h2 className="mt-1 text-2xl font-semibold leading-tight tracking-tight text-zinc-950">
             Ekspose (Presentasi Hasil) {kegiatanNama}
-          </h1>
+          </h2>
           <p className="mt-1 text-xs font-normal text-zinc-600">
             6 slide lengkap: 5 grafik batang horizontal dengan kotak pembahasan, ditutup slide kesimpulan dan rekomendasi (Nomor Induk Pegawai/NIP tidak ditampilkan).
           </p>
@@ -746,7 +746,7 @@ export default function KegiatanEksposeClient({
               <a
                 key={s.key}
                 href={`#${s.key}`}
-                className="rounded-lg border border-zinc-300 bg-zinc-50 px-3 py-1.5 font-medium text-zinc-900 transition hover:border-zinc-950 hover:bg-zinc-950 hover:text-white"
+                className="rounded-lg border border-zinc-500 bg-white px-3 py-1.5 font-medium text-zinc-900 transition hover:border-zinc-950 hover:bg-zinc-950 hover:text-white"
               >
                 {s.slideNumber}
               </a>
@@ -849,15 +849,18 @@ export default function KegiatanEksposeClient({
                       {/* Tabel Rekapitulasi Angka Per Rentang (UR-F-05) */}
                       <div className="mt-3 overflow-x-auto rounded-lg border border-slate-200 bg-slate-50/50">
                         <table className="w-full border-collapse text-[11px]">
+                          <caption className="sr-only">
+                            Rekapitulasi jumlah peserta per rentang nilai untuk {slide.slideTitle}
+                          </caption>
                           <thead>
                             <tr className="border-b border-slate-200 bg-slate-100 font-medium text-slate-800">
-                              <th className="px-2.5 py-1.5 text-left">Sumber (Nilai 0–100)</th>
+                              <th scope="col" className="px-2.5 py-1.5 text-left">Sumber (Nilai 0–100)</th>
                               {presentationCategories.map((kat) => (
-                                <th key={kat} className="px-2 py-1.5 text-center font-mono">
+                                <th key={kat} scope="col" className="px-2 py-1.5 text-center font-mono">
                                   {kat}
                                 </th>
                               ))}
-                              <th className="bg-slate-200/70 px-2.5 py-1.5 text-center font-mono text-slate-900">
+                              <th scope="col" className="bg-slate-200/70 px-2.5 py-1.5 text-center font-mono text-slate-900">
                                 Total (peserta)
                               </th>
                             </tr>
@@ -917,7 +920,7 @@ export default function KegiatanEksposeClient({
                               </h3>
                             </div>
 
-                            <div className="no-print absolute right-0 top-0 flex items-center gap-1">
+                            <div className="no-print absolute right-0 top-0 flex items-center gap-1.5">
                               {!isEditing ? (
                                 <>
                                   <Tooltip>
@@ -927,7 +930,7 @@ export default function KegiatanEksposeClient({
                                         onClick={() => handleRegenerate(slide.key)}
                                         disabled={isItemLoading || isItemSaving}
                                         aria-label={`Buat ulang pembahasan ${slide.slideNumber} dengan AI`}
-                                        className="inline-flex h-7 w-7 items-center justify-center rounded border border-zinc-400 bg-white/90 text-zinc-900 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                                        className="inline-flex h-[44px] w-[44px] items-center justify-center rounded border border-zinc-500 bg-white/95 text-zinc-900 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50 sm:h-7 sm:w-7"
                                       >
                                         {slideQueue.isProcessing ? (
                                           <ReloadIcon
@@ -960,7 +963,7 @@ export default function KegiatanEksposeClient({
                                         onClick={() => handleStartEdit(slide.key, pItem)}
                                         disabled={isItemLoading || isItemSaving}
                                         aria-label={`Sunting teks pembahasan ${slide.slideNumber}`}
-                                        className="inline-flex h-7 w-7 items-center justify-center rounded border border-zinc-400 bg-white/90 text-zinc-900 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                                        className="inline-flex h-[44px] w-[44px] items-center justify-center rounded border border-zinc-500 bg-white/95 text-zinc-900 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50 sm:h-7 sm:w-7"
                                       >
                                         <Pencil1Icon className="h-3.5 w-3.5" aria-hidden="true" />
                                       </button>
@@ -974,7 +977,7 @@ export default function KegiatanEksposeClient({
                                     type="button"
                                     onClick={() => setEditingKey(null)}
                                     disabled={isItemSaving}
-                                    className="rounded border border-zinc-400 bg-white px-2.5 py-1 text-[11px] font-medium text-zinc-900 disabled:opacity-50"
+                                    className="rounded border border-zinc-500 bg-white px-2.5 py-1 text-[11px] font-medium text-zinc-900 disabled:opacity-50"
                                   >
                                     Batal
                                   </button>
@@ -1071,7 +1074,7 @@ export default function KegiatanEksposeClient({
                                       onChange={(e) =>
                                         setEditForm({ ...editForm, [fieldKey]: e.target.value })
                                       }
-                                      className="w-full rounded border border-zinc-500 bg-white p-2 text-xs text-zinc-950 focus:border-zinc-950 focus:outline-none"
+                                      className="w-full rounded border border-zinc-500 bg-white p-2 text-xs text-zinc-950 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
                                     />
                                   </div>
                                 );
@@ -1197,7 +1200,7 @@ export default function KegiatanEksposeClient({
                             rows={6}
                             value={editForm.poin1}
                             onChange={(e) => setEditForm({ ...editForm, poin1: e.target.value })}
-                            className="w-full rounded border border-zinc-500 bg-white p-2 text-xs text-zinc-950 focus:border-zinc-950 focus:outline-none"
+                            className="w-full rounded border border-zinc-500 bg-white p-2 text-xs text-zinc-950 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
                           />
                         </div>
                         <div>
@@ -1212,7 +1215,7 @@ export default function KegiatanEksposeClient({
                             rows={3}
                             value={editForm.poin2}
                             onChange={(e) => setEditForm({ ...editForm, poin2: e.target.value })}
-                            className="w-full rounded border border-zinc-500 bg-white p-2 text-xs text-zinc-950 focus:border-zinc-950 focus:outline-none"
+                            className="w-full rounded border border-zinc-500 bg-white p-2 text-xs text-zinc-950 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
                           />
                         </div>
                       </div>
@@ -1268,7 +1271,7 @@ export default function KegiatanEksposeClient({
                               type="button"
                               onClick={() => handleStartEdit('kesimpulan', kesimpulanItem)}
                               disabled={isKesimpulanLoading || savingKey === 'kesimpulan'}
-                              className="inline-flex items-center gap-1 rounded border border-zinc-400 bg-white/90 px-2.5 py-1.5 text-[11px] font-medium text-zinc-900 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                              className="inline-flex items-center gap-1 rounded border border-zinc-500 bg-white/95 px-2.5 py-1.5 text-[11px] font-medium text-zinc-900 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               <Pencil1Icon className="h-3 w-3" aria-hidden="true" />
                               Ubah
@@ -1280,7 +1283,7 @@ export default function KegiatanEksposeClient({
                               type="button"
                               onClick={() => setEditingKey(null)}
                               disabled={savingKey === 'kesimpulan'}
-                              className="rounded border border-zinc-400 bg-white px-2.5 py-1 text-xs font-medium text-zinc-900 disabled:opacity-50"
+                              className="rounded border border-zinc-500 bg-white px-2.5 py-1 text-xs font-medium text-zinc-900 disabled:opacity-50"
                             >
                               Batal
                             </button>
@@ -1369,7 +1372,7 @@ export default function KegiatanEksposeClient({
                             rows={3}
                             value={editForm.poin3}
                             onChange={(e) => setEditForm({ ...editForm, poin3: e.target.value })}
-                            className="w-full rounded border border-zinc-500 bg-white p-2 text-xs text-zinc-950 focus:border-zinc-950 focus:outline-none"
+                            className="w-full rounded border border-zinc-500 bg-white p-2 text-xs text-zinc-950 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
                           />
                         </div>
                         {(() => {
@@ -1394,7 +1397,7 @@ export default function KegiatanEksposeClient({
                                     })
                                   }
                                   placeholder="Tulis rekomendasi kedua..."
-                                  className="w-full rounded border border-zinc-500 bg-white p-2 text-xs text-zinc-950 focus:border-zinc-950 focus:outline-none"
+                                  className="w-full rounded border border-zinc-500 bg-white p-2 text-xs text-zinc-950 placeholder:text-zinc-500 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
                                 />
                               </div>
                               <div>
@@ -1415,7 +1418,7 @@ export default function KegiatanEksposeClient({
                                     })
                                   }
                                   placeholder="Tulis rekomendasi ketiga..."
-                                  className="w-full rounded border border-zinc-500 bg-white p-2 text-xs text-zinc-950 focus:border-zinc-950 focus:outline-none"
+                                  className="w-full rounded border border-zinc-500 bg-white p-2 text-xs text-zinc-950 placeholder:text-zinc-500 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
                                 />
                               </div>
                             </>

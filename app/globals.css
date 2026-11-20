@@ -5,6 +5,9 @@
 :root {
   --canvas-bg: #FAFAFA;
   --foreground: #09090B;
+  --scrollbar-thumb: #71717A;
+  --scrollbar-thumb-hover: #52525B;
+  --scrollbar-track: transparent;
 }
 
 @layer base {
@@ -20,20 +23,52 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p:not(.truncate):not(.whitespace-nowrap) {
+    text-wrap: pretty;
+  }
+
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),
+  [role="tab"]:not([aria-disabled="true"]),
+  [role="menuitem"]:not([aria-disabled="true"]),
   a[href],
   select:not(:disabled),
+  input[type="file"]:not(:disabled),
+  input[type="submit"]:not(:disabled),
+  label[for],
   summary,
   label:has(input[type="radio"]:not(:disabled)),
   label:has(input[type="checkbox"]:not(:disabled)) {
     cursor: pointer;
   }
 
+  :disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+
   :focus-visible {
     outline: 2px solid #09090B;
     outline-offset: 2px;
   }
+}
+
+.visually-hidden:where(:not(:focus-within, :active)) {
+  position: absolute !important;
+  clip-path: inset(50%) !important;
+  overflow: hidden !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  white-space: nowrap !important;
 }
 
 /* Monochrome diagonal hatch pattern for negative chart bars */
@@ -48,20 +83,34 @@
   );
 }
 
-/* Custom monochrome scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* Standard monochrome scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: #D4D4D8;
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #71717A;
+
+@supports not (scrollbar-color: auto) {
+  * {
+    scrollbar-width: auto;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

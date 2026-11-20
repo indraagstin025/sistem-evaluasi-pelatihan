@@ -186,13 +186,14 @@ export default function PesertaWawancaraTable({
             />
             <input
               type="search"
+              aria-label="Cari nama, NIP, atau instansi"
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
                 setPage(1);
               }}
               placeholder="Cari nama, NIP, atau instansi..."
-              className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white pl-9 pr-3 text-xs text-zinc-950 focus:border-zinc-950 focus:outline-none"
+              className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white pl-9 pr-3 text-xs text-zinc-950 placeholder:text-zinc-500 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
             />
           </div>
 
@@ -205,7 +206,7 @@ export default function PesertaWawancaraTable({
                   setPage(1);
                 }}
                 aria-label="Filter berdasarkan tim"
-                className="min-h-[42px] rounded-lg border border-zinc-500 bg-white px-3 text-xs font-medium text-zinc-950 focus:border-zinc-950 focus:outline-none"
+                className="min-h-[42px] rounded-lg border border-zinc-500 bg-white px-3 text-xs font-medium text-zinc-950 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
               >
                 <option value="semua">Semua tim</option>
                 {teamOptions.map((t) => (
@@ -223,7 +224,7 @@ export default function PesertaWawancaraTable({
                 setPage(1);
               }}
               aria-label="Filter status peserta"
-              className="min-h-[42px] rounded-lg border border-zinc-500 bg-white px-3 text-xs font-medium text-zinc-950 focus:border-zinc-950 focus:outline-none"
+              className="min-h-[42px] rounded-lg border border-zinc-500 bg-white px-3 text-xs font-medium text-zinc-950 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
             >
               <option value="semua">Semua status ({counts.total})</option>
               <option value="selesai">Selesai ({counts.selesai})</option>
@@ -247,15 +248,18 @@ export default function PesertaWawancaraTable({
         <>
           <div className="mt-2 overflow-x-auto">
             <table className="min-w-full divide-y divide-zinc-200 text-left text-xs">
+              <caption className="sr-only">
+                Daftar peserta beserta tim, nilai survei, nilai wawancara, nilai akhir berbobot, dan status
+              </caption>
               <thead>
                 <tr className="bg-zinc-50 text-[11px] font-semibold uppercase tracking-wide text-zinc-600">
-                  <th className="px-2 py-3">Peserta / NIP (Nomor Induk Pegawai)</th>
-                  <th className="px-1.5 py-3">Tim</th>
-                  <th className="px-1.5 py-3 text-right">Survei</th>
-                  <th className="px-1.5 py-3 text-right">Wawancara</th>
-                  <th className="px-1.5 py-3 text-right whitespace-nowrap">Nilai Akhir Berbobot</th>
-                  <th className="px-1.5 py-3 text-center">Status</th>
-                  <th className="px-2 py-3 text-right">Tindakan</th>
+                  <th scope="col" className="px-2 py-3">Peserta / NIP (Nomor Induk Pegawai)</th>
+                  <th scope="col" className="px-1.5 py-3">Tim</th>
+                  <th scope="col" className="px-1.5 py-3 text-right">Survei</th>
+                  <th scope="col" className="px-1.5 py-3 text-right">Wawancara</th>
+                  <th scope="col" className="px-1.5 py-3 text-right whitespace-nowrap">Nilai Akhir Berbobot</th>
+                  <th scope="col" className="px-1.5 py-3 text-center">Status</th>
+                  <th scope="col" className="px-2 py-3 text-right">Tindakan</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-200">

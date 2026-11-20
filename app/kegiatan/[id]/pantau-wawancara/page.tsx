@@ -191,12 +191,13 @@ export default function PantauWawancaraPage({
                 <div className="flex gap-2">
                   <input
                     type="url"
+                    aria-label={`Tautan meeting daring ${tim.namaTim}`}
                     value={linkDrafts[tim.id] || ''}
                     onChange={(e) =>
                       setLinkDrafts((prev) => ({ ...prev, [tim.id]: e.target.value }))
                     }
                     placeholder="https://zoom.us/j/..."
-                    className="min-h-[38px] w-full rounded-lg border border-zinc-500 bg-white px-2.5 text-xs text-zinc-950 focus:border-zinc-950 focus:outline-none"
+                    className="min-h-[38px] w-full rounded-lg border border-zinc-500 bg-white px-2.5 text-xs text-zinc-950 placeholder:text-zinc-500 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
                   />
                   <button
                     type="button"
@@ -234,13 +235,14 @@ export default function PantauWawancaraPage({
               />
               <input
                 type="search"
+                aria-label="Cari peserta, tim, atau evaluator"
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value);
                   setPage(1);
                 }}
                 placeholder="Cari peserta, tim, evaluator..."
-                className="min-h-[40px] w-full rounded-lg border border-zinc-500 bg-white pl-9 pr-3 text-xs text-zinc-950 focus:border-zinc-950 focus:outline-none sm:w-56"
+                className="min-h-[40px] w-full rounded-lg border border-zinc-500 bg-white pl-9 pr-3 text-xs text-zinc-950 placeholder:text-zinc-500 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950 sm:w-56"
               />
             </div>
 
@@ -251,7 +253,7 @@ export default function PantauWawancaraPage({
                 setPage(1);
               }}
               aria-label="Filter status wawancara"
-              className="min-h-[40px] rounded-lg border border-zinc-500 bg-white px-3 text-xs font-medium text-zinc-950 focus:border-zinc-950 focus:outline-none"
+              className="min-h-[40px] rounded-lg border border-zinc-500 bg-white px-3 text-xs font-medium text-zinc-950 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
             >
               <option value="semua">Semua ({peserta.length} peserta)</option>
               <option value="selesai">Wawancara Selesai ({selesaiCount})</option>
@@ -269,14 +271,17 @@ export default function PantauWawancaraPage({
 
         <div className="mt-4 overflow-x-auto">
           <table className="min-w-full divide-y divide-zinc-200 text-left text-xs">
+            <caption className="sr-only">
+              Status wawancara, unggahan Proper, nilai wawancara, dan tautan formulir per peserta
+            </caption>
             <thead className="bg-zinc-50 text-zinc-700">
               <tr>
-                <th className="px-3 py-2.5 font-semibold">Peserta</th>
-                <th className="px-3 py-2.5 font-semibold">Tim &amp; Evaluator</th>
-                <th className="px-3 py-2.5 text-center font-semibold">Laporan Proper</th>
-                <th className="px-3 py-2.5 text-center font-semibold">Nilai Wawancara (M)</th>
-                <th className="px-3 py-2.5 text-center font-semibold">Status</th>
-                <th className="px-3 py-2.5 text-right font-semibold">Tautan Wawancara</th>
+                <th scope="col" className="px-3 py-2.5 font-semibold">Peserta</th>
+                <th scope="col" className="px-3 py-2.5 font-semibold">Tim &amp; Evaluator</th>
+                <th scope="col" className="px-3 py-2.5 text-center font-semibold">Laporan Proper</th>
+                <th scope="col" className="px-3 py-2.5 text-center font-semibold">Nilai Wawancara (M)</th>
+                <th scope="col" className="px-3 py-2.5 text-center font-semibold">Status</th>
+                <th scope="col" className="px-3 py-2.5 text-right font-semibold">Tautan Wawancara</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-200">

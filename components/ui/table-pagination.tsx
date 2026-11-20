@@ -68,7 +68,7 @@ export function TablePagination({
             disabled={loading || safePage <= 1}
             onClick={() => onPageChange(safePage - 1)}
             aria-label="Halaman sebelumnya"
-            className="inline-flex min-h-[36px] items-center gap-1 rounded-lg border border-zinc-400 bg-white px-2.5 text-xs font-medium text-zinc-900 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1 rounded-lg border border-zinc-500 bg-white px-2.5 text-xs font-medium text-zinc-900 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-[36px] sm:min-w-0"
           >
             <ChevronLeftIcon className="h-3.5 w-3.5" aria-hidden="true" />
             <span className="hidden sm:inline">Sebelumnya</span>
@@ -78,7 +78,7 @@ export function TablePagination({
             item === 'ellipsis' ? (
               <span
                 key={`el-${idx}`}
-                className="inline-flex min-h-[36px] min-w-[28px] items-center justify-center text-xs text-zinc-500"
+                className="inline-flex min-h-[44px] min-w-[28px] items-center justify-center text-xs text-zinc-600 sm:min-h-[36px]"
               >
                 ...
               </span>
@@ -90,10 +90,10 @@ export function TablePagination({
                 aria-current={item === safePage ? 'page' : undefined}
                 onClick={() => onPageChange(item)}
                 className={cn(
-                  'inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg px-2.5 font-mono text-xs tabular-nums transition disabled:opacity-50',
+                  'inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg px-2.5 font-mono text-xs tabular-nums transition disabled:opacity-50 sm:min-h-[36px] sm:min-w-[36px]',
                   item === safePage
                     ? 'bg-zinc-950 font-semibold text-white'
-                    : 'border border-zinc-300 bg-white font-medium text-zinc-800 hover:border-zinc-500 hover:bg-zinc-50'
+                    : 'border border-zinc-500 bg-white font-medium text-zinc-800 hover:bg-zinc-100'
                 )}
               >
                 {item}
@@ -106,7 +106,7 @@ export function TablePagination({
             disabled={loading || safePage >= totalPages}
             onClick={() => onPageChange(safePage + 1)}
             aria-label="Halaman berikutnya"
-            className="inline-flex min-h-[36px] items-center gap-1 rounded-lg border border-zinc-400 bg-white px-2.5 text-xs font-medium text-zinc-900 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1 rounded-lg border border-zinc-500 bg-white px-2.5 text-xs font-medium text-zinc-900 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-[36px] sm:min-w-0"
           >
             <span className="hidden sm:inline">Berikutnya</span>
             <ChevronRightIcon className="h-3.5 w-3.5" aria-hidden="true" />

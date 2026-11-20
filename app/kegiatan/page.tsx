@@ -110,7 +110,7 @@ function KegiatanFormFields({
             htmlFor={`${idPrefix}-nama`}
             className="mb-1.5 block text-xs font-semibold text-zinc-900"
           >
-            Nama Kegiatan <span className="text-zinc-500">*</span>
+            Nama Kegiatan <span className="text-zinc-600">*</span>
           </label>
           <input
             id={`${idPrefix}-nama`}
@@ -119,7 +119,7 @@ function KegiatanFormFields({
             value={form.nama}
             onChange={(e) => onChange({ ...form, nama: e.target.value })}
             placeholder="Contoh: PKP Angkatan VII Kabupaten Bogor"
-            className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white px-3.5 text-sm text-zinc-950 placeholder:text-zinc-400 focus:border-zinc-950 focus:outline-none"
+            className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white px-3.5 text-sm text-zinc-950 placeholder:text-zinc-500 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
           />
         </div>
         <div>
@@ -127,7 +127,7 @@ function KegiatanFormFields({
             htmlFor={`${idPrefix}-jenis`}
             className="mb-1.5 block text-xs font-semibold text-zinc-900"
           >
-            Jenis Pelatihan <span className="text-zinc-500">*</span>
+            Jenis Pelatihan <span className="text-zinc-600">*</span>
           </label>
           <Select
             value={form.jenisPelatihan}
@@ -145,7 +145,7 @@ function KegiatanFormFields({
               <SelectItem value="PKN">PKN - Pelatihan Kepemimpinan Nasional</SelectItem>
             </SelectContent>
           </Select>
-          <p className="mt-1 text-[11px] text-zinc-500">
+          <p className="mt-1 text-[11px] text-zinc-600">
             PKA = Pelatihan Kepemimpinan Administrator, PKP = Pengawas, PKN = Nasional.
           </p>
         </div>
@@ -157,7 +157,7 @@ function KegiatanFormFields({
             htmlFor={`${idPrefix}-penyelenggara`}
             className="mb-1.5 block text-xs font-semibold text-zinc-900"
           >
-            Penyelenggara <span className="text-zinc-500">*</span>
+            Penyelenggara <span className="text-zinc-600">*</span>
           </label>
           <input
             id={`${idPrefix}-penyelenggara`}
@@ -166,7 +166,7 @@ function KegiatanFormFields({
             value={form.penyelenggara}
             onChange={(e) => onChange({ ...form, penyelenggara: e.target.value })}
             placeholder="Contoh: BPSDM Provinsi Jawa Barat"
-            className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white px-3.5 text-sm text-zinc-950 placeholder:text-zinc-400 focus:border-zinc-950 focus:outline-none"
+            className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white px-3.5 text-sm text-zinc-950 placeholder:text-zinc-500 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
           />
         </div>
 
@@ -175,7 +175,7 @@ function KegiatanFormFields({
             htmlFor={`${idPrefix}-lokasi`}
             className="mb-1.5 block text-xs font-semibold text-zinc-900"
           >
-            Lokasi <span className="text-zinc-500">*</span>
+            Lokasi <span className="text-zinc-600">*</span>
           </label>
           <input
             id={`${idPrefix}-lokasi`}
@@ -184,7 +184,7 @@ function KegiatanFormFields({
             value={form.lokasi}
             onChange={(e) => onChange({ ...form, lokasi: e.target.value })}
             placeholder="Contoh: Kabupaten Bogor"
-            className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white px-3.5 text-sm text-zinc-950 placeholder:text-zinc-400 focus:border-zinc-950 focus:outline-none"
+            className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white px-3.5 text-sm text-zinc-950 placeholder:text-zinc-500 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
           />
         </div>
       </div>
@@ -195,7 +195,7 @@ function KegiatanFormFields({
             htmlFor={`${idPrefix}-mulai`}
             className="mb-1.5 block text-xs font-semibold text-zinc-900"
           >
-            Tanggal Mulai <span className="text-zinc-500">*</span>
+            Tanggal Mulai <span className="text-zinc-600">*</span>
           </label>
           <input
             id={`${idPrefix}-mulai`}
@@ -203,7 +203,7 @@ function KegiatanFormFields({
             required
             value={form.tanggalMulai}
             onChange={(e) => onChange({ ...form, tanggalMulai: e.target.value })}
-            className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white px-3.5 text-sm text-zinc-950 focus:border-zinc-950 focus:outline-none"
+            className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white px-3.5 text-sm text-zinc-950 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
           />
         </div>
         <div>
@@ -211,7 +211,7 @@ function KegiatanFormFields({
             htmlFor={`${idPrefix}-selesai`}
             className="mb-1.5 block text-xs font-semibold text-zinc-900"
           >
-            Tanggal Selesai <span className="text-zinc-500">*</span>
+            Tanggal Selesai <span className="text-zinc-600">*</span>
           </label>
           <input
             id={`${idPrefix}-selesai`}
@@ -219,7 +219,7 @@ function KegiatanFormFields({
             required
             value={form.tanggalSelesai}
             onChange={(e) => onChange({ ...form, tanggalSelesai: e.target.value })}
-            className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white px-3.5 text-sm text-zinc-950 focus:border-zinc-950 focus:outline-none"
+            className="min-h-[42px] w-full rounded-lg border border-zinc-500 bg-white px-3.5 text-sm text-zinc-950 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
           />
         </div>
       </div>
@@ -537,7 +537,7 @@ export default function DaftarKegiatanPage() {
                         onClick={() =>
                           setOpenMenuId((prev) => (prev === item.id ? null : item.id))
                         }
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-300 bg-white text-zinc-700 transition hover:border-zinc-950 hover:bg-zinc-50 hover:text-zinc-950"
+                        className="inline-flex h-[44px] w-[44px] items-center justify-center rounded-lg border border-zinc-500 bg-white text-zinc-700 transition hover:border-zinc-950 hover:bg-zinc-50 hover:text-zinc-950 sm:h-8 sm:w-8"
                       >
                         <DotsVerticalIcon className="h-4 w-4" aria-hidden="true" />
                       </button>

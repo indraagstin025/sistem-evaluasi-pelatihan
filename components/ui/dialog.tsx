@@ -40,7 +40,7 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        'no-print fixed left-1/2 top-1/2 z-50 flex max-h-[90vh] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-zinc-300 bg-white p-0 text-zinc-950 shadow-2xl focus:outline-none',
+        'no-print fixed left-1/2 top-1/2 z-50 flex max-h-[90vh] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-zinc-300 bg-white p-0 text-zinc-950 shadow-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-zinc-950',
         className
       )}
       {...props}
@@ -50,7 +50,7 @@ const DialogContent = React.forwardRef<
         <DialogPrimitive.Close
           disabled={closeDisabled}
           aria-label="Tutup dialog"
-          className="absolute right-4 top-4 inline-flex h-8 w-8 items-center justify-center rounded-lg text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-950 disabled:pointer-events-none disabled:opacity-40"
+          className="absolute right-3 top-3 inline-flex h-[44px] w-[44px] items-center justify-center rounded-lg text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-950 disabled:pointer-events-none disabled:opacity-40 sm:right-4 sm:top-4 sm:h-8 sm:w-8"
         >
           <Cross2Icon className="h-4 w-4" aria-hidden="true" />
         </DialogPrimitive.Close>

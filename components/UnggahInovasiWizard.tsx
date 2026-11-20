@@ -434,14 +434,17 @@ export default function UnggahInovasiWizard() {
             <label htmlFor="public-nip" className="mb-1.5 block text-xs font-medium text-zinc-900">
               NIP atau NIK
             </label>
-            <input
+              <input
               id="public-nip"
+              name="nip"
               type="text"
+              autoComplete="off"
+              inputMode="numeric"
               required
               value={nip}
               onChange={(e) => setNip(e.target.value)}
               placeholder="Contoh: 197601042008011003"
-              className="w-full rounded-lg border border-zinc-500 bg-white px-3.5 py-2.5 font-mono text-sm text-zinc-950 focus:border-zinc-950 focus:outline-none"
+              className="w-full rounded-lg border border-zinc-500 bg-white px-3.5 py-2.5 font-mono text-sm text-zinc-950 placeholder:text-zinc-500 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
             />
           </div>
 
@@ -522,7 +525,7 @@ export default function UnggahInovasiWizard() {
                 value={judulProper}
                 onChange={(e) => setJudulProper(e.target.value)}
                 placeholder="Tuliskan judul lengkap Proper Anda"
-                className="w-full rounded-lg border border-zinc-500 bg-white px-3.5 py-2 text-sm text-zinc-950 focus:border-zinc-950 focus:outline-none"
+                className="w-full rounded-lg border border-zinc-500 bg-white px-3.5 py-2 text-sm text-zinc-950 placeholder:text-zinc-500 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
               />
             </div>
 
@@ -543,7 +546,7 @@ export default function UnggahInovasiWizard() {
                   value={menMilestone}
                   onChange={(e) => setMenMilestone(e.target.value)}
                   placeholder="Contoh: Tahapan ke-5 - Penerapan aplikasi & penyusunan SOP"
-                  className="w-full rounded-lg border border-zinc-500 bg-white p-2.5 text-xs text-zinc-950 focus:border-zinc-950 focus:outline-none"
+                  className="w-full rounded-lg border border-zinc-500 bg-white p-2.5 text-xs text-zinc-950 placeholder:text-zinc-500 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
                 />
               </div>
 
@@ -627,7 +630,7 @@ export default function UnggahInovasiWizard() {
                   value={panMilestone}
                   onChange={(e) => setPanMilestone(e.target.value)}
                   placeholder="Tuliskan target dan rencana jangka panjang"
-                  className="w-full rounded-lg border border-zinc-500 bg-white p-2.5 text-xs text-zinc-950 focus:border-zinc-950 focus:outline-none"
+                  className="w-full rounded-lg border border-zinc-500 bg-white p-2.5 text-xs text-zinc-950 placeholder:text-zinc-500 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
                 />
               </div>
 
@@ -708,7 +711,7 @@ export default function UnggahInovasiWizard() {
                 value={kondisiSaatIni}
                 onChange={(e) => setKondisiSaatIni(e.target.value)}
                 placeholder="Jelaskan kondisi terkini pelaksanaan Proper di unit kerja Anda"
-                className="w-full rounded-lg border border-zinc-500 bg-white p-2.5 text-xs text-zinc-950 focus:border-zinc-950 focus:outline-none"
+                className="w-full rounded-lg border border-zinc-500 bg-white p-2.5 text-xs text-zinc-950 placeholder:text-zinc-500 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
               />
             </div>
 

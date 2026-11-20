@@ -446,7 +446,7 @@ export default function FormWawancaraPesertaPage({
                         [meta.key]: { ...d, nilai: e.target.value },
                       }))
                     }
-                    className="min-h-[60px] w-full rounded-xl border border-zinc-500 bg-white px-3 text-center font-mono text-xl font-bold text-zinc-950 focus:border-zinc-950 focus:outline-none disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-700"
+                    className="min-h-[60px] w-full rounded-xl border border-zinc-500 bg-white px-3 text-center font-mono text-xl font-bold text-zinc-950 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-700"
                   />
                   <p className="mt-1.5 text-[11px] leading-snug text-zinc-600">
                     Skala 0–100 (bilangan bulat). Kosongkan bila belum dinilai.
@@ -476,7 +476,7 @@ export default function FormWawancaraPesertaPage({
                         ? 'Catat hasil konfirmasi langsung dan bukti dukung dari peserta...'
                         : 'Belum ada catatan bukti dari evaluator.'
                     }
-                    className="min-h-[96px] w-full rounded-xl border border-zinc-500 bg-white p-3 text-xs leading-relaxed text-zinc-950 focus:border-zinc-950 focus:outline-none disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-700"
+                    className="min-h-[96px] w-full rounded-xl border border-zinc-500 bg-white p-3 text-xs leading-relaxed text-zinc-950 placeholder:text-zinc-500 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-700"
                   />
                 </div>
               </div>
@@ -608,7 +608,7 @@ export default function FormWawancaraPesertaPage({
           {evidencePreview && (
             <>
               <DialogBody>
-                <div className="overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50 p-2">
+                <div className="flex min-h-[240px] items-center justify-center overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50 p-2">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={`/api/files/${evidencePreview.fileId}`}

@@ -381,7 +381,7 @@ export default function KegiatanPerbandinganClient({
                           onMouseEnter={() => setActiveDeltaIdx(idx)}
                           onFocus={() => setActiveDeltaIdx(idx)}
                           onClick={() => setActiveDeltaIdx(idx)}
-                          className="relative z-10 flex flex-1 flex-col items-center justify-center rounded-sm focus:bg-zinc-100 focus:outline-none"
+                          className="relative z-10 flex flex-1 flex-col items-center justify-center rounded-sm focus-visible:bg-zinc-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-zinc-950"
                         >
                           {/* Top Positive Half */}
                           <div className="flex h-[100px] w-full items-end justify-center pb-[1px]">
@@ -515,10 +515,13 @@ export default function KegiatanPerbandinganClient({
 
         <div className="overflow-x-auto pt-1">
           <table className="w-full border-collapse text-left text-xs">
+            <caption className="sr-only">
+              Tabel perbandingan nilai survei, nilai wawancara, nilai akhir berbobot, dan selisih per peserta
+            </caption>
             <thead>
               <tr className="border-b border-zinc-200 bg-zinc-100 text-xs font-medium text-zinc-700">
-                <th className="w-12 px-3 py-3 text-center">No</th>
-                <th className="px-3 py-3" aria-sort={getAriaSort('nama')}>
+                <th scope="col" className="w-12 px-3 py-3 text-center">No</th>
+                <th scope="col" className="px-3 py-3" aria-sort={getAriaSort('nama')}>
                   <button
                     type="button"
                     onClick={() => handleSort('nama')}
@@ -528,8 +531,8 @@ export default function KegiatanPerbandinganClient({
                     {renderSortIcon('nama')}
                   </button>
                 </th>
-                <th className="px-3 py-3">Instansi</th>
-                <th className="px-3 py-3 text-center" aria-sort={getAriaSort('L')}>
+                <th scope="col" className="px-3 py-3">Instansi</th>
+                <th scope="col" className="px-3 py-3 text-center" aria-sort={getAriaSort('L')}>
                   <button
                     type="button"
                     onClick={() => handleSort('L')}
@@ -539,7 +542,7 @@ export default function KegiatanPerbandinganClient({
                     {renderSortIcon('L')}
                   </button>
                 </th>
-                <th className="px-3 py-3 text-center" aria-sort={getAriaSort('M')}>
+                <th scope="col" className="px-3 py-3 text-center" aria-sort={getAriaSort('M')}>
                   <button
                     type="button"
                     onClick={() => handleSort('M')}
@@ -549,8 +552,8 @@ export default function KegiatanPerbandinganClient({
                     {renderSortIcon('M')}
                   </button>
                 </th>
-                <th className="px-3 py-3 text-center">Nilai Akhir Berbobot</th>
-                <th className="px-3 py-3 text-center" aria-sort={getAriaSort('selisih')}>
+                <th scope="col" className="px-3 py-3 text-center">Nilai Akhir Berbobot</th>
+                <th scope="col" className="px-3 py-3 text-center" aria-sort={getAriaSort('selisih')}>
                   <button
                     type="button"
                     onClick={() => handleSort('selisih')}
@@ -560,7 +563,7 @@ export default function KegiatanPerbandinganClient({
                     {renderSortIcon('selisih')}
                   </button>
                 </th>
-                <th className="px-3 py-3 text-center">Status</th>
+                <th scope="col" className="px-3 py-3 text-center">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-200/70">
