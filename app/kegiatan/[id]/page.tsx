@@ -1,6 +1,7 @@
 import React from 'react';
-import { redirect } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth';
+import { getKegiatanDetailForUser } from '@/lib/queries/kegiatan';
 import KegiatanRingkasanClient from '@/components/kegiatan/KegiatanRingkasanClient';
 
 export const dynamic = 'force-dynamic';
@@ -18,5 +19,16 @@ export default async function KegiatanDetailPage({
     redirect(`/kegiatan/${params.id}/wawancara`);
   }
 
-  return <KegiatanRingkasanClient kegiatanId={params.id} />;
+  const result = await getKegiatanDetailForUser(user, params.id, {
+    includePeserta: true,
+  });
+  if (result.status === 'forbidden') redirect('/kegiatan');
+  if (result.status === 'not_found') notFound();
+
+  return (
+    <KegiatanRingkasanClient
+      kegiatanId={params.id}
+      initialData={result.data}
+    />
+  );
 }

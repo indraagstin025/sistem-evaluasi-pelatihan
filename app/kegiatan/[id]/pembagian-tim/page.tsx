@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import {
   CheckCircledIcon,
   ChevronDownIcon,
@@ -24,6 +24,11 @@ import {
 } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ui/alert-dialog';
 import { StatusBanner } from '@/components/ui/status-banner';
+import {
+  fetchJsonWithCache,
+  getClientCache,
+  invalidateKegiatanCache,
+} from '@/lib/client-cache';
 
 interface GeneratedAcc {
   userId: string;
@@ -40,12 +45,15 @@ export default function PembagianTimPage({
 }: {
   params: { id: string };
 }) {
-  const [teams, setTeams] = useState<any[]>([]);
-  const [evaluators, setEvaluators] = useState<any[]>([]);
-  const [totalPeserta, setTotalPeserta] = useState(0);
-  const [hasExcelTeams, setHasExcelTeams] = useState(false);
+  const apiUrl = `/api/kegiatan/${params.id}/tim`;
+  const cached = getClientCache<{ success: boolean; data: any }>(apiUrl);
 
-  const [loading, setLoading] = useState(true);
+  const [teams, setTeams] = useState<any[]>(cached?.data?.data?.teams ?? []);
+  const [evaluators, setEvaluators] = useState<any[]>(cached?.data?.data?.evaluators ?? []);
+  const [totalPeserta, setTotalPeserta] = useState(cached?.data?.data?.totalPeserta ?? 0);
+  const [hasExcelTeams, setHasExcelTeams] = useState(Boolean(cached?.data?.data?.hasExcelTeams));
+
+  const [loading, setLoading] = useState(!cached?.data?.data);
   const [busyMode, setBusyMode] = useState<string | null>(null);
   const [confirmRandomOpen, setConfirmRandomOpen] = useState(false);
   const [savingTimId, setSavingTimId] = useState<string | null>(null);
@@ -57,10 +65,23 @@ export default function PembagianTimPage({
   } | null>(null);
   const [generatedAccounts, setGeneratedAccounts] = useState<GeneratedAcc[]>([]);
 
-  const [linkDrafts, setLinkDrafts] = useState<Record<string, string>>({});
-  const [evalDrafts, setEvalDrafts] = useState<Record<string, string>>({});
+  const [linkDrafts, setLinkDrafts] = useState<Record<string, string>>(() => {
+    const nextLinks: Record<string, string> = {};
+    for (const t of cached?.data?.data?.teams || []) {
+      nextLinks[t.id] = t.linkMeeting || '';
+    }
+    return nextLinks;
+  });
+  const [evalDrafts, setEvalDrafts] = useState<Record<string, string>>(() => {
+    const nextEvals: Record<string, string> = {};
+    for (const t of cached?.data?.data?.teams || []) {
+      nextEvals[t.id] = t.evaluatorId || '';
+    }
+    return nextEvals;
+  });
   const [collapsedTeams, setCollapsedTeams] = useState<Record<string, boolean>>({});
   const [searchPeserta, setSearchPeserta] = useState('');
+  const deferredSearchPeserta = useDeferredValue(searchPeserta);
 
   // Modal buat akun evaluator baru langsung pada tim
   const [createForTim, setCreateForTim] = useState<any>(null);
@@ -70,16 +91,21 @@ export default function PembagianTimPage({
   const [newPassword, setNewPassword] = useState('');
   const [creatingEval, setCreatingEval] = useState(false);
 
-  const loadData = async () => {
+  const loadData = async (options?: { force?: boolean; silent?: boolean }) => {
     try {
-      setLoading(true);
-      const res = await fetch(`/api/kegiatan/${params.id}/tim`, { cache: 'no-store' });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        setBanner({
-          tone: 'error',
-          message: json.error || 'Gagal memuat pembagian tim. Coba muat ulang halaman.',
-        });
+      if (!options?.silent) setLoading(true);
+      const { data: json } = await fetchJsonWithCache<{
+        success: boolean;
+        data?: any;
+        error?: string;
+      }>(apiUrl, { force: options?.force });
+      if (!json.success) {
+        if (!options?.silent) {
+          setBanner({
+            tone: 'error',
+            message: json.error || 'Gagal memuat pembagian tim. Coba muat ulang halaman.',
+          });
+        }
         return;
       }
       const d = json.data;
@@ -96,18 +122,27 @@ export default function PembagianTimPage({
       }
       setLinkDrafts(nextLinks);
       setEvalDrafts(nextEvals);
-    } catch {
-      setBanner({
-        tone: 'error',
-        message: 'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.',
-      });
+    } catch (err: any) {
+      if (!options?.silent) {
+        setBanner({
+          tone: 'error',
+          message:
+            err?.message ||
+            'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.',
+        });
+      }
     } finally {
-      setLoading(false);
+      if (!options?.silent) setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData();
+    const existing = getClientCache<{ success: boolean; data: any }>(apiUrl);
+    if (existing?.data?.data) {
+      void loadData({ force: true, silent: true });
+    } else {
+      void loadData();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
 
@@ -129,9 +164,10 @@ export default function PembagianTimPage({
         });
         return;
       }
+      invalidateKegiatanCache(params.id);
       setGeneratedAccounts(json.data?.evaluatorAccounts || []);
       setBanner({ tone: 'success', message: json.message || 'Pembagian tim selesai.' });
-      await loadData();
+      await loadData({ force: true, silent: true });
     } catch {
       setBanner({
         tone: 'error',
@@ -161,12 +197,13 @@ export default function PembagianTimPage({
           tone: 'error',
           message: json.error || 'Gagal menautkan evaluator ke tim.',
         });
-        await loadData();
+        await loadData({ force: true, silent: true });
         return;
       }
+      invalidateKegiatanCache(params.id);
       setSavedNoticeId(timId);
       setTimeout(() => setSavedNoticeId((prev) => (prev === timId ? null : prev)), 2000);
-      await loadData();
+      await loadData({ force: true, silent: true });
     } catch {
       setBanner({
         tone: 'error',
@@ -197,9 +234,10 @@ export default function PembagianTimPage({
         });
         return;
       }
+      invalidateKegiatanCache(params.id);
       setSavedNoticeId(timId);
       setTimeout(() => setSavedNoticeId((prev) => (prev === timId ? null : prev)), 2000);
-      await loadData();
+      await loadData({ force: true, silent: true });
     } catch {
       setBanner({
         tone: 'error',
@@ -227,8 +265,9 @@ export default function PembagianTimPage({
         setBanner({ tone: 'error', message: json.error || 'Gagal memindahkan peserta.' });
         return;
       }
+      invalidateKegiatanCache(params.id);
       setBanner({ tone: 'success', message: json.message || 'Peserta dipindahkan.' });
-      await loadData();
+      await loadData({ force: true, silent: true });
     } catch {
       setBanner({
         tone: 'error',
@@ -268,6 +307,8 @@ export default function PembagianTimPage({
         });
         return;
       }
+      invalidateKegiatanCache(params.id);
+      invalidateKegiatanCache('/api/users');
       setCreateForTim(null);
       setNewNama('');
       setNewNip('');
@@ -277,7 +318,7 @@ export default function PembagianTimPage({
         tone: 'success',
         message: 'Akun Evaluator baru dibuat dan langsung ditugaskan ke tim.',
       });
-      await loadData();
+      await loadData({ force: true, silent: true });
     } catch {
       setBanner({
         tone: 'error',
@@ -293,7 +334,7 @@ export default function PembagianTimPage({
     [teams]
   );
 
-  const normalizedQuery = searchPeserta.trim().toLowerCase();
+  const normalizedQuery = deferredSearchPeserta.trim().toLowerCase();
 
   return (
     <div className="space-y-6 pb-12">

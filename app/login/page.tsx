@@ -11,6 +11,7 @@ import {
   LockClosedIcon,
 } from '@radix-ui/react-icons';
 import { StatusBanner } from '@/components/ui/status-banner';
+import { invalidateClientCache } from '@/lib/client-cache';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -37,6 +38,8 @@ export default function LoginPage() {
         );
         return;
       }
+
+      invalidateClientCache();
 
       if (json.user?.mustChangePassword) {
         router.push('/ganti-sandi');

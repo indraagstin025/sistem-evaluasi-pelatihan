@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireSession } from '@/lib/auth';
+import { listKegiatanForUser } from '@/lib/queries/kegiatan';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,85 +9,7 @@ export async function GET() {
   const guard = await requireSession();
   if (!guard.ok) return guard.response;
 
-  const { user } = guard;
-
-  if (user.role === 'SUPER_ADMIN') {
-    const kegiatan = await prisma.kegiatan.findMany({
-      include: {
-        _count: {
-          select: {
-            peserta: true,
-            tim: true,
-            inovasiProper: true,
-            selisihImport: true,
-          },
-        },
-        peserta: {
-          select: {
-            wawancaraSelesaiAt: true,
-            inovasiProper: { select: { id: true } },
-          },
-        },
-      },
-      orderBy: [{ tanggalMulai: 'desc' }, { createdAt: 'desc' }],
-    });
-
-    const formatted = kegiatan.map(({ peserta, _count, ...rest }) => ({
-      ...rest,
-      totalPeserta: _count.peserta,
-      totalTim: _count.tim,
-      totalProper: _count.inovasiProper,
-      totalSelisih: _count.selisihImport,
-      wawancaraSelesaiCount: peserta.filter(
-        (p) => p.wawancaraSelesaiAt !== null && p.inovasiProper !== null
-      ).length,
-    }));
-
-    return NextResponse.json({ success: true, data: formatted });
-  }
-
-  // EVALUATOR: hanya melihat kegiatan tempat ia mengampu tim
-  const kegiatan = await prisma.kegiatan.findMany({
-    where: {
-      tim: {
-        some: { evaluatorId: user.id },
-      },
-    },
-    include: {
-      tim: {
-        where: { evaluatorId: user.id },
-        select: {
-          id: true,
-          namaTim: true,
-          linkMeeting: true,
-          peserta: {
-            select: {
-              id: true,
-              wawancaraSelesaiAt: true,
-              inovasiProper: { select: { id: true } },
-            },
-          },
-        },
-      },
-    },
-    orderBy: [{ tanggalMulai: 'desc' }, { createdAt: 'desc' }],
-  });
-
-  const formatted = kegiatan.map(({ tim, ...rest }) => {
-    const myPeserta = tim.flatMap((t) => t.peserta);
-    return {
-      ...rest,
-      totalPeserta: myPeserta.length,
-      totalTim: tim.length,
-      totalProper: myPeserta.filter((p) => p.inovasiProper !== null).length,
-      totalSelisih: 0,
-      wawancaraSelesaiCount: myPeserta.filter(
-        (p) => p.wawancaraSelesaiAt !== null && p.inovasiProper !== null
-      ).length,
-      timSaya: tim.map((t) => ({ id: t.id, namaTim: t.namaTim, linkMeeting: t.linkMeeting })),
-    };
-  });
-
+  const formatted = await listKegiatanForUser(guard.user);
   return NextResponse.json({ success: true, data: formatted });
 }
 

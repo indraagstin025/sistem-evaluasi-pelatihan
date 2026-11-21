@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { canAccessKegiatan, requireSession } from '@/lib/auth';
-import { KRITERIA_LABEL_MAP } from '@/lib/wawancara-kriteria';
+import { requireSession } from '@/lib/auth';
+import { getKegiatanDetailForUser } from '@/lib/queries/kegiatan';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,98 +15,26 @@ export async function GET(
   const { searchParams } = new URL(request.url);
   const includePeserta = searchParams.get('includePeserta') !== '0';
 
-  const allowed = await canAccessKegiatan(guard.user, params.id);
-  if (!allowed) {
+  const result = await getKegiatanDetailForUser(guard.user, params.id, {
+    includePeserta,
+  });
+
+  if (result.status === 'forbidden') {
     return NextResponse.json(
       { success: false, error: 'Anda tidak terdaftar pada kegiatan ini.' },
       { status: 403 }
     );
   }
-
-  const kegiatan = await prisma.kegiatan.findUnique({
-    where: { id: params.id },
-  });
-  if (!kegiatan) {
+  if (result.status === 'not_found') {
     return NextResponse.json(
       { success: false, error: 'Kegiatan tidak ditemukan.' },
       { status: 404 }
     );
   }
 
-  const isAdmin = guard.user.role === 'SUPER_ADMIN';
-  const pesertaWhere = isAdmin
-    ? { kegiatanId: params.id }
-    : { kegiatanId: params.id, tim: { evaluatorId: guard.user.id } };
-
-  const [peserta, pesertaTotal, selisihRaw, timRaw] = await Promise.all([
-    includePeserta
-      ? prisma.peserta.findMany({
-          where: pesertaWhere,
-          include: {
-            tim: {
-              include: {
-                evaluator: { select: { id: true, nama: true, nip: true } },
-              },
-            },
-            survey: {
-              where: { responden: 'alumni', kode: { in: ['L4_01', 'L4_02', 'L4_03'] } },
-            },
-            wawancara: true,
-            hasil: true,
-            inovasiProper: {
-              select: {
-                id: true,
-                judulProper: true,
-                jangkaMenengahStatus: true,
-                jangkaPanjangStatus: true,
-                dokumenNama: true,
-                updatedAt: true,
-              },
-            },
-          },
-          orderBy: [{ nama: 'asc' }, { id: 'asc' }],
-        })
-      : Promise.resolve([]),
-    prisma.peserta.count({ where: pesertaWhere }),
-    isAdmin
-      ? prisma.selisihImport.findMany({
-          where: { kegiatanId: params.id },
-          include: { peserta: { select: { nama: true, nip: true } } },
-          orderBy: [{ peserta: { nama: 'asc' } }, { kriteria: 'asc' }],
-        })
-      : Promise.resolve([]),
-    prisma.timEvaluator.findMany({
-      where: isAdmin ? { kegiatanId: params.id } : { kegiatanId: params.id, evaluatorId: guard.user.id },
-      include: {
-        evaluator: { select: { id: true, nama: true, nip: true } },
-        _count: { select: { peserta: true } },
-      },
-      orderBy: { urutan: 'asc' },
-    }),
-  ]);
-
-  const selisihImport = selisihRaw.map((s) => ({
-    id: s.id,
-    pesertaId: s.pesertaId,
-    pesertaNama: s.peserta.nama,
-    pesertaNip: s.peserta.nip,
-    kriteria: s.kriteria,
-    kriteriaLabel: KRITERIA_LABEL_MAP[s.kriteria] || s.kriteria,
-    nilaiForm: s.nilaiForm,
-    nilaiEkspose: s.nilaiEkspose,
-    catatan: s.catatan,
-  }));
-
   return NextResponse.json({
     success: true,
-    data: {
-      viewerRole: guard.user.role,
-      kegiatan,
-      peserta,
-      pesertaTotal,
-      tim: timRaw,
-      selisihImport,
-    },
+    data: result.data,
   });
 }
 

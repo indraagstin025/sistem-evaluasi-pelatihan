@@ -17,14 +17,18 @@ import {
 } from '@/components/ui/tooltip';
 import { StatusBanner } from '@/components/ui/status-banner';
 import { TablePagination } from '@/components/ui/table-pagination';
+import { fetchJsonWithCache, getClientCache } from '@/lib/client-cache';
 
 export default function KegiatanPerbandinganClient({
   kegiatanId,
 }: {
   kegiatanId: string;
 }) {
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const apiUrl = `/api/ekspose?kegiatanId=${encodeURIComponent(kegiatanId)}`;
+  const cached = getClientCache<{ success: boolean }>(apiUrl);
+
+  const [data, setData] = useState<any>(cached?.data ?? null);
+  const [loading, setLoading] = useState(!cached?.data);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [activeDeltaIdx, setActiveDeltaIdx] = useState<number | null>(null);
 
@@ -36,34 +40,46 @@ export default function KegiatanPerbandinganClient({
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
-  const fetchData = async () => {
+  const fetchData = async (options?: { force?: boolean; silent?: boolean }) => {
     try {
-      setLoading(true);
+      if (!options?.silent) setLoading(true);
       setFetchError(null);
-      const res = await fetch(
-        `/api/ekspose?kegiatanId=${encodeURIComponent(kegiatanId)}`,
-        { cache: 'no-store' }
-      );
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        setFetchError(
-          json.error || 'Gagal memuat data perbandingan nilai. Coba muat ulang halaman.'
-        );
+      const { data: json } = await fetchJsonWithCache<any>(apiUrl, {
+        force: options?.force,
+      });
+      if (!json.success) {
+        if (!options?.silent) {
+          setFetchError(
+            json.error || 'Gagal memuat data perbandingan nilai. Coba muat ulang halaman.'
+          );
+        }
         return;
       }
       setData(json);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching perbandingan data:', err);
-      setFetchError(
-        'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.'
-      );
+      if (!options?.silent) {
+        setFetchError(
+          err?.message ||
+            'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.'
+        );
+      }
     } finally {
-      setLoading(false);
+      if (!options?.silent) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
+    const existing = getClientCache<any>(apiUrl);
+    if (existing?.data?.success) {
+      setData(existing.data);
+      setLoading(false);
+      if (Date.now() - existing.fetchedAt > 20_000) {
+        void fetchData({ force: true, silent: true });
+      }
+      return;
+    }
+    void fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kegiatanId]);
 

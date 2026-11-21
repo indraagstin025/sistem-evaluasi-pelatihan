@@ -15,6 +15,7 @@ export async function GET(request: Request) {
     const kegiatanId = searchParams.get('kegiatanId') || '';
     const timId = (searchParams.get('timId') || '').trim();
     const status = (searchParams.get('status') || 'semua').trim();
+    const includeCounts = searchParams.get('includeCounts') !== '0';
 
     const parsedPage = Number.parseInt(searchParams.get('page') || '1', 10);
     const parsedLimit = Number.parseInt(searchParams.get('limit') || '10', 10);
@@ -82,20 +83,29 @@ export async function GET(request: Request) {
     const filteredWhere: Prisma.PesertaWhereInput =
       extraFilters.length > 0 ? { AND: [baseWhere, ...extraFilters] } : baseWhere;
 
-    const [totalFiltered, totalAll, selesaiCount, belumProperCount, adaKosongCount] =
-      await Promise.all([
-        prisma.peserta.count({ where: filteredWhere }),
-        prisma.peserta.count({ where: baseWhere }),
-        prisma.peserta.count({
-          where: { AND: [baseWhere, statusConditions.selesai] },
-        }),
-        prisma.peserta.count({
-          where: { AND: [baseWhere, statusConditions.belum_proper] },
-        }),
-        prisma.peserta.count({
-          where: { AND: [baseWhere, statusConditions.ada_kosong] },
-        }),
-      ]);
+    const [totalFiltered, countsResult] = await Promise.all([
+      prisma.peserta.count({ where: filteredWhere }),
+      includeCounts
+        ? Promise.all([
+            prisma.peserta.count({ where: baseWhere }),
+            prisma.peserta.count({
+              where: { AND: [baseWhere, statusConditions.selesai] },
+            }),
+            prisma.peserta.count({
+              where: { AND: [baseWhere, statusConditions.belum_proper] },
+            }),
+            prisma.peserta.count({
+              where: { AND: [baseWhere, statusConditions.ada_kosong] },
+            }),
+          ]).then(([totalAll, selesaiCount, belumProperCount, adaKosongCount]) => ({
+            total: totalAll,
+            selesai: selesaiCount,
+            belumSelesai: Math.max(0, totalAll - selesaiCount),
+            belumProper: belumProperCount,
+            adaKosong: adaKosongCount,
+          }))
+        : Promise.resolve(undefined),
+    ]);
 
     const totalPages = Math.max(1, Math.ceil(totalFiltered / limit));
     const safePage = Math.min(page, totalPages);
@@ -138,13 +148,7 @@ export async function GET(request: Request) {
         total: totalFiltered,
         totalPages,
       },
-      counts: {
-        total: totalAll,
-        selesai: selesaiCount,
-        belumSelesai: Math.max(0, totalAll - selesaiCount),
-        belumProper: belumProperCount,
-        adaKosong: adaKosongCount,
-      },
+      ...(countsResult ? { counts: countsResult } : {}),
     });
   } catch (error: any) {
     console.error('GET /api/peserta error:', error);

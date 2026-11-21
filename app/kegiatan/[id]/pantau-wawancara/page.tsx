@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   CheckIcon,
@@ -12,41 +12,59 @@ import {
 } from '@radix-ui/react-icons';
 import { StatusBanner } from '@/components/ui/status-banner';
 import { TablePagination } from '@/components/ui/table-pagination';
+import {
+  fetchJsonWithCache,
+  getClientCache,
+  invalidateKegiatanCache,
+} from '@/lib/client-cache';
 
 export default function PantauWawancaraPage({
   params,
 }: {
   params: { id: string };
 }) {
-  const [teams, setTeams] = useState<any[]>([]);
-  const [peserta, setPeserta] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const apiUrl = `/api/kegiatan/${params.id}/pantau-wawancara`;
+  const cached = getClientCache<{ success: boolean; data: any }>(apiUrl);
+
+  const [teams, setTeams] = useState<any[]>(cached?.data?.data?.teams ?? []);
+  const [peserta, setPeserta] = useState<any[]>(cached?.data?.data?.peserta ?? []);
+  const [loading, setLoading] = useState(!cached?.data?.data);
   const [error, setError] = useState<string | null>(null);
 
-  const [linkDrafts, setLinkDrafts] = useState<Record<string, string>>({});
+  const [linkDrafts, setLinkDrafts] = useState<Record<string, string>>(() => {
+    const drafts: Record<string, string> = {};
+    for (const t of cached?.data?.data?.teams || []) {
+      drafts[t.id] = t.linkMeeting || '';
+    }
+    return drafts;
+  });
   const [savingTimId, setSavingTimId] = useState<string | null>(null);
   const [saveFeedback, setSaveFeedback] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const [search, setSearch] = useState('');
+  const deferredSearch = useDeferredValue(search);
   const [statusFilter, setStatusFilter] = useState<
     'semua' | 'selesai' | 'belum' | 'sudah_proper' | 'belum_proper'
   >('semua');
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
-  const loadData = async () => {
+  const loadData = async (options?: { force?: boolean; silent?: boolean }) => {
     try {
-      setLoading(true);
+      if (!options?.silent) setLoading(true);
       setError(null);
-      const res = await fetch(`/api/kegiatan/${params.id}/pantau-wawancara`, {
-        cache: 'no-store',
-      });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        setError(
-          json.error || 'Gagal memuat pemantauan wawancara. Coba muat ulang halaman.'
-        );
+      const { data: json } = await fetchJsonWithCache<{
+        success: boolean;
+        data?: any;
+        error?: string;
+      }>(apiUrl, { force: options?.force });
+      if (!json.success) {
+        if (!options?.silent) {
+          setError(
+            json.error || 'Gagal memuat pemantauan wawancara. Coba muat ulang halaman.'
+          );
+        }
         return;
       }
       setTeams(json.data?.teams || []);
@@ -56,15 +74,25 @@ export default function PantauWawancaraPage({
         drafts[t.id] = t.linkMeeting || '';
       }
       setLinkDrafts(drafts);
-    } catch {
-      setError('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
+    } catch (err: any) {
+      if (!options?.silent) {
+        setError(
+          err?.message ||
+            'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.'
+        );
+      }
     } finally {
-      setLoading(false);
+      if (!options?.silent) setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData();
+    const existing = getClientCache<{ success: boolean; data: any }>(apiUrl);
+    if (existing?.data?.data) {
+      void loadData({ force: true, silent: true });
+    } else {
+      void loadData();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
 
@@ -88,8 +116,9 @@ export default function PantauWawancaraPage({
         );
         return;
       }
+      invalidateKegiatanCache(params.id);
       setSaveFeedback('Tautan meeting tim berhasil diperbarui.');
-      await loadData();
+      await loadData({ force: true, silent: true });
     } catch {
       setError('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
     } finally {
@@ -112,7 +141,7 @@ export default function PantauWawancaraPage({
   const isSelesaiLengkap = (p: any) => Boolean(p.hasProper && p.wawancaraSelesaiAt);
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = deferredSearch.trim().toLowerCase();
     return peserta.filter((p) => {
       const selesai = isSelesaiLengkap(p);
       if (statusFilter === 'selesai' && !selesai) return false;
@@ -127,7 +156,7 @@ export default function PantauWawancaraPage({
         String(p.evaluatorNama || '').toLowerCase().includes(q)
       );
     });
-  }, [peserta, search, statusFilter]);
+  }, [peserta, deferredSearch, statusFilter]);
 
   const selesaiCount = peserta.filter((p) => isSelesaiLengkap(p)).length;
   const properCount = peserta.filter((p) => Boolean(p.hasProper)).length;

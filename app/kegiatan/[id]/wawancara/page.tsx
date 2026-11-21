@@ -7,55 +7,81 @@ import PesertaWawancaraTable, {
   type PesertaCounts,
   type PesertaPagination,
 } from '@/components/kegiatan/PesertaWawancaraTable';
+import { fetchJsonWithCache, getClientCache } from '@/lib/client-cache';
 
 export default function DaftarWawancaraTimPage({
   params,
 }: {
   params: { id: string };
 }) {
-  const [metaData, setMetaData] = useState<any>(null);
-  const [initialPeserta, setInitialPeserta] = useState<any[]>([]);
-  const [initialPagination, setInitialPagination] = useState<PesertaPagination>({
-    page: 1,
-    limit: 10,
-    total: 0,
-    totalPages: 1,
-  });
-  const [initialCounts, setInitialCounts] = useState<PesertaCounts>({
-    total: 0,
-    selesai: 0,
-    belumSelesai: 0,
-    belumProper: 0,
-    adaKosong: 0,
-  });
-  const [loading, setLoading] = useState(true);
+  const kegUrl = `/api/kegiatan/${params.id}?includePeserta=0`;
+  const pesUrl = `/api/peserta?kegiatanId=${encodeURIComponent(params.id)}&page=1&limit=10`;
+  const cachedKeg = getClientCache<{ success: boolean; data: any }>(kegUrl);
+  const cachedPes = getClientCache<{
+    success: boolean;
+    data: any[];
+    pagination?: PesertaPagination;
+    counts?: PesertaCounts;
+  }>(pesUrl);
+
+  const [metaData, setMetaData] = useState<any>(cachedKeg?.data?.data ?? null);
+  const [initialPeserta, setInitialPeserta] = useState<any[]>(cachedPes?.data?.data ?? []);
+  const [initialPagination, setInitialPagination] = useState<PesertaPagination>(
+    cachedPes?.data?.pagination ?? {
+      page: 1,
+      limit: 10,
+      total: 0,
+      totalPages: 1,
+    }
+  );
+  const [initialCounts, setInitialCounts] = useState<PesertaCounts>(
+    cachedPes?.data?.counts ?? {
+      total: 0,
+      selesai: 0,
+      belumSelesai: 0,
+      belumProper: 0,
+      adaKosong: 0,
+    }
+  );
+  const [loading, setLoading] = useState(
+    !cachedKeg?.data?.data || !cachedPes?.data?.data
+  );
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
-    async function load() {
+    async function load(silent = false) {
       try {
-        setLoading(true);
+        if (!silent) setLoading(true);
         setError(null);
-        const [kegRes, pesRes] = await Promise.all([
-          fetch(`/api/kegiatan/${params.id}?includePeserta=0`, { cache: 'no-store' }),
-          fetch(`/api/peserta?kegiatanId=${encodeURIComponent(params.id)}&page=1&limit=10`, {
-            cache: 'no-store',
+        const [{ data: kegJson }, { data: pesJson }] = await Promise.all([
+          fetchJsonWithCache<{ success: boolean; data?: any; error?: string }>(kegUrl, {
+            force: silent,
           }),
+          fetchJsonWithCache<{
+            success: boolean;
+            data?: any[];
+            pagination?: PesertaPagination;
+            counts?: PesertaCounts;
+            error?: string;
+          }>(pesUrl, { force: silent }),
         ]);
-        const [kegJson, pesJson] = await Promise.all([kegRes.json(), pesRes.json()]);
         if (!active) return;
 
-        if (!kegRes.ok || !kegJson.success) {
-          setError(
-            kegJson.error || 'Gagal memuat daftar peserta wawancara. Coba muat ulang halaman.'
-          );
+        if (!kegJson.success) {
+          if (!silent) {
+            setError(
+              kegJson.error || 'Gagal memuat daftar peserta wawancara. Coba muat ulang halaman.'
+            );
+          }
           return;
         }
-        if (!pesRes.ok || !pesJson.success) {
-          setError(
-            pesJson.error || 'Gagal memuat daftar peserta wawancara. Coba muat ulang halaman.'
-          );
+        if (!pesJson.success) {
+          if (!silent) {
+            setError(
+              pesJson.error || 'Gagal memuat daftar peserta wawancara. Coba muat ulang halaman.'
+            );
+          }
           return;
         }
 
@@ -63,19 +89,25 @@ export default function DaftarWawancaraTimPage({
         setInitialPeserta(pesJson.data || []);
         if (pesJson.pagination) setInitialPagination(pesJson.pagination);
         if (pesJson.counts) setInitialCounts(pesJson.counts);
-      } catch {
-        if (active) {
-          setError('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
+      } catch (err: any) {
+        if (active && !silent) {
+          setError(
+            err?.message ||
+              'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.'
+          );
         }
       } finally {
-        if (active) setLoading(false);
+        if (active && !silent) setLoading(false);
       }
     }
-    load();
+
+    const hasCached = Boolean(cachedKeg?.data?.data && cachedPes?.data?.data);
+    void load(hasCached);
     return () => {
       active = false;
     };
-  }, [params.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kegUrl, pesUrl]);
 
   if (loading) {
     return (

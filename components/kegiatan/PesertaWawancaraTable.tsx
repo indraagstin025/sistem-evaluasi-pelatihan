@@ -11,6 +11,11 @@ import {
   ReloadIcon,
 } from '@radix-ui/react-icons';
 import { TablePagination } from '@/components/ui/table-pagination';
+import {
+  fetchJsonWithCache,
+  getClientCache,
+  setClientCache,
+} from '@/lib/client-cache';
 
 export interface PesertaPagination {
   page: number;
@@ -93,9 +98,25 @@ export default function PesertaWawancaraTable({
   const isFirstRender = useRef(true);
 
   useEffect(() => {
+    const baseUrl = `/api/peserta?${new URLSearchParams({
+      kegiatanId,
+      page: String(initialPagination.page || 1),
+      limit: '10',
+      includeCounts: '0',
+    }).toString()}`;
+    if (!getClientCache(baseUrl)) {
+      setClientCache(baseUrl, {
+        success: true,
+        data: initialPeserta,
+        pagination: initialPagination,
+      });
+    }
+  }, [kegiatanId, initialPeserta, initialPagination]);
+
+  useEffect(() => {
     const t = setTimeout(() => {
       setDebouncedSearch(search.trim());
-    }, 250);
+    }, 350);
     return () => clearTimeout(t);
   }, [search]);
 
@@ -107,23 +128,41 @@ export default function PesertaWawancaraTable({
 
     const controller = new AbortController();
     async function loadPage() {
-      try {
-        setFetching(true);
-        const qs = new URLSearchParams({
-          kegiatanId,
-          page: String(page),
-          limit: '10',
-        });
-        if (debouncedSearch) qs.set('search', debouncedSearch);
-        if (selectedTim !== 'semua') qs.set('timId', selectedTim);
-        if (statusFilter !== 'semua') qs.set('status', statusFilter);
+      const qs = new URLSearchParams({
+        kegiatanId,
+        page: String(page),
+        limit: '10',
+        includeCounts: '0',
+      });
+      if (debouncedSearch) qs.set('search', debouncedSearch);
+      if (selectedTim !== 'semua') qs.set('timId', selectedTim);
+      if (statusFilter !== 'semua') qs.set('status', statusFilter);
 
-        const res = await fetch(`/api/peserta?${qs.toString()}`, {
-          cache: 'no-store',
+      const url = `/api/peserta?${qs.toString()}`;
+      const cached = getClientCache<{
+        success: boolean;
+        data?: any[];
+        pagination?: PesertaPagination;
+        counts?: PesertaCounts;
+      }>(url);
+
+      if (cached?.data?.success) {
+        setRows(cached.data.data || []);
+        if (cached.data.pagination) setPagination(cached.data.pagination);
+      }
+
+      try {
+        if (!cached?.data?.success) setFetching(true);
+        const { data: json } = await fetchJsonWithCache<{
+          success: boolean;
+          data?: any[];
+          pagination?: PesertaPagination;
+          counts?: PesertaCounts;
+        }>(url, {
+          staleTimeMs: 30_000,
           signal: controller.signal,
         });
-        const json = await res.json();
-        if (!res.ok || !json.success) return;
+        if (!json.success) return;
         setRows(json.data || []);
         if (json.pagination) setPagination(json.pagination);
         if (json.counts) setCounts(json.counts);

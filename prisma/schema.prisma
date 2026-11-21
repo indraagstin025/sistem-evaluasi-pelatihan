@@ -1,10 +1,12 @@
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pg_trgm]
 }
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 model User {
@@ -60,6 +62,7 @@ model TimEvaluator {
   @@unique([kegiatanId, urutan])
   @@index([evaluatorId])
   @@index([kegiatanId, evaluatorId])
+  @@index([namaTim(ops: raw("gin_trgm_ops"))], type: Gin)
 }
 
 model Peserta {
@@ -100,6 +103,9 @@ model Peserta {
   @@index([kegiatanId, nama])
   @@index([kegiatanId, timId, nama])
   @@index([kegiatanId, wawancaraSelesaiAt])
+  @@index([nama(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@index([nip(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@index([instansi(ops: raw("gin_trgm_ops"))], type: Gin)
 }
 
 model Survey {

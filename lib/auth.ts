@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { prisma } from './prisma';
@@ -22,8 +23,9 @@ export interface SessionUser {
 
 /**
  * Membaca sesi pengguna aktif langsung dari cookie dan memvalidasi status terbaru di database.
+ * Dibungkus React.cache agar pemanggilan berulang di dalam satu request server (layout + page) hanya melakukan 1 query DB.
  */
-export async function getSessionUser(): Promise<SessionUser | null> {
+export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
   const cookieStore = cookies();
   const rawToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   const parsed = await verifySessionToken(rawToken);
@@ -48,7 +50,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     ...user,
     role: user.role === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : 'EVALUATOR',
   };
-}
+});
 
 /**
  * Guard API standar untuk memastikan autentikasi, pembaruan sandi wajib, dan hak akses peran.

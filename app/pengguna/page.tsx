@@ -24,6 +24,11 @@ import {
 import { StatusBanner } from '@/components/ui/status-banner';
 import { ConfirmDialog } from '@/components/ui/alert-dialog';
 import { TablePagination } from '@/components/ui/table-pagination';
+import {
+  fetchJsonWithCache,
+  getClientCache,
+  invalidateClientCache,
+} from '@/lib/client-cache';
 
 interface EvaluatorUser {
   id: string;
@@ -41,8 +46,9 @@ interface EvaluatorUser {
 }
 
 export default function KelolaEvaluatorPage() {
-  const [users, setUsers] = useState<EvaluatorUser[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cachedUsers = getClientCache<{ success: boolean; data: EvaluatorUser[] }>('/api/users');
+  const [users, setUsers] = useState<EvaluatorUser[]>(cachedUsers?.data?.data ?? []);
+  const [loading, setLoading] = useState(!cachedUsers?.data?.data);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [banner, setBanner] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
 
@@ -99,9 +105,10 @@ export default function KelolaEvaluatorPage() {
         setEditError(json.error || 'Gagal memperbarui profil Evaluator.');
         return;
       }
+      invalidateClientCache('/api/users');
       setEditTarget(null);
       setBanner({ tone: 'success', text: `Data Evaluator ${json.data.nama} berhasil diperbarui.` });
-      await loadUsers();
+      await loadUsers({ force: true, silent: true });
     } catch {
       setEditError('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
     } finally {
@@ -109,28 +116,43 @@ export default function KelolaEvaluatorPage() {
     }
   };
 
-  const loadUsers = async () => {
-    setLoading(true);
+  const loadUsers = async (options?: { force?: boolean; silent?: boolean }) => {
+    if (!options?.silent) setLoading(true);
     setFetchError(null);
     try {
-      const res = await fetch('/api/users', { cache: 'no-store' });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        setFetchError(
-          json.error || 'Gagal memuat daftar Evaluator. Coba muat ulang halaman.'
-        );
+      const { data: json } = await fetchJsonWithCache<{
+        success: boolean;
+        data?: EvaluatorUser[];
+        error?: string;
+      }>('/api/users', { force: options?.force });
+      if (!json.success) {
+        if (!options?.silent) {
+          setFetchError(
+            json.error || 'Gagal memuat daftar Evaluator. Coba muat ulang halaman.'
+          );
+        }
         return;
       }
       setUsers(json.data || []);
-    } catch {
-      setFetchError('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
+    } catch (err: any) {
+      if (!options?.silent) {
+        setFetchError(
+          err?.message ||
+            'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.'
+        );
+      }
     } finally {
-      setLoading(false);
+      if (!options?.silent) setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadUsers();
+    const existing = getClientCache<{ success: boolean; data: EvaluatorUser[] }>('/api/users');
+    if (existing?.data?.data) {
+      void loadUsers({ force: true, silent: true });
+    } else {
+      void loadUsers();
+    }
   }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -151,12 +173,13 @@ export default function KelolaEvaluatorPage() {
         );
         return;
       }
+      invalidateClientCache('/api/users');
       setCreateOpen(false);
       setCreateError(null);
       setForm({ nama: '', nip: '', email: '', password: '' });
       setBanner({ tone: 'success', text: json.message });
       setPage(1);
-      await loadUsers();
+      await loadUsers({ force: true, silent: true });
     } catch {
       setCreateError('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
     } finally {
@@ -183,11 +206,12 @@ export default function KelolaEvaluatorPage() {
         );
         return;
       }
+      invalidateClientCache('/api/users');
       setResetTarget(null);
       setResetPassword('');
       setResetError(null);
       setBanner({ tone: 'success', text: json.message });
-      await loadUsers();
+      await loadUsers({ force: true, silent: true });
     } catch {
       setResetError('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
     } finally {
@@ -212,8 +236,9 @@ export default function KelolaEvaluatorPage() {
         });
         return;
       }
+      invalidateClientCache('/api/users');
       setDeactivateTarget(null);
-      await loadUsers();
+      await loadUsers({ force: true, silent: true });
     } catch {
       setBanner({
         tone: 'error',

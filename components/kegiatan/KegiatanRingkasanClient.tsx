@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   ExclamationTriangleIcon,
@@ -12,9 +12,15 @@ import WarningBanner from '@/components/dashboard/WarningBanner';
 import ChartEksposeOverview from '@/components/dashboard/ChartEksposeOverview';
 import { StatusBanner } from '@/components/ui/status-banner';
 import { TablePagination } from '@/components/ui/table-pagination';
+import {
+  fetchJsonWithCache,
+  getClientCache,
+  setClientCache,
+} from '@/lib/client-cache';
 
 interface KegiatanRingkasanClientProps {
   kegiatanId: string;
+  initialData?: any;
 }
 
 function getSurveySkor(p: any, kode: string): number | null {
@@ -34,37 +40,65 @@ function formatNum(v: number | null | undefined, digits = 2): string {
 
 export default function KegiatanRingkasanClient({
   kegiatanId,
+  initialData,
 }: KegiatanRingkasanClientProps) {
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const apiUrl = `/api/kegiatan/${kegiatanId}`;
+  const cachedEntry = initialData ? null : getClientCache<{ success: boolean; data: any }>(apiUrl);
+
+  const [data, setData] = useState<any>(initialData ?? cachedEntry?.data?.data ?? null);
+  const [loading, setLoading] = useState(!initialData && !cachedEntry?.data?.data);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const deferredSearch = useDeferredValue(search);
   const [filterStatus, setFilterStatus] = useState<'semua' | 'kosong' | 'lengkap'>('semua');
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
-  const loadData = async () => {
+  const loadData = async (options?: { force?: boolean; silent?: boolean }) => {
     try {
-      setLoading(true);
+      if (!options?.silent) setLoading(true);
       setError(null);
-      const res = await fetch(`/api/kegiatan/${kegiatanId}`, { cache: 'no-store' });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        setError(json.error || 'Gagal memuat ringkasan kegiatan. Coba muat ulang halaman.');
+      const { data: json } = await fetchJsonWithCache<{
+        success: boolean;
+        data?: any;
+        error?: string;
+      }>(apiUrl, { force: options?.force });
+      if (!json.success) {
+        if (!options?.silent) {
+          setError(json.error || 'Gagal memuat ringkasan kegiatan. Coba muat ulang halaman.');
+        }
         return;
       }
       setData(json.data);
-    } catch {
-      setError('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
+    } catch (err: any) {
+      if (!options?.silent) {
+        setError(
+          err?.message ||
+            'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.'
+        );
+      }
     } finally {
-      setLoading(false);
+      if (!options?.silent) setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData();
+    if (initialData) {
+      setData(initialData);
+      setClientCache(apiUrl, { success: true, data: initialData });
+      setLoading(false);
+      return;
+    }
+    const existing = getClientCache<{ success: boolean; data: any }>(apiUrl);
+    if (existing?.data?.data) {
+      setData(existing.data.data);
+      setLoading(false);
+      void loadData({ force: true, silent: true });
+      return;
+    }
+    void loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kegiatanId]);
+  }, [kegiatanId, initialData]);
 
   const peserta: any[] = data?.peserta || [];
   const selisihImport: any[] = data?.selisihImport || [];
@@ -136,7 +170,7 @@ export default function KegiatanRingkasanClient({
   }, [peserta]);
 
   const filteredPeserta = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = deferredSearch.trim().toLowerCase();
     return peserta.filter((p) => {
       const isKosong =
         p.hasil?.rataWawancaraM === null || p.hasil?.rataWawancaraM === undefined;
@@ -150,7 +184,7 @@ export default function KegiatanRingkasanClient({
         String(p.tim?.namaTim || p.namaTimExcel || '').toLowerCase().includes(q)
       );
     });
-  }, [peserta, search, filterStatus]);
+  }, [peserta, deferredSearch, filterStatus]);
 
   if (loading) {
     return (

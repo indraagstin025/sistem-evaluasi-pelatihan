@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { invalidateClientCache } from '@/lib/client-cache';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import {
   BarChartIcon,
@@ -220,6 +221,7 @@ export default function Navbar({ user, children }: NavbarProps) {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
     } finally {
+      invalidateClientCache();
       setMobileOpen(false);
       setLoggingOut(false);
       router.push('/login');

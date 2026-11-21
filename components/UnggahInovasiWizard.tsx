@@ -19,6 +19,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { StatusBanner } from '@/components/ui/status-banner';
+import {
+  fetchFormDataWithRetry,
+  formatUploadNetworkError,
+  readFileIntoMemoryBlob,
+} from '@/lib/upload-client';
 
 const MAX_BYTES = 3 * 1024 * 1024; // 3 MB batas upload Vercel
 
@@ -186,15 +191,14 @@ export default function UnggahInovasiWizard() {
 
     setUploadingField(kind);
     try {
-      const fd = new FormData();
-      fd.append('kegiatanId', selectedKegiatanId);
-      fd.append('nip', nip);
-      fd.append('kind', kind);
-      fd.append('file', file);
-
-      const res = await fetch('/api/public/upload-file', {
-        method: 'POST',
-        body: fd,
+      const memoryBlob = await readFileIntoMemoryBlob(file);
+      const res = await fetchFormDataWithRetry('/api/public/upload-file', () => {
+        const fd = new FormData();
+        fd.append('kegiatanId', selectedKegiatanId);
+        fd.append('nip', nip);
+        fd.append('kind', kind);
+        fd.append('file', memoryBlob, file.name);
+        return fd;
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
@@ -213,8 +217,12 @@ export default function UnggahInovasiWizard() {
         setPanFotoId(json.data.id);
         setPanFotoNama(json.data.filename);
       }
-    } catch {
-      setErrorMsg('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
+    } catch (err: any) {
+      setErrorMsg(
+        err instanceof TypeError
+          ? formatUploadNetworkError()
+          : err?.message || formatUploadNetworkError()
+      );
     } finally {
       setUploadingField(null);
     }

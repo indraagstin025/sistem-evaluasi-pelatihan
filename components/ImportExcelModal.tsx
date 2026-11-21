@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   CheckCircledIcon,
   ExclamationTriangleIcon,
@@ -21,6 +21,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { invalidateKegiatanCache } from '@/lib/client-cache';
+import {
+  fetchFormDataWithRetry,
+  formatUploadNetworkError,
+  readFileIntoMemoryBlob,
+} from '@/lib/upload-client';
 
 export interface ImportedEvaluatorAccount {
   userId: string;
@@ -46,8 +52,10 @@ interface ImportExcelModalProps {
 
 interface DetectedFile {
   file: File;
+  blob: Blob;
   type: 'olah_data' | 'form_penilaian' | 'unknown';
   sheetNames: string[];
+  readError?: string;
 }
 
 export default function ImportExcelModal({
@@ -61,13 +69,38 @@ export default function ImportExcelModal({
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedSurveyIndex, setSelectedSurveyIndex] = useState<number>(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isNetworkBlockedError, setIsNetworkBlockedError] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  useEffect(() => {
+    if (!isOpen) {
+      setErrorMessage(null);
+      setIsNetworkBlockedError(false);
+      setSuccessMessage(null);
+    }
+  }, [isOpen]);
+
   const analyzeWorkbook = async (file: File): Promise<DetectedFile> => {
+    let blob: Blob;
     try {
-      const buffer = await file.arrayBuffer();
+      blob = await readFileIntoMemoryBlob(
+        file,
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      );
+    } catch (err: any) {
+      return {
+        file,
+        blob: new Blob(),
+        type: 'unknown',
+        sheetNames: [],
+        readError: err?.message || `File "${file.name}" tidak dapat dibaca oleh browser.`,
+      };
+    }
+
+    try {
+      const buffer = await blob.arrayBuffer();
       const wb = XLSX.read(buffer, { type: 'buffer' });
       const sheetNames = wb.SheetNames || [];
       const lowerNames = sheetNames.map((s) => s.trim().toLowerCase());
@@ -77,30 +110,37 @@ export default function ImportExcelModal({
       const hasEkspose = lowerNames.includes('ekspose');
 
       if (hasJawaban || hasOlahData || hasEkspose) {
-        return { file, type: 'olah_data', sheetNames };
+        return { file, blob, type: 'olah_data', sheetNames };
       }
 
       const numberedSheets = sheetNames.filter((s) => /^\d+\.\s*(.+)$/.test(s.trim()));
       if (numberedSheets.length >= 3) {
-        return { file, type: 'form_penilaian', sheetNames };
+        return { file, blob, type: 'form_penilaian', sheetNames };
       }
 
-      return { file, type: 'unknown', sheetNames };
+      return { file, blob, type: 'unknown', sheetNames };
     } catch (err) {
       console.error('Error analyzing file:', err);
-      return { file, type: 'unknown', sheetNames: [] };
+      return { file, blob, type: 'unknown', sheetNames: [] };
     }
   };
 
   const handleFilesAdded = async (newFileList: FileList | File[]) => {
     setErrorMessage(null);
+    setIsNetworkBlockedError(false);
     setSuccessMessage(null);
     const addedFiles: File[] = Array.from(newFileList);
     const analyzed = await Promise.all(addedFiles.map((f) => analyzeWorkbook(f)));
 
+    const firstReadError = analyzed.find((item) => item.readError)?.readError;
+    if (firstReadError) {
+      setErrorMessage(firstReadError);
+    }
+
+    const validAnalyzed = analyzed.filter((item) => !item.readError);
     setFiles((prev) => {
       const combined = [...prev];
-      for (const item of analyzed) {
+      for (const item of validAnalyzed) {
         const isDuplicate = combined.some(
           (c) => c.file.name === item.file.name && c.file.size === item.file.size
         );
@@ -153,30 +193,36 @@ export default function ImportExcelModal({
     try {
       setIsProcessing(true);
       setErrorMessage(null);
+      setIsNetworkBlockedError(false);
 
-      const activeSurveyFile = hasTwoSurveys
-        ? surveyFiles[selectedSurveyIndex].file
-        : surveyFiles[0].file;
-      const activeInterviewFile = interviewFiles.length > 0 ? interviewFiles[0].file : null;
+      const activeSurveyItem = hasTwoSurveys
+        ? surveyFiles[selectedSurveyIndex]
+        : surveyFiles[0];
+      const activeInterviewItem = interviewFiles.length > 0 ? interviewFiles[0] : null;
 
-      const formData = new FormData();
-      formData.append('kegiatanId', kegiatanId);
-      formData.append('file', activeSurveyFile);
-      if (activeInterviewFile) {
-        formData.append('formFile', activeInterviewFile);
-      }
-      formData.append('mode', 'replace');
+      const buildFormData = () => {
+        const formData = new FormData();
+        formData.append('kegiatanId', kegiatanId);
+        formData.append('file', activeSurveyItem.blob, activeSurveyItem.file.name);
+        if (activeInterviewItem) {
+          formData.append(
+            'formFile',
+            activeInterviewItem.blob,
+            activeInterviewItem.file.name
+          );
+        }
+        formData.append('mode', 'replace');
+        return formData;
+      };
 
-      const res = await fetch('/api/peserta/import', {
-        method: 'POST',
-        body: formData,
-      });
+      const res = await fetchFormDataWithRetry('/api/peserta/import', buildFormData);
 
       const json = await res.json();
       if (json.success || json.ok) {
+        invalidateKegiatanCache(kegiatanId);
         setSuccessMessage(
           json.message ||
-            (activeInterviewFile
+            (activeInterviewItem
               ? 'File survei dan Form Penilaian Wawancara berhasil diimpor.'
               : 'File survei berhasil diimpor. Nilai Wawancara dan Nilai Akhir Berbobot berstatus Belum dinilai.')
         );
@@ -194,7 +240,8 @@ export default function ImportExcelModal({
       }
     } catch (err) {
       console.error('Import error:', err);
-      setErrorMessage('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
+      setIsNetworkBlockedError(true);
+      setErrorMessage(formatUploadNetworkError());
     } finally {
       setIsProcessing(false);
     }
@@ -390,9 +437,23 @@ export default function ImportExcelModal({
           )}
 
           {errorMessage && (
-            <div role="alert" className="flex items-start gap-2 rounded-lg border border-zinc-950 bg-zinc-950 p-3.5 text-xs text-white">
-              <ExclamationTriangleIcon className="mt-0.5 h-4 w-4 shrink-0 text-white" aria-hidden="true" />
-              <p>{errorMessage}</p>
+            <div role="alert" className="flex flex-col gap-2.5 rounded-lg border border-zinc-950 bg-zinc-950 p-3.5 text-xs text-white">
+              <div className="flex items-start gap-2">
+                <ExclamationTriangleIcon className="mt-0.5 h-4 w-4 shrink-0 text-white" aria-hidden="true" />
+                <p>{errorMessage}</p>
+              </div>
+              {isNetworkBlockedError && (
+                <div className="pl-6">
+                  <button
+                    type="button"
+                    onClick={() => window.location.reload()}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-[11px] font-medium text-white transition hover:bg-zinc-800"
+                  >
+                    <ReloadIcon className="h-3 w-3" aria-hidden="true" />
+                    Muat Ulang Halaman
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

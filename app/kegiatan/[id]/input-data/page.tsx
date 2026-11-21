@@ -13,19 +13,42 @@ import ImportExcelModal, {
 } from '@/components/ImportExcelModal';
 import { StatusBanner } from '@/components/ui/status-banner';
 import { TablePagination } from '@/components/ui/table-pagination';
+import {
+  fetchJsonWithCache,
+  getClientCache,
+  invalidateKegiatanCache,
+} from '@/lib/client-cache';
 
 export default function InputDataKegiatanPage({
   params,
 }: {
   params: { id: string };
 }) {
-  const [data, setData] = useState<any>(null);
-  const [peserta, setPeserta] = useState<any[]>([]);
-  const [totalPeserta, setTotalPeserta] = useState(0);
-  const [page, setPage] = useState(1);
   const pageSize = 10;
+  const headerUrl = `/api/kegiatan/${params.id}?includePeserta=0`;
+  const buildPesertaUrl = useCallback(
+    (targetPage: number) =>
+      `/api/peserta?kegiatanId=${encodeURIComponent(params.id)}&page=${targetPage}&limit=${pageSize}&includeCounts=0`,
+    [params.id]
+  );
 
-  const [loading, setLoading] = useState(true);
+  const initialHeaderCache = getClientCache<{ success: boolean; data: any }>(headerUrl);
+  const initialPesertaCache = getClientCache<{
+    success: boolean;
+    data: any[];
+    pagination?: { total?: number };
+  }>(buildPesertaUrl(1));
+
+  const [data, setData] = useState<any>(initialHeaderCache?.data?.data ?? null);
+  const [peserta, setPeserta] = useState<any[]>(initialPesertaCache?.data?.data ?? []);
+  const [totalPeserta, setTotalPeserta] = useState(
+    initialPesertaCache?.data?.pagination?.total ?? 0
+  );
+  const [page, setPage] = useState(1);
+
+  const [loading, setLoading] = useState(
+    !initialHeaderCache?.data?.data || !initialPesertaCache?.data?.data
+  );
   const [loadingPeserta, setLoadingPeserta] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [importSummary, setImportSummary] = useState<{
@@ -34,27 +57,32 @@ export default function InputDataKegiatanPage({
   } | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
-  const loadHeader = useCallback(async () => {
-    const res = await fetch(`/api/kegiatan/${params.id}?includePeserta=0`, {
-      cache: 'no-store',
-    });
-    const json = await res.json();
-    if (!res.ok || !json.success) {
-      throw new Error(
-        json.error || 'Gagal memuat data impor kegiatan. Coba muat ulang halaman.'
-      );
-    }
-    setData(json.data);
-  }, [params.id]);
+  const loadHeader = useCallback(
+    async (force = false) => {
+      const { data: json } = await fetchJsonWithCache<{
+        success: boolean;
+        data?: any;
+        error?: string;
+      }>(headerUrl, { force });
+      if (!json.success) {
+        throw new Error(
+          json.error || 'Gagal memuat data impor kegiatan. Coba muat ulang halaman.'
+        );
+      }
+      setData(json.data);
+    },
+    [headerUrl]
+  );
 
   const loadPesertaPage = useCallback(
-    async (targetPage: number) => {
-      const res = await fetch(
-        `/api/peserta?kegiatanId=${encodeURIComponent(params.id)}&page=${targetPage}&limit=${pageSize}`,
-        { cache: 'no-store' }
-      );
-      const json = await res.json();
-      if (!res.ok || !json.success) {
+    async (targetPage: number, force = false) => {
+      const { data: json } = await fetchJsonWithCache<{
+        success: boolean;
+        data?: any[];
+        pagination?: { total?: number };
+        error?: string;
+      }>(buildPesertaUrl(targetPage), { force });
+      if (!json.success) {
         throw new Error(
           json.error || 'Gagal memuat data peserta yang sudah diimpor. Coba muat ulang halaman.'
         );
@@ -62,27 +90,52 @@ export default function InputDataKegiatanPage({
       setPeserta(json.data || []);
       setTotalPeserta(json.pagination?.total ?? 0);
     },
-    [params.id]
+    [buildPesertaUrl]
   );
 
-  const loadAll = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      await Promise.all([loadHeader(), loadPesertaPage(page)]);
-    } catch (err: any) {
-      setError(
-        err?.message ||
-          'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.'
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [loadHeader, loadPesertaPage, page]);
+  const loadAll = useCallback(
+    async (options?: { force?: boolean; silent?: boolean; targetPage?: number }) => {
+      const targetPage = options?.targetPage ?? 1;
+      try {
+        if (!options?.silent) setLoading(true);
+        setError(null);
+        await Promise.all([
+          loadHeader(Boolean(options?.force)),
+          loadPesertaPage(targetPage, Boolean(options?.force)),
+        ]);
+      } catch (err: any) {
+        if (!options?.silent) {
+          setError(
+            err?.message ||
+              'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.'
+          );
+        }
+      } finally {
+        if (!options?.silent) setLoading(false);
+      }
+    },
+    [loadHeader, loadPesertaPage]
+  );
 
   useEffect(() => {
-    loadAll();
-  }, [loadAll]);
+    const cachedHeader = getClientCache<{ success: boolean; data: any }>(headerUrl);
+    const cachedPeserta = getClientCache<{
+      success: boolean;
+      data: any[];
+      pagination?: { total?: number };
+    }>(buildPesertaUrl(1));
+
+    if (cachedHeader?.data?.data && cachedPeserta?.data?.data) {
+      setData(cachedHeader.data.data);
+      setPeserta(cachedPeserta.data.data);
+      setTotalPeserta(cachedPeserta.data.pagination?.total ?? 0);
+      setLoading(false);
+      void loadAll({ force: true, silent: true, targetPage: 1 });
+      return;
+    }
+
+    void loadAll({ targetPage: 1 });
+  }, [headerUrl, buildPesertaUrl, loadAll]);
 
   const handlePageChange = async (nextPage: number) => {
     setPage(nextPage);
@@ -358,13 +411,14 @@ export default function InputDataKegiatanPage({
         onSuccess={(payload) => {
           setModalOpen(false);
           setPage(1);
+          invalidateKegiatanCache(params.id);
           if (payload?.message) {
             setImportSummary({
               message: payload.message,
               accounts: payload.evaluatorAccounts || [],
             });
           }
-          void Promise.all([loadHeader(), loadPesertaPage(1)]);
+          void Promise.all([loadHeader(true), loadPesertaPage(1, true)]);
         }}
       />
     </div>

@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { ReloadIcon } from '@radix-ui/react-icons';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StatusBanner } from '@/components/ui/status-banner';
+import { fetchJsonWithCache, getClientCache } from '@/lib/client-cache';
 import type {
   HasilSurveyKegiatanSummary,
   LikertSummarySide,
@@ -161,38 +162,54 @@ export default function HasilSurveiPage({
 }: {
   params: { id: string };
 }) {
-  const [summary, setSummary] = useState<HasilSurveyKegiatanSummary | null>(null);
-  const [loading, setLoading] = useState(true);
+  const apiUrl = `/api/kegiatan/${params.id}/hasil-survei`;
+  const cached = getClientCache<{
+    success: boolean;
+    data: HasilSurveyKegiatanSummary;
+  }>(apiUrl);
+
+  const [summary, setSummary] = useState<HasilSurveyKegiatanSummary | null>(
+    cached?.data?.data ?? null
+  );
+  const [loading, setLoading] = useState(!cached?.data?.data);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
-    async function load() {
+    async function load(silent = false) {
       try {
-        setLoading(true);
-        const res = await fetch(`/api/kegiatan/${params.id}/hasil-survei`, {
-          cache: 'no-store',
-        });
-        const json = await res.json();
+        if (!silent) setLoading(true);
+        const { data: json } = await fetchJsonWithCache<{
+          success: boolean;
+          data?: HasilSurveyKegiatanSummary;
+          error?: string;
+        }>(apiUrl, { force: silent });
         if (!active) return;
-        if (!res.ok || !json.success) {
-          setError(json.error || 'Gagal memuat hasil survei. Coba muat ulang halaman.');
+        if (!json.success || !json.data) {
+          if (!silent) {
+            setError(json.error || 'Gagal memuat hasil survei. Coba muat ulang halaman.');
+          }
           return;
         }
         setSummary(json.data);
-      } catch {
-        if (active) {
-          setError('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
+      } catch (err: any) {
+        if (active && !silent) {
+          setError(
+            err?.message ||
+              'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.'
+          );
         }
       } finally {
-        if (active) setLoading(false);
+        if (active && !silent) setLoading(false);
       }
     }
-    load();
+    const hasCached = Boolean(cached?.data?.data);
+    void load(hasCached);
     return () => {
       active = false;
     };
-  }, [params.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiUrl]);
 
   if (loading) {
     return (

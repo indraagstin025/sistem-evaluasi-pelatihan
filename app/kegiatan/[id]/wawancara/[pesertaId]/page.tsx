@@ -20,6 +20,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { StatusBanner } from '@/components/ui/status-banner';
+import {
+  fetchJsonWithCache,
+  getClientCache,
+  invalidateClientCache,
+  invalidateKegiatanCache,
+} from '@/lib/client-cache';
 
 interface DraftCriterion {
   nilai: string;
@@ -28,63 +34,92 @@ interface DraftCriterion {
   sumber: string;
 }
 
+function buildInitialDrafts(p: any): Record<string, DraftCriterion> {
+  const nextDrafts: Record<string, DraftCriterion> = {};
+  for (const meta of WAWANCARA_KRITERIA) {
+    const found = (p?.wawancara || []).find((w: any) => w.kriteria === meta.key);
+    nextDrafts[meta.key] = {
+      nilai: found && typeof found.nilai === 'number' ? String(found.nilai) : '',
+      deskripsi: found?.deskripsi || '',
+      lockedFromImport: Boolean(found?.lockedFromImport),
+      sumber: found?.sumber || 'KOSONG',
+    };
+  }
+  return nextDrafts;
+}
+
 export default function FormWawancaraPesertaPage({
   params,
 }: {
   params: { id: string; pesertaId: string };
 }) {
-  const [peserta, setPeserta] = useState<any>(null);
-  const [canEditWawancara, setCanEditWawancara] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const apiUrl = `/api/peserta/${params.pesertaId}`;
+  const cached = getClientCache<{
+    success: boolean;
+    data?: any;
+    canEditWawancara?: boolean;
+  }>(apiUrl);
+
+  const [peserta, setPeserta] = useState<any>(cached?.data?.data ?? null);
+  const [canEditWawancara, setCanEditWawancara] = useState(
+    Boolean(cached?.data?.canEditWawancara)
+  );
+  const [loading, setLoading] = useState(!cached?.data?.data);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [drafts, setDrafts] = useState<Record<string, DraftCriterion>>({});
+  const [drafts, setDrafts] = useState<Record<string, DraftCriterion>>(() =>
+    cached?.data?.data ? buildInitialDrafts(cached.data.data) : {}
+  );
   const [evidencePreview, setEvidencePreview] = useState<{
     title: string;
     fileId: string;
     fileName: string;
   } | null>(null);
 
-  const loadPeserta = async () => {
+  const loadPeserta = async (options?: { force?: boolean; silent?: boolean }) => {
     try {
-      setLoading(true);
+      if (!options?.silent) setLoading(true);
       setError(null);
-      const res = await fetch(`/api/peserta/${params.pesertaId}`, {
-        cache: 'no-store',
-      });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        setError(
-          json.error || 'Gagal memuat detail wawancara peserta. Coba muat ulang halaman.'
-        );
+      const { data: json } = await fetchJsonWithCache<{
+        success: boolean;
+        data?: any;
+        canEditWawancara?: boolean;
+        error?: string;
+      }>(apiUrl, { force: options?.force });
+      if (!json.success) {
+        if (!options?.silent) {
+          setError(
+            json.error || 'Gagal memuat detail wawancara peserta. Coba muat ulang halaman.'
+          );
+        }
         return;
       }
       const p = json.data;
       setPeserta(p);
       setCanEditWawancara(Boolean(json.canEditWawancara));
-
-      const nextDrafts: Record<string, DraftCriterion> = {};
-      for (const meta of WAWANCARA_KRITERIA) {
-        const found = (p.wawancara || []).find((w: any) => w.kriteria === meta.key);
-        nextDrafts[meta.key] = {
-          nilai:
-            found && typeof found.nilai === 'number' ? String(found.nilai) : '',
-          deskripsi: found?.deskripsi || '',
-          lockedFromImport: Boolean(found?.lockedFromImport),
-          sumber: found?.sumber || 'KOSONG',
-        };
+      if (!options?.silent) {
+        setDrafts(buildInitialDrafts(p));
       }
-      setDrafts(nextDrafts);
-    } catch {
-      setError('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
+    } catch (err: any) {
+      if (!options?.silent) {
+        setError(
+          err?.message ||
+            'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.'
+        );
+      }
     } finally {
-      setLoading(false);
+      if (!options?.silent) setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadPeserta();
+    const existing = getClientCache<{ success: boolean; data?: any }>(apiUrl);
+    if (existing?.data?.data) {
+      void loadPeserta({ force: true, silent: true });
+    } else {
+      void loadPeserta();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.pesertaId]);
 
@@ -160,13 +195,15 @@ export default function FormWawancaraPesertaPage({
         return;
       }
 
+      invalidateClientCache(apiUrl);
+      invalidateKegiatanCache(params.id);
       setSuccessMsg(
         json.message ||
           (markSelesai
             ? 'Hasil wawancara disimpan dan ditandai Selesai.'
             : 'Draf hasil wawancara berhasil disimpan.')
       );
-      await loadPeserta();
+      await loadPeserta({ force: true });
     } catch {
       setError('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
     } finally {

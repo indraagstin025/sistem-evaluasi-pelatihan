@@ -37,6 +37,11 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  fetchJsonWithCache,
+  getClientCache,
+  invalidateClientCache,
+} from '@/lib/client-cache';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, ChartJsTooltip, Legend);
 
@@ -119,9 +124,22 @@ export default function KegiatanEksposeClient({
 }: {
   kegiatanId: string;
 }) {
-  const [data, setData] = useState<any>(null);
-  const [pembahasanMap, setPembahasanMap] = useState<Record<string, any>>({});
-  const [loading, setLoading] = useState(true);
+  const q = `kegiatanId=${encodeURIComponent(kegiatanId)}`;
+  const eksposeUrl = `/api/ekspose?${q}`;
+  const pembahasanUrl = `/api/ai/pembahasan?${q}`;
+  const queueUrl = `/api/ai/queue?${q}`;
+
+  const cachedEkspose = getClientCache<any>(eksposeUrl);
+  const cachedPembahasan = getClientCache<any>(pembahasanUrl);
+  const cachedQueue = getClientCache<any>(queueUrl);
+
+  const [data, setData] = useState<any>(cachedEkspose?.data ?? null);
+  const [pembahasanMap, setPembahasanMap] = useState<Record<string, any>>(
+    cachedPembahasan?.data?.data ?? {}
+  );
+  const [loading, setLoading] = useState(
+    !cachedEkspose?.data || !cachedPembahasan?.data?.success
+  );
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [activeJobs, setActiveJobs] = useState<AiQueueJob[]>([]);
@@ -180,6 +198,7 @@ export default function KegiatanEksposeClient({
 
       setQueueError(null);
       if (json.savedPembahasan?.grafikKey) {
+        invalidateClientCache(pembahasanUrl);
         setPembahasanMap((prev) => ({
           ...prev,
           [json.savedPembahasan.grafikKey]: json.savedPembahasan,
@@ -187,6 +206,7 @@ export default function KegiatanEksposeClient({
       }
 
       if (Array.isArray(json.activeJobs)) {
+        invalidateClientCache(queueUrl);
         setActiveJobs(json.activeJobs);
       }
 
@@ -206,23 +226,23 @@ export default function KegiatanEksposeClient({
     }
   };
 
-  const fetchData = async () => {
+  const fetchData = async (options?: { force?: boolean; silent?: boolean }) => {
     try {
-      setLoading(true);
+      if (!options?.silent) setLoading(true);
       setFetchError(null);
-      const q = `kegiatanId=${encodeURIComponent(kegiatanId)}`;
-      const [resEkspose, resPembahasan, resQueue] = await Promise.all([
-        fetch(`/api/ekspose?${q}`, { cache: 'no-store' }),
-        fetch(`/api/ai/pembahasan?${q}`, { cache: 'no-store' }),
-        fetch(`/api/ai/queue?${q}`, { cache: 'no-store' }),
-      ]);
+      const [{ data: jsonEkspose }, { data: jsonPembahasan }, { data: jsonQueue }] =
+        await Promise.all([
+          fetchJsonWithCache<any>(eksposeUrl, { force: options?.force }),
+          fetchJsonWithCache<any>(pembahasanUrl, { force: options?.force }),
+          fetchJsonWithCache<any>(queueUrl, { force: true }),
+        ]);
 
-      const jsonEkspose = await resEkspose.json();
-      const jsonPembahasan = await resPembahasan.json();
-      const jsonQueue = await resQueue.json();
-
-      if (!resEkspose.ok || !jsonEkspose.success) {
-        setFetchError(jsonEkspose.error || 'Gagal memuat data slide ekspose. Coba muat ulang halaman.');
+      if (!jsonEkspose.success) {
+        if (!options?.silent) {
+          setFetchError(
+            jsonEkspose.error || 'Gagal memuat data slide ekspose. Coba muat ulang halaman.'
+          );
+        }
         return;
       }
 
@@ -237,17 +257,27 @@ export default function KegiatanEksposeClient({
           scheduleNextWorkerTick(jsonQueue.nextWaitMs ?? 300);
         }
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching ekspose data:', err);
-      setFetchError('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
+      if (!options?.silent) {
+        setFetchError(
+          err?.message ||
+            'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.'
+        );
+      }
     } finally {
-      setLoading(false);
+      if (!options?.silent) setLoading(false);
     }
   };
 
   useEffect(() => {
     mountedRef.current = true;
-    fetchData();
+    const hasCached = Boolean(cachedEkspose?.data?.success && cachedPembahasan?.data?.success);
+    if (hasCached) {
+      void fetchData({ force: true, silent: true });
+    } else {
+      void fetchData();
+    }
     return () => {
       mountedRef.current = false;
       if (timerRef.current) {
@@ -364,6 +394,7 @@ export default function KegiatanEksposeClient({
       });
       const json = await res.json();
       if (res.ok && json.success) {
+        invalidateClientCache(pembahasanUrl);
         setPembahasanMap((prev) => ({
           ...prev,
           [key]: json.data,
