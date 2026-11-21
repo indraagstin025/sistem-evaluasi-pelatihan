@@ -7,6 +7,7 @@ import {
   DotsVerticalIcon,
   ExclamationTriangleIcon,
   EyeOpenIcon,
+  InfoCircledIcon,
   Pencil1Icon,
   PlusIcon,
   TrashIcon,
@@ -246,6 +247,7 @@ export default function KegiatanListClient({
 
   const [deleteTarget, setDeleteTarget] = useState<KegiatanListItem | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
 
   useEffect(() => {
     setKegiatan(initialKegiatan);
@@ -433,19 +435,30 @@ export default function KegiatanListClient({
             : 'Pilih kegiatan di bawah ini untuk melihat peserta tim Anda, memeriksa laporan Proper (laporan Proyek Perubahan peserta), dan mengisi wawancara'
         }
       >
-        {isAdmin && (
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => {
-              setCreateError(null);
-              setCreateOpen(true);
-            }}
-            className="inline-flex min-h-[42px] items-center gap-1.5 rounded-lg bg-zinc-950 px-4 py-2 text-xs font-semibold text-white transition hover:bg-zinc-800"
+            onClick={() => setGuideOpen(true)}
+            className="inline-flex min-h-[42px] items-center gap-1.5 rounded-lg border border-zinc-400 bg-white px-3.5 py-2 text-xs font-medium text-zinc-900 transition hover:bg-zinc-50"
           >
-            <PlusIcon className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>Buat Kegiatan</span>
+            <InfoCircledIcon className="h-3.5 w-3.5 text-zinc-700" aria-hidden="true" />
+            <span>Panduan Alur</span>
           </button>
-        )}
+
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => {
+                setCreateError(null);
+                setCreateOpen(true);
+              }}
+              className="inline-flex min-h-[42px] items-center gap-1.5 rounded-lg bg-zinc-950 px-4 py-2 text-xs font-semibold text-white transition hover:bg-zinc-800"
+            >
+              <PlusIcon className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>Buat Kegiatan</span>
+            </button>
+          )}
+        </div>
       </Topbar>
 
       {actionError && (
@@ -872,6 +885,79 @@ export default function KegiatanListClient({
         loading={deleting}
         onConfirm={handleDelete}
       />
+
+      <Dialog open={guideOpen} onOpenChange={setGuideOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {isAdmin ? 'Panduan Alur Pengelolaan (Admin)' : 'Panduan Alur Penilaian (Evaluator)'}
+            </DialogTitle>
+            <DialogDescription>
+              Urutan singkat langkah penggunaan aplikasi dari persiapan hingga paparan hasil.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogBody className="space-y-3 text-xs">
+            {isAdmin ? (
+              <>
+                <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+                  <p className="font-semibold text-zinc-950">1. Buat Kegiatan &amp; Impor Excel</p>
+                  <p className="mt-1 text-zinc-600">
+                    Klik <strong>Buat Kegiatan</strong> lalu buka menu <strong>2. Input Data</strong> untuk mengunggah file Olah Data Survei dan Form Penilaian Wawancara.
+                  </p>
+                </div>
+                <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+                  <p className="font-semibold text-zinc-950">2. Bagi Tim &amp; Bagikan Tautan</p>
+                  <p className="mt-1 text-zinc-600">
+                    Buka <strong>3. Pembagian Tim</strong> untuk mengacak peserta &amp; akun Evaluator, lalu salin <strong>Tautan Unggah Peserta</strong> (<code>/unggah-inovasi</code>) agar peserta mengunggah dokumen Proper.
+                  </p>
+                </div>
+                <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+                  <p className="font-semibold text-zinc-950">3. Pantau Progres Wawancara</p>
+                  <p className="mt-1 text-zinc-600">
+                    Gunakan <strong>4. Pantau Wawancara</strong> untuk mengecek peserta mana yang sudah unggah Proper dan sudah dinilai oleh tim Evaluator.
+                  </p>
+                </div>
+                <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+                  <p className="font-semibold text-zinc-950">4. Analisis &amp; Unduh Slide Ekspose</p>
+                  <p className="mt-1 text-zinc-600">
+                    Lihat <strong>1. Ringkasan</strong>, <strong>6. Hasil Survei</strong>, <strong>7. Perbandingan</strong>, dan unduh paparan PowerPoint resmi di <strong>8. Slide Ekspose</strong>.
+                  </p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+                  <p className="font-semibold text-zinc-950">1. Buka Kegiatan Anda</p>
+                  <p className="mt-1 text-zinc-600">
+                    Klik <strong>Buka Daftar Wawancara</strong> pada kartu kegiatan yang ditugaskan kepada Anda.
+                  </p>
+                </div>
+                <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+                  <p className="font-semibold text-zinc-950">2. Periksa Dokumen Proper &amp; Nilai Wawancara</p>
+                  <p className="mt-1 text-zinc-600">
+                    Klik <strong>Nilai / Lihat</strong> pada setiap peserta untuk memeriksa dokumen Proper yang diunggah peserta dan mengisi nilai 5 kriteria wawancara.
+                  </p>
+                </div>
+                <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+                  <p className="font-semibold text-zinc-950">3. Tandai Selesai</p>
+                  <p className="mt-1 text-zinc-600">
+                    Setelah seluruh nilai terisi, klik <strong>Simpan &amp; Tandai Selesai</strong> agar progres tim tercatat lengkap.
+                  </p>
+                </div>
+              </>
+            )}
+          </DialogBody>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setGuideOpen(false)}
+              className="min-h-[40px] rounded-lg bg-zinc-950 px-5 py-2 text-xs font-semibold text-white hover:bg-zinc-800"
+            >
+              Mengerti
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

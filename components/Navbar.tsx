@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { invalidateClientCache } from '@/lib/client-cache';
@@ -13,8 +13,6 @@ import {
   ClipboardIcon,
   Cross2Icon,
   DashboardIcon,
-  DrawingPinFilledIcon,
-  DrawingPinIcon,
   ExitIcon,
   ExternalLinkIcon,
   EyeOpenIcon,
@@ -27,6 +25,9 @@ import {
 } from '@radix-ui/react-icons';
 import { cn } from '@/lib/cn';
 import type { SessionUser } from '@/lib/auth';
+import { getKegiatanWorkflowSteps } from '@/lib/kegiatan-workflow';
+import { ConfirmDialog } from '@/components/ui/alert-dialog';
+import { ThemeSwitchControl } from '@/components/providers/WibThemeProvider';
 
 interface NavbarProps {
   user: SessionUser | null;
@@ -40,24 +41,27 @@ interface SubNavItem {
   exact?: boolean;
 }
 
+const STEP_ICON_MAP: Record<string, typeof DashboardIcon> = {
+  '': DashboardIcon,
+  '/input-data': UploadIcon,
+  '/pembagian-tim': LayersIcon,
+  '/pantau-wawancara': EyeOpenIcon,
+  '/wawancara': ClipboardIcon,
+  '/hasil-survei': BarChartIcon,
+  '/perbandingan': MixIcon,
+  '/ekspose': FileTextIcon,
+};
+
 function getKegiatanSubItems(
   kegiatanId: string,
   role: SessionUser['role']
 ): SubNavItem[] {
-  const base = `/kegiatan/${kegiatanId}`;
-  if (role === 'SUPER_ADMIN') {
-    return [
-      { label: 'Ringkasan & Jawaban', href: base, exact: true, icon: DashboardIcon },
-      { label: 'Hasil Survei', href: `${base}/hasil-survei`, icon: BarChartIcon },
-      { label: 'Input Data', href: `${base}/input-data`, icon: UploadIcon },
-      { label: 'Pembagian Tim', href: `${base}/pembagian-tim`, icon: LayersIcon },
-      { label: 'Peserta & Wawancara', href: `${base}/wawancara`, icon: ClipboardIcon },
-      { label: 'Pantau Wawancara', href: `${base}/pantau-wawancara`, icon: EyeOpenIcon },
-      { label: 'Perbandingan', href: `${base}/perbandingan`, icon: MixIcon },
-      { label: 'Ekspose', href: `${base}/ekspose`, icon: FileTextIcon },
-    ];
-  }
-  return [{ label: 'Peserta & Wawancara', href: `${base}/wawancara`, icon: ClipboardIcon }];
+  return getKegiatanWorkflowSteps(kegiatanId, role).map((step) => ({
+    label: step.shortLabel,
+    href: step.href,
+    exact: step.exact,
+    icon: STEP_ICON_MAP[step.path] ?? ClipboardIcon,
+  }));
 }
 
 function BrandLogoSvg() {
@@ -172,13 +176,8 @@ export default function Navbar({ user, children }: NavbarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [hovered, setHovered] = useState(false);
-  const [focusExpanded, setFocusExpanded] = useState(false);
-  const [pinned, setPinned] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
-  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const isExpanded = hovered || focusExpanded || pinned;
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
   const kegiatanDetailMatch = pathname.match(/^\/kegiatan\/([^/]+)/);
   const activeKegiatanId = kegiatanDetailMatch?.[1] ?? null;
@@ -189,28 +188,6 @@ export default function Navbar({ user, children }: NavbarProps) {
       setKegiatanSubOpen(true);
     }
   }, [activeKegiatanId]);
-
-  useEffect(() => {
-    return () => {
-      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
-    };
-  }, []);
-
-  const handleSidebarMouseEnter = () => {
-    if (closeTimerRef.current) {
-      clearTimeout(closeTimerRef.current);
-      closeTimerRef.current = null;
-    }
-    setHovered(true);
-  };
-
-  const handleSidebarMouseLeave = () => {
-    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
-    closeTimerRef.current = setTimeout(() => {
-      setHovered(false);
-      setFocusExpanded(false);
-    }, 80);
-  };
 
   const isPublicUpload =
     pathname.startsWith('/unggah-inovasi') || pathname.startsWith('/pasca-pelatihan');
@@ -233,17 +210,20 @@ export default function Navbar({ user, children }: NavbarProps) {
     return (
       <div className="min-h-screen">
         <header className="no-print sticky top-0 z-30 border-b border-zinc-200 bg-white/95 backdrop-blur">
-          <div className="mx-auto flex h-16 max-w-[1320px] items-center justify-between px-4 sm:px-6 lg:px-8">
+          <div className="mx-auto flex h-16 max-w-[1320px] items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
             <BrandMark />
-            {!user && (
-              <Link
-                href="/unggah-inovasi"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-500 bg-white px-3 py-1.5 text-xs font-medium text-zinc-950 transition hover:bg-zinc-100"
-              >
-                Tautan Publik
-                <ExternalLinkIcon className="h-3.5 w-3.5 text-zinc-700" aria-hidden="true" />
-              </Link>
-            )}
+            <div className="flex items-center gap-2">
+              <ThemeSwitchControl compact />
+              {!user && (
+                <Link
+                  href="/unggah-inovasi"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-500 bg-white px-3 py-1.5 text-xs font-medium text-zinc-950 transition hover:bg-zinc-100"
+                >
+                  Tautan Publik
+                  <ExternalLinkIcon className="h-3.5 w-3.5 text-zinc-700" aria-hidden="true" />
+                </Link>
+              )}
+            </div>
           </div>
         </header>
         <main
@@ -260,8 +240,9 @@ export default function Navbar({ user, children }: NavbarProps) {
     return (
       <div className="min-h-screen">
         <header className="no-print sticky top-0 z-30 border-b border-zinc-200 bg-white/95 backdrop-blur">
-          <div className="mx-auto flex h-16 max-w-[1320px] items-center justify-between px-4 sm:px-6 lg:px-8">
+          <div className="mx-auto flex h-16 max-w-[1320px] items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
             <BrandMark nonInteractive={isPublicUpload} />
+            <ThemeSwitchControl compact />
           </div>
         </header>
         <main
@@ -306,122 +287,25 @@ export default function Navbar({ user, children }: NavbarProps) {
   };
 
   return (
-    <div
-      className={cn(
-        'min-h-screen transition-[padding-left] duration-200 print:pl-0',
-        pinned ? 'lg:pl-60 xl:pl-64' : 'lg:pl-[4.5rem]'
-      )}
-    >
-      {/* Sidebar Utama Desktop (Mode Hover Overlay + Opsi Sematkan) */}
+    <div className="min-h-screen lg:pl-60 xl:pl-64 print:pl-0">
+      {/* Sidebar Utama Desktop (Selalu Terbuka Permanen) */}
       <aside
         aria-label="Sidebar navigasi utama"
-        onMouseEnter={handleSidebarMouseEnter}
-        onMouseLeave={handleSidebarMouseLeave}
-        onFocus={(e) => {
-          if (e.target instanceof HTMLElement && e.target.matches(':focus-visible')) {
-            setFocusExpanded(true);
-          }
-        }}
-        onBlur={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
-            setFocusExpanded(false);
-          }
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'Escape' && !pinned) {
-            setHovered(false);
-            setFocusExpanded(false);
-            if (document.activeElement instanceof HTMLElement) {
-              document.activeElement.blur();
-            }
-          }
-        }}
-        className={cn(
-          'no-print fixed inset-y-0 left-0 z-40 hidden border-r border-zinc-200 bg-white transition-[width,box-shadow] duration-150 lg:flex lg:flex-col',
-          isExpanded ? 'w-60 xl:w-64 shadow-xl' : 'w-[4.5rem] shadow-none'
-        )}
+        className="no-print fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-zinc-200 bg-white lg:flex xl:w-64"
       >
-        <div
-          className={cn(
-            'flex h-16 shrink-0 items-center border-b border-zinc-200',
-            isExpanded ? 'justify-between gap-2 px-4' : 'justify-center px-2'
-          )}
-        >
-          {isExpanded ? (
-            <>
-              <BrandMark />
-              <button
-                type="button"
-                onClick={() => setPinned((prev) => !prev)}
-                aria-label={pinned ? 'Lepas sematan sidebar' : 'Sematkan sidebar'}
-                title={
-                  pinned
-                    ? 'Lepas sematan (buka otomatis saat disentuh kursor)'
-                    : 'Sematkan agar tetap terbuka'
-                }
-                aria-pressed={pinned}
-                className={cn(
-                  'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition',
-                  pinned
-                    ? 'border-zinc-950 bg-zinc-950 text-white'
-                    : 'border-zinc-500 bg-white text-zinc-700 hover:bg-zinc-100 hover:text-zinc-950'
-                )}
-              >
-                {pinned ? (
-                  <DrawingPinFilledIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                ) : (
-                  <DrawingPinIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                )}
-              </button>
-            </>
-          ) : (
-            <Link
-              href="/"
-              aria-label="Beranda BPSDM Jabar"
-              className="flex items-center justify-center rounded-lg p-1"
-            >
-              <BrandLogoSvg />
-            </Link>
-          )}
+        <div className="flex h-16 shrink-0 items-center border-b border-zinc-200 px-4">
+          <BrandMark />
         </div>
 
         <nav aria-label="Menu utama" className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-          {isExpanded && (
-            <p className="px-2.5 pb-1.5 text-[11px] font-semibold text-zinc-500">
-              Menu Utama
-            </p>
-          )}
+          <p className="px-2.5 pb-1.5 text-[11px] font-semibold text-zinc-500">
+            Menu Utama
+          </p>
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = isNavActive(item.href, item.externalTab);
             const hasKegiatanDropdown =
               item.href === '/kegiatan' && activeKegiatanId !== null && kegiatanSubItems.length > 0;
-
-            if (!isExpanded) {
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  target={item.externalTab ? '_blank' : undefined}
-                  rel={item.externalTab ? 'noopener noreferrer' : undefined}
-                  aria-label={item.name}
-                  className={cn(
-                    'flex min-h-[42px] items-center justify-center rounded-xl transition-colors',
-                    active
-                      ? 'bg-zinc-950 font-semibold text-white'
-                      : 'font-medium text-zinc-700 hover:bg-zinc-100 hover:text-zinc-950'
-                  )}
-                >
-                  <Icon
-                    className={cn(
-                      'h-4 w-4 shrink-0',
-                      active ? 'text-white' : 'text-zinc-600'
-                    )}
-                    aria-hidden="true"
-                  />
-                </Link>
-              );
-            }
 
             if (hasKegiatanDropdown) {
               return (
@@ -492,39 +376,28 @@ export default function Navbar({ user, children }: NavbarProps) {
         </nav>
 
         <div className="shrink-0 border-t border-zinc-200 p-3">
-          {!isExpanded ? (
+          <div className="space-y-2.5">
+            <ThemeSwitchControl />
+            <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2">
+              <p className="truncate text-xs font-semibold text-zinc-950">
+                {user.nama}
+              </p>
+              <p className="truncate text-[11px] font-normal text-zinc-600">
+                {user.role === 'SUPER_ADMIN'
+                  ? 'Super Admin'
+                  : `Evaluator · ${user.nip || '-'}`}
+              </p>
+            </div>
             <button
               type="button"
-              onClick={handleLogout}
+              onClick={() => setLogoutConfirmOpen(true)}
               disabled={loggingOut}
-              aria-label="Keluar"
-              className="flex min-h-[40px] w-full items-center justify-center rounded-xl border border-zinc-500 bg-white text-zinc-950 transition hover:bg-zinc-100 disabled:opacity-50"
+              className="flex min-h-[38px] w-full items-center justify-center gap-1.5 rounded-xl border border-zinc-500 bg-white px-3 py-1.5 text-xs font-medium text-zinc-950 transition hover:bg-zinc-100 disabled:opacity-50"
             >
-              <ExitIcon className="h-4 w-4" aria-hidden="true" />
+              <ExitIcon className="h-3.5 w-3.5 text-zinc-700" aria-hidden="true" />
+              <span>{loggingOut ? 'Keluar...' : 'Keluar'}</span>
             </button>
-          ) : (
-            <div className="space-y-2.5">
-              <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2">
-                <p className="truncate text-xs font-semibold text-zinc-950">
-                  {user.nama}
-                </p>
-                <p className="truncate text-[11px] font-normal text-zinc-600">
-                  {user.role === 'SUPER_ADMIN'
-                    ? 'Super Admin'
-                    : `Evaluator · ${user.nip || '-'}`}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={handleLogout}
-                disabled={loggingOut}
-                className="flex min-h-[38px] w-full items-center justify-center gap-1.5 rounded-xl border border-zinc-500 bg-white px-3 py-1.5 text-xs font-medium text-zinc-950 transition hover:bg-zinc-100 disabled:opacity-50"
-              >
-                <ExitIcon className="h-3.5 w-3.5 text-zinc-700" aria-hidden="true" />
-                <span>{loggingOut ? 'Keluar...' : 'Keluar'}</span>
-              </button>
-            </div>
-          )}
+          </div>
         </div>
       </aside>
 
@@ -655,10 +528,11 @@ export default function Navbar({ user, children }: NavbarProps) {
                   })}
                 </nav>
 
-                <div className="border-t border-zinc-200 p-4">
+                <div className="space-y-2.5 border-t border-zinc-200 p-4">
+                  <ThemeSwitchControl />
                   <button
                     type="button"
-                    onClick={handleLogout}
+                    onClick={() => setLogoutConfirmOpen(true)}
                     disabled={loggingOut}
                     className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-zinc-500 bg-white px-4 py-2 text-sm font-medium text-zinc-950 transition hover:bg-zinc-100"
                   >
@@ -680,6 +554,21 @@ export default function Navbar({ user, children }: NavbarProps) {
           </div>
         </main>
       </div>
+
+      <ConfirmDialog
+        open={logoutConfirmOpen}
+        onOpenChange={(open) => {
+          if (!loggingOut) setLogoutConfirmOpen(open);
+        }}
+        title="Keluar dari Aplikasi?"
+        description="Sesi masuk Anda akan diakhiri dan Anda harus login kembali untuk mengakses data evaluasi."
+        confirmLabel="Ya, Keluar"
+        tone="primary"
+        loading={loggingOut}
+        onConfirm={() => {
+          void handleLogout();
+        }}
+      />
     </div>
   );
 }

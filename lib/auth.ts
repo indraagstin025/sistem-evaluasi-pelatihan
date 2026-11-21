@@ -101,20 +101,20 @@ export async function requireSession(
 
 /**
  * Memastikan Evaluator hanya dapat mengakses kegiatan tempat dia ditugaskan.
+ * Dibungkus React.cache agar validasi di layout dan page dalam 1 request hanya query 1x.
  */
-export async function canAccessKegiatan(
-  user: SessionUser,
-  kegiatanId: string
-): Promise<boolean> {
-  if (user.role === 'SUPER_ADMIN') return true;
-  const timCount = await prisma.timEvaluator.count({
-    where: {
-      kegiatanId,
-      evaluatorId: user.id,
-    },
-  });
-  return timCount > 0;
-}
+export const canAccessKegiatan = cache(
+  async (user: SessionUser, kegiatanId: string): Promise<boolean> => {
+    if (user.role === 'SUPER_ADMIN') return true;
+    const timCount = await prisma.timEvaluator.count({
+      where: {
+        kegiatanId,
+        evaluatorId: user.id,
+      },
+    });
+    return timCount > 0;
+  }
+);
 
 /**
  * Memastikan Evaluator hanya dapat mengakses peserta yang berada di tim pengampuannya.

@@ -10,9 +10,38 @@
   --scrollbar-track: transparent;
 }
 
+html.dark {
+  color-scheme: dark;
+  --canvas-bg: #09090B;
+  --foreground: #FAFAFA;
+  --scrollbar-thumb: #A1A1AA;
+  --scrollbar-thumb-hover: #D4D4D8;
+  --scrollbar-track: transparent;
+}
+
 @layer base {
   html {
     font-size: 90%;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+
+    html.app-smooth-scroll {
+      scroll-behavior: auto !important;
+    }
+
+    html.app-smooth-scroll iframe {
+      pointer-events: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto !important;
+    }
   }
 
   body {
@@ -123,6 +152,111 @@
     scroll-behavior: auto !important;
   }
 }
+
+  html.dark :focus-visible {
+    outline: 2px solid #FAFAFA;
+    outline-offset: 2px;
+  }
+
+  /* Pemetaan palet monokrom dark mode (mengecualikan kertas slide Ekspose PPTX & print) */
+  html.dark .bg-canvas {
+    background-color: #09090B;
+  }
+
+  html.dark .bg-white:not(.ekspose-paper):not(.ekspose-paper *) {
+    background-color: #18181B;
+  }
+
+  html.dark .bg-white\/95:not(.ekspose-paper):not(.ekspose-paper *) {
+    background-color: rgba(24, 24, 27, 0.95);
+  }
+
+  html.dark .bg-zinc-50:not(.ekspose-paper):not(.ekspose-paper *),
+  html.dark .bg-zinc-50\/80:not(.ekspose-paper):not(.ekspose-paper *),
+  html.dark .bg-zinc-50\/70:not(.ekspose-paper):not(.ekspose-paper *) {
+    background-color: #1F1F23;
+  }
+
+  html.dark .bg-zinc-100:not(.ekspose-paper):not(.ekspose-paper *),
+  html.dark .bg-zinc-100\/70:not(.ekspose-paper):not(.ekspose-paper *) {
+    background-color: #27272A;
+  }
+
+  html.dark .bg-zinc-200:not(.ekspose-paper):not(.ekspose-paper *),
+  html.dark .bg-zinc-200\/80:not(.ekspose-paper):not(.ekspose-paper *) {
+    background-color: #27272A;
+  }
+
+  html.dark .bg-zinc-950:not(.ekspose-paper):not(.ekspose-paper *) {
+    background-color: #FAFAFA;
+    color: #09090B;
+  }
+
+  html.dark .bg-zinc-950:not(.ekspose-paper):not(.ekspose-paper *) .text-white,
+  html.dark .bg-zinc-950:not(.ekspose-paper):not(.ekspose-paper *).text-white {
+    color: #09090B;
+  }
+
+  html.dark .bg-zinc-950:not(.ekspose-paper):not(.ekspose-paper *) .text-zinc-400,
+  html.dark .bg-zinc-950:not(.ekspose-paper):not(.ekspose-paper *) .text-zinc-300 {
+    color: #52525B;
+  }
+
+  html.dark .hover\:bg-zinc-800:hover:not(.ekspose-paper):not(.ekspose-paper *) {
+    background-color: #E4E4E7;
+  }
+
+  html.dark .hover\:bg-zinc-100:hover:not(.ekspose-paper):not(.ekspose-paper *),
+  html.dark .hover\:bg-zinc-50:hover:not(.ekspose-paper):not(.ekspose-paper *) {
+    background-color: #27272A;
+  }
+
+  html.dark .text-zinc-950:not(.ekspose-paper):not(.ekspose-paper *),
+  html.dark .text-zinc-900:not(.ekspose-paper):not(.ekspose-paper *) {
+    color: #FAFAFA;
+  }
+
+  html.dark .text-zinc-800:not(.ekspose-paper):not(.ekspose-paper *),
+  html.dark .text-zinc-700:not(.ekspose-paper):not(.ekspose-paper *) {
+    color: #E4E4E7;
+  }
+
+  html.dark .text-zinc-600:not(.ekspose-paper):not(.ekspose-paper *),
+  html.dark .text-zinc-500:not(.ekspose-paper):not(.ekspose-paper *) {
+    color: #A1A1AA;
+  }
+
+  html.dark .border-zinc-200:not(.ekspose-paper):not(.ekspose-paper *),
+  html.dark .border-zinc-100:not(.ekspose-paper):not(.ekspose-paper *),
+  html.dark .border-zinc-300:not(.ekspose-paper):not(.ekspose-paper *) {
+    border-color: #27272A;
+  }
+
+  html.dark .border-zinc-400:not(.ekspose-paper):not(.ekspose-paper *),
+  html.dark .border-zinc-500:not(.ekspose-paper):not(.ekspose-paper *) {
+    border-color: #52525B;
+  }
+
+  html.dark .border-zinc-900:not(.ekspose-paper):not(.ekspose-paper *),
+  html.dark .border-zinc-950:not(.ekspose-paper):not(.ekspose-paper *) {
+    border-color: #D4D4D8;
+  }
+
+  html.dark .divide-zinc-200:not(.ekspose-paper):not(.ekspose-paper *) > :not([hidden]) ~ :not([hidden]) {
+    border-color: #27272A;
+  }
+
+  html.dark input:not(.ekspose-paper input),
+  html.dark textarea:not(.ekspose-paper textarea),
+  html.dark select:not(.ekspose-paper select) {
+    background-color: #18181B;
+    color: #FAFAFA;
+  }
+
+  html.dark input::placeholder,
+  html.dark textarea::placeholder {
+    color: #71717A;
+  }
 
 /* Print presentation styles */
 @media print {

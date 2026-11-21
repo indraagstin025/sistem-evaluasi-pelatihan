@@ -19,6 +19,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { StatusBanner } from '@/components/ui/status-banner';
+import { Skeleton } from '@/components/ui/skeleton';
+import { ConfirmDialog } from '@/components/ui/alert-dialog';
 import {
   fetchFormDataWithRetry,
   formatUploadNetworkError,
@@ -109,6 +111,7 @@ export default function UnggahInovasiWizard() {
 
   const [uploadingField, setUploadingField] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
@@ -228,8 +231,13 @@ export default function UnggahInovasiWizard() {
     }
   };
 
-  const handleSubmitFinal = async (e: React.FormEvent) => {
+  const handleSubmitFinal = (e: React.FormEvent) => {
     e.preventDefault();
+    setConfirmSubmitOpen(true);
+  };
+
+  const executeSubmitFinal = async () => {
+    setConfirmSubmitOpen(false);
     setErrorMsg(null);
     setSuccessMsg(null);
     setSubmitting(true);
@@ -360,9 +368,9 @@ export default function UnggahInovasiWizard() {
           </p>
 
           {loadingKegiatan ? (
-            <div className="mt-4 flex items-center gap-2 text-xs text-zinc-600">
-              <ReloadIcon className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-              <span>Memuat daftar kegiatan...</span>
+            <div className="mt-4 space-y-2" aria-busy="true" aria-label="Memuat daftar kegiatan">
+              <Skeleton className="h-11 w-full" />
+              <Skeleton className="h-9 w-36" />
             </div>
           ) : kegiatanList.length === 0 ? (
             <div className="mt-4 rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-xs text-zinc-600">
@@ -778,6 +786,21 @@ export default function UnggahInovasiWizard() {
           </div>
         </form>
       )}
+
+      <ConfirmDialog
+        open={confirmSubmitOpen}
+        onOpenChange={(open) => {
+          if (!submitting) setConfirmSubmitOpen(open);
+        }}
+        title="Kirim Laporan Inovasi Proper?"
+        description="Pastikan judul Proper, status jangka menengah & panjang, kondisi saat ini, serta dokumen/foto pendukung sudah benar sebelum dikirim ke tim Evaluator."
+        confirmLabel="Ya, Kirim Sekarang"
+        tone="primary"
+        loading={submitting}
+        onConfirm={() => {
+          void executeSubmitFinal();
+        }}
+      />
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { ExternalLinkIcon, ReloadIcon } from '@radix-ui/react-icons';
 import { StatusBanner } from '@/components/ui/status-banner';
+import { TableSectionSkeleton } from '@/components/ui/page-skeletons';
 import PesertaWawancaraTable, {
   type PesertaCounts,
   type PesertaPagination,
@@ -110,14 +111,7 @@ export default function DaftarWawancaraTimPage({
   }, [kegUrl, pesUrl]);
 
   if (loading) {
-    return (
-      <div className="flex min-h-[260px] flex-col items-center justify-center rounded-2xl border border-zinc-200 bg-white p-8">
-        <ReloadIcon className="h-5 w-5 animate-spin text-zinc-700" aria-hidden="true" />
-        <p className="mt-2.5 text-sm font-medium text-zinc-700">
-          Memuat daftar peserta wawancara...
-        </p>
-      </div>
-    );
+    return <TableSectionSkeleton rows={6} />;
   }
 
   if (error) {
@@ -136,6 +130,15 @@ export default function DaftarWawancaraTimPage({
 
   return (
     <div className="space-y-6">
+      {!isAdmin && (
+        <div className="rounded-2xl border border-zinc-200 bg-zinc-50 px-5 py-3.5 text-xs text-zinc-700">
+          <span className="font-semibold text-zinc-950">Alur Penilaian Evaluator:</span>{' '}
+          <span>
+            1) Pastikan peserta sudah unggah dokumen Proper &rarr; 2) Klik <strong>Nilai / Lihat</strong> pada baris peserta &rarr; 3) Isi nilai 5 kriteria lalu klik <strong>Simpan &amp; Tandai Selesai</strong>.
+          </span>
+        </div>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-2xl border border-zinc-200 bg-white p-5">
           <p className="text-xs font-medium text-zinc-600">

@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/tooltip';
 import { StatusBanner } from '@/components/ui/status-banner';
 import { TablePagination } from '@/components/ui/table-pagination';
+import { TableSectionSkeleton } from '@/components/ui/page-skeletons';
 import { fetchJsonWithCache, getClientCache } from '@/lib/client-cache';
 
 export default function KegiatanPerbandinganClient({
@@ -202,12 +203,7 @@ export default function KegiatanPerbandinganClient({
   };
 
   if (loading) {
-    return (
-      <div className="py-24 text-center" aria-busy="true">
-        <ReloadIcon className="mx-auto mb-3 h-6 w-6 animate-spin text-zinc-950" aria-hidden="true" />
-        <p className="text-xs font-medium text-zinc-600">Memuat perbandingan nilai...</p>
-      </div>
-    );
+    return <TableSectionSkeleton rows={6} />;
   }
 
   if (fetchError) {

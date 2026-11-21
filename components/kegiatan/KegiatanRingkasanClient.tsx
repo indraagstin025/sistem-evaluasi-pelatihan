@@ -10,8 +10,10 @@ import {
 import StatCards from '@/components/dashboard/StatCards';
 import WarningBanner from '@/components/dashboard/WarningBanner';
 import ChartEksposeOverview from '@/components/dashboard/ChartEksposeOverview';
+import KegiatanWorkflowChecklist from '@/components/kegiatan/KegiatanWorkflowChecklist';
 import { StatusBanner } from '@/components/ui/status-banner';
 import { TablePagination } from '@/components/ui/table-pagination';
+import { KegiatanRingkasanSkeleton } from '@/components/ui/page-skeletons';
 import {
   fetchJsonWithCache,
   getClientCache,
@@ -187,14 +189,7 @@ export default function KegiatanRingkasanClient({
   }, [peserta, deferredSearch, filterStatus]);
 
   if (loading) {
-    return (
-      <div className="flex min-h-[260px] flex-col items-center justify-center rounded-2xl border border-zinc-200 bg-white p-8">
-        <ReloadIcon className="h-5 w-5 animate-spin text-zinc-700" aria-hidden="true" />
-        <p className="mt-2.5 text-sm font-medium text-zinc-700">
-          Memuat ringkasan kegiatan...
-        </p>
-      </div>
-    );
+    return <KegiatanRingkasanSkeleton />;
   }
 
   if (error) {
@@ -203,6 +198,18 @@ export default function KegiatanRingkasanClient({
 
   return (
     <div className="space-y-6">
+      {data?.viewerRole === 'SUPER_ADMIN' && (
+        <KegiatanWorkflowChecklist
+          kegiatanId={kegiatanId}
+          totalPeserta={peserta.length}
+          teams={data?.tim || []}
+          totalWawancaraSelesai={
+            peserta.filter((p) => Boolean(p.wawancaraSelesaiAt && p.inovasiProper)).length
+          }
+          totalProper={peserta.filter((p) => Boolean(p.inovasiProper)).length}
+        />
+      )}
+
       <StatCards ringkasan={computed.ringkasan} />
 
       <WarningBanner

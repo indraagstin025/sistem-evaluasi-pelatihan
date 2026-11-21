@@ -1,7 +1,11 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import {
+  ArrowRightIcon,
+  CheckIcon,
+  CopyIcon,
   ExclamationTriangleIcon,
   LockClosedIcon,
   ReloadIcon,
@@ -13,6 +17,7 @@ import ImportExcelModal, {
 } from '@/components/ImportExcelModal';
 import { StatusBanner } from '@/components/ui/status-banner';
 import { TablePagination } from '@/components/ui/table-pagination';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   fetchJsonWithCache,
   getClientCache,
@@ -55,7 +60,25 @@ export default function InputDataKegiatanPage({
     message: string;
     accounts: ImportedEvaluatorAccount[];
   } | null>(null);
+  const [copiedCreds, setCopiedCreds] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+
+  const handleCopyAllCredentials = async () => {
+    if (!importSummary?.accounts?.length) return;
+    const lines = importSummary.accounts.map(
+      (acc) =>
+        `${acc.namaTim} | ${acc.nama} | Username: ${acc.username} | Sandi Awal: ${
+          acc.sandiAwal || '(sudah ada)'
+        }`
+    );
+    try {
+      await navigator.clipboard.writeText(lines.join('\n'));
+      setCopiedCreds(true);
+      setTimeout(() => setCopiedCreds(false), 1800);
+    } catch {
+      // Abaikan bila clipboard dibatasi
+    }
+  };
 
   const loadHeader = useCallback(
     async (force = false) => {
@@ -191,20 +214,43 @@ export default function InputDataKegiatanPage({
 
       {importSummary && (
         <section className="rounded-2xl border border-zinc-900 bg-white p-5 space-y-3">
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h3 className="text-sm font-semibold text-zinc-950">
                 Hasil Impor &amp; Akun Evaluator Otomatis
               </h3>
               <p className="mt-0.5 text-xs text-zinc-700">{importSummary.message}</p>
             </div>
-            <button
-              type="button"
-              onClick={() => setImportSummary(null)}
-              className="rounded-lg border border-zinc-500 bg-white px-2.5 py-1 text-[11px] font-medium text-zinc-900 hover:bg-zinc-100"
-            >
-              Tutup
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              {importSummary.accounts.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleCopyAllCredentials}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-400 bg-white px-2.5 py-1 text-[11px] font-medium text-zinc-900 hover:bg-zinc-100"
+                >
+                  {copiedCreds ? (
+                    <CheckIcon className="h-3 w-3 text-zinc-950" aria-hidden="true" />
+                  ) : (
+                    <CopyIcon className="h-3 w-3 text-zinc-700" aria-hidden="true" />
+                  )}
+                  <span>{copiedCreds ? 'Kredensial Disalin' : 'Salin Semua Kredensial'}</span>
+                </button>
+              )}
+              <Link
+                href={`/kegiatan/${params.id}/pembagian-tim`}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-950 px-3 py-1 text-[11px] font-semibold text-white hover:bg-zinc-800"
+              >
+                <span>Lanjut ke 3. Pembagian Tim</span>
+                <ArrowRightIcon className="h-3 w-3" aria-hidden="true" />
+              </Link>
+              <button
+                type="button"
+                onClick={() => setImportSummary(null)}
+                className="rounded-lg border border-zinc-500 bg-white px-2.5 py-1 text-[11px] font-medium text-zinc-900 hover:bg-zinc-100"
+              >
+                Tutup
+              </button>
+            </div>
           </div>
 
           {importSummary.accounts.length > 0 && (
@@ -321,9 +367,10 @@ export default function InputDataKegiatanPage({
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center gap-2 py-12 text-xs text-zinc-600">
-            <ReloadIcon className="h-4 w-4 animate-spin" aria-hidden="true" />
-            <span>Memuat data yang sudah diimpor...</span>
+          <div className="space-y-2.5 py-2" aria-busy="true" aria-label="Memuat data peserta">
+            {Array.from({ length: 5 }).map((_, idx) => (
+              <Skeleton key={idx} className="h-11 w-full" />
+            ))}
           </div>
         ) : totalPeserta === 0 ? (
           <div className="py-12 text-center text-sm text-zinc-600">
@@ -407,6 +454,7 @@ export default function InputDataKegiatanPage({
       <ImportExcelModal
         kegiatanId={params.id}
         isOpen={modalOpen}
+        hasExistingData={totalPeserta > 0}
         onClose={() => setModalOpen(false)}
         onSuccess={(payload) => {
           setModalOpen(false);

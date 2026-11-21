@@ -32,6 +32,8 @@ import { Bar } from 'react-chartjs-2';
 import { PrinterIcon } from '@/components/ui/icons';
 import { Progress } from '@/components/ui/progress';
 import { StatusBanner } from '@/components/ui/status-banner';
+import { CardsGridSkeleton } from '@/components/ui/page-skeletons';
+import { ConfirmDialog } from '@/components/ui/alert-dialog';
 import {
   Tooltip,
   TooltipContent,
@@ -145,6 +147,8 @@ export default function KegiatanEksposeClient({
   const [activeJobs, setActiveJobs] = useState<AiQueueJob[]>([]);
   const [queueError, setQueueError] = useState<string | null>(null);
   const [cancellingQueue, setCancellingQueue] = useState(false);
+  const [confirmRegenerateAllOpen, setConfirmRegenerateAllOpen] = useState(false);
+  const [confirmCancelQueueOpen, setConfirmCancelQueueOpen] = useState(false);
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [downloadingPptx, setDownloadingPptx] = useState(false);
 
@@ -485,15 +489,7 @@ export default function KegiatanEksposeClient({
   };
 
   if (loading) {
-    return (
-      <div className="py-28 text-center" aria-busy="true">
-        <ReloadIcon className="mx-auto mb-3 h-7 w-7 animate-spin text-zinc-950" aria-hidden="true" />
-        <p className="text-sm font-medium text-zinc-900">Menyiapkan slide ekspose...</p>
-        <p className="mt-1 text-xs font-normal text-zinc-600">
-          Menyiapkan 6 slide sesuai format paparan Badan Pengembangan Sumber Daya Manusia (BPSDM)
-        </p>
-      </div>
-    );
+    return <CardsGridSkeleton cards={4} />;
   }
 
   if (fetchError) {
@@ -611,7 +607,7 @@ export default function KegiatanEksposeClient({
         <div className="flex shrink-0 flex-wrap items-center gap-2 xl:flex-nowrap">
           <button
             type="button"
-            onClick={() => handleRegenerate('all')}
+            onClick={() => setConfirmRegenerateAllOpen(true)}
             disabled={isAllQueued || savingKey !== null || totalPeserta === 0}
             className={`inline-flex min-h-[38px] items-center gap-1.5 whitespace-nowrap rounded-lg border px-3 py-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
               activeJobs.length > 0
@@ -736,7 +732,7 @@ export default function KegiatanEksposeClient({
           {queuedCount > 0 && (
             <button
               type="button"
-              onClick={handleCancelQueue}
+              onClick={() => setConfirmCancelQueueOpen(true)}
               disabled={cancellingQueue}
               className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-500 bg-white px-3 py-1.5 text-xs font-medium text-zinc-950 transition hover:bg-zinc-100 disabled:opacity-50"
             >
@@ -791,7 +787,7 @@ export default function KegiatanEksposeClient({
           </nav>
 
           {/* Rangkaian 6 Slide Presentasi Resmi */}
-          <div className="space-y-12 print:space-y-0">
+          <div className="ekspose-paper space-y-12 text-zinc-950 print:space-y-0">
             {slideList.map((slide) => {
               const g = slide.g;
               if (!g) return null;
@@ -1469,6 +1465,35 @@ export default function KegiatanEksposeClient({
           </div>
         </>
       )}
+
+      <ConfirmDialog
+        open={confirmRegenerateAllOpen}
+        onOpenChange={setConfirmRegenerateAllOpen}
+        title="Buat Ulang Semua Pembahasan dengan AI?"
+        description="Seluruh pembahasan pada 6 slide ekspose (termasuk poin yang pernah diedit manual) akan dibuat ulang melalui antrean AI."
+        confirmLabel="Ya, Buat Semua"
+        tone="warning"
+        onConfirm={() => {
+          setConfirmRegenerateAllOpen(false);
+          void handleRegenerate('all');
+        }}
+      />
+
+      <ConfirmDialog
+        open={confirmCancelQueueOpen}
+        onOpenChange={(open) => {
+          if (!cancellingQueue) setConfirmCancelQueueOpen(open);
+        }}
+        title="Batalkan Antrean Pembuatan AI?"
+        description="Sisa slide yang masih menunggu di antrean akan dibatalkan. Slide yang sudah selesai tetap tersimpan."
+        confirmLabel="Ya, Batalkan Antrean"
+        tone="danger"
+        loading={cancellingQueue}
+        onConfirm={() => {
+          setConfirmCancelQueueOpen(false);
+          void handleCancelQueue();
+        }}
+      />
     </div>
   );
 }

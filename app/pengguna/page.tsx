@@ -24,6 +24,7 @@ import {
 import { StatusBanner } from '@/components/ui/status-banner';
 import { ConfirmDialog } from '@/components/ui/alert-dialog';
 import { TablePagination } from '@/components/ui/table-pagination';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   fetchJsonWithCache,
   getClientCache,
@@ -278,9 +279,10 @@ export default function KelolaEvaluatorPage() {
       )}
 
       {loading ? (
-        <div className="flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white p-8 text-sm text-zinc-600">
-          <ReloadIcon className="h-4 w-4 animate-spin text-zinc-950" aria-hidden="true" />
-          <span>Memuat akun Evaluator...</span>
+        <div className="space-y-2.5 rounded-2xl border border-zinc-200 bg-white p-5" aria-busy="true" aria-label="Memuat akun Evaluator">
+          {Array.from({ length: 6 }).map((_, idx) => (
+            <Skeleton key={idx} className="h-12 w-full" />
+          ))}
         </div>
       ) : fetchError ? (
         <StatusBanner tone="error" message={fetchError} onRetry={loadUsers} />

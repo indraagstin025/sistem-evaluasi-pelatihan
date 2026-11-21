@@ -20,6 +20,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { StatusBanner } from '@/components/ui/status-banner';
+import { FormWawancaraSkeleton } from '@/components/ui/page-skeletons';
+import { ConfirmDialog } from '@/components/ui/alert-dialog';
 import {
   fetchJsonWithCache,
   getClientCache,
@@ -66,6 +68,7 @@ export default function FormWawancaraPesertaPage({
   );
   const [loading, setLoading] = useState(!cached?.data?.data);
   const [saving, setSaving] = useState(false);
+  const [confirmFinishOpen, setConfirmFinishOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, DraftCriterion>>(() =>
@@ -212,14 +215,7 @@ export default function FormWawancaraPesertaPage({
   };
 
   if (loading) {
-    return (
-      <div className="flex min-h-[260px] flex-col items-center justify-center rounded-2xl border border-zinc-200 bg-white p-8">
-        <ReloadIcon className="h-5 w-5 animate-spin text-zinc-700" aria-hidden="true" />
-        <p className="mt-2.5 text-sm font-medium text-zinc-700">
-          Memuat formulir wawancara peserta...
-        </p>
-      </div>
-    );
+    return <FormWawancaraSkeleton />;
   }
 
   if (!peserta) {
@@ -607,8 +603,9 @@ export default function FormWawancaraPesertaPage({
                 {saving ? 'Menyimpan...' : 'Simpan Draf'}
               </button>
               <button
-                type="submit"
+                type="button"
                 disabled={saving || !proper}
+                onClick={() => setConfirmFinishOpen(true)}
                 title={
                   !proper
                     ? 'Tombol aktif setelah peserta mengunggah dokumen Proper.'
@@ -669,6 +666,29 @@ export default function FormWawancaraPesertaPage({
           )}
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={confirmFinishOpen}
+        onOpenChange={(open) => {
+          if (!saving) setConfirmFinishOpen(open);
+        }}
+        title="Simpan & Tandai Wawancara Selesai?"
+        description={(() => {
+          const emptyCount = WAWANCARA_KRITERIA.filter(
+            (meta) => (drafts[meta.key]?.nilai ?? '').trim() === ''
+          ).length;
+          return emptyCount > 0
+            ? `Masih ada ${emptyCount} kriteria yang belum diisi nilainya. Kriteria kosong akan tercatat sebagai "Belum dinilai". Tetap simpan dan tandai wawancara selesai?`
+            : 'Seluruh 5 kriteria nilai sudah terisi. Status wawancara peserta ini akan ditandai Selesai.';
+        })()}
+        confirmLabel="Ya, Simpan & Tandai Selesai"
+        tone="primary"
+        loading={saving}
+        onConfirm={() => {
+          setConfirmFinishOpen(false);
+          void handleSubmit({ preventDefault: () => {} } as React.FormEvent, true);
+        }}
+      />
     </div>
   );
 }

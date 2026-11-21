@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { ReloadIcon } from '@radix-ui/react-icons';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StatusBanner } from '@/components/ui/status-banner';
+import { TableSectionSkeleton } from '@/components/ui/page-skeletons';
 import { fetchJsonWithCache, getClientCache } from '@/lib/client-cache';
 import type {
   HasilSurveyKegiatanSummary,
@@ -54,7 +55,7 @@ function RespondenSummaryCell({ side }: { side: LikertSummarySide }) {
       : `Jawaban terbanyak: ${topCategories[0].label} (${dominantPct}%)`;
 
   return (
-    <div className="min-w-[215px] space-y-2 rounded-xl border border-zinc-200 bg-zinc-50/70 p-3">
+    <div className="min-w-[275px] space-y-2 rounded-xl border border-zinc-200 bg-zinc-50/70 p-3">
       <div className="flex flex-wrap items-center justify-between gap-1.5">
         <span className="inline-flex rounded border border-zinc-800 bg-zinc-950 px-2 py-0.5 text-[10px] font-semibold text-white">
           {summaryBadgeText}
@@ -94,7 +95,7 @@ function RespondenSummaryCell({ side }: { side: LikertSummarySide }) {
                 count === 0 ? 'text-zinc-600' : cat.textClass
               }`}
             >
-              <dt className="truncate">{cat.label}</dt>
+              <dt className="whitespace-nowrap">{cat.label}</dt>
               <dd className="shrink-0 tabular-nums">
                 {count} ({pct}%)
               </dd>
@@ -212,14 +213,7 @@ export default function HasilSurveiPage({
   }, [apiUrl]);
 
   if (loading) {
-    return (
-      <div className="flex min-h-[260px] flex-col items-center justify-center rounded-2xl border border-zinc-200 bg-white p-8">
-        <ReloadIcon className="h-5 w-5 animate-spin text-zinc-700" aria-hidden="true" />
-        <p className="mt-2.5 text-sm font-medium text-zinc-700">
-          Menyiapkan ringkasan hasil survei keseluruhan...
-        </p>
-      </div>
-    );
+    return <TableSectionSkeleton rows={6} />;
   }
 
   if (error || !summary) {

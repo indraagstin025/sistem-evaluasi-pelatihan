@@ -1,10 +1,14 @@
 'use client';
 
 import React, { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import {
+  ArrowRightIcon,
   CheckCircledIcon,
+  CheckIcon,
   ChevronDownIcon,
   ChevronUpIcon,
+  CopyIcon,
   Link2Icon,
   MagnifyingGlassIcon,
   MixerHorizontalIcon,
@@ -24,6 +28,7 @@ import {
 } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ui/alert-dialog';
 import { StatusBanner } from '@/components/ui/status-banner';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   fetchJsonWithCache,
   getClientCache,
@@ -55,7 +60,9 @@ export default function PembagianTimPage({
 
   const [loading, setLoading] = useState(!cached?.data?.data);
   const [busyMode, setBusyMode] = useState<string | null>(null);
-  const [confirmRandomOpen, setConfirmRandomOpen] = useState(false);
+  const [pendingGenerateMode, setPendingGenerateMode] = useState<
+    'random' | 'from_excel' | 'auto_10' | null
+  >(null);
   const [savingTimId, setSavingTimId] = useState<string | null>(null);
   const [savedNoticeId, setSavedNoticeId] = useState<string | null>(null);
   const [movingPesertaId, setMovingPesertaId] = useState<string | null>(null);
@@ -90,6 +97,18 @@ export default function PembagianTimPage({
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [creatingEval, setCreatingEval] = useState(false);
+  const [copiedPublicLink, setCopiedPublicLink] = useState(false);
+
+  const handleCopyPublicLink = async () => {
+    try {
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      await navigator.clipboard.writeText(`${origin}/unggah-inovasi`);
+      setCopiedPublicLink(true);
+      setTimeout(() => setCopiedPublicLink(false), 1800);
+    } catch {
+      // Abaikan bila clipboard dibatasi
+    }
+  };
 
   const loadData = async (options?: { force?: boolean; silent?: boolean }) => {
     try {
@@ -150,7 +169,7 @@ export default function PembagianTimPage({
     try {
       setBusyMode(mode);
       setBanner(null);
-      setConfirmRandomOpen(false);
+      setPendingGenerateMode(null);
       const res = await fetch(`/api/kegiatan/${params.id}/tim`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -339,31 +358,47 @@ export default function PembagianTimPage({
   return (
     <div className="space-y-6 pb-12">
       {/* Header Aksi 1-Klik */}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-5 space-y-4">
-        <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
-          <div>
+      <div className="space-y-4 rounded-2xl border border-zinc-200 bg-white p-5">
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <MixerHorizontalIcon className="h-4 w-4 text-zinc-950" aria-hidden="true" />
               <h2 className="text-base font-semibold text-zinc-950">
                 Pembagian Tim &amp; Penugasan Evaluator
               </h2>
             </div>
-            <p className="mt-1 text-xs text-zinc-600">
-              Cukup klik <strong>Acak Peserta &amp; Evaluator</strong> untuk membagi peserta secara
-              acak (~10/tim) sekaligus memasangkan akun Evaluator otomatis. Pengubahan Evaluator
-              di setiap kartu tim tersimpan langsung tanpa tombol simpan tambahan.
-            </p>
+
+            <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-700">
+              <span className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-1">
+                Peserta: <strong className="text-zinc-950">{totalPeserta}</strong>
+              </span>
+              <span className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-1">
+                Tim: <strong className="text-zinc-950">{teams.length}</strong>
+              </span>
+              <span className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-1">
+                Evaluator Siap:{' '}
+                <strong className="text-zinc-950">
+                  {assignedCount}/{teams.length}
+                </strong>
+              </span>
+            </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <p className="max-w-3xl text-xs leading-relaxed text-zinc-600">
+            Klik <strong>Acak Peserta &amp; Evaluator</strong> untuk membagi peserta secara acak
+            (~10/tim) sekaligus memasangkan akun Evaluator otomatis. Pengubahan Evaluator pada
+            kartu tim tersimpan langsung tanpa tombol simpan tambahan.
+          </p>
+
+          <div className="flex flex-wrap items-center gap-2 pt-0.5">
             <button
               type="button"
               disabled={busyMode !== null || totalPeserta === 0}
               onClick={() => {
-                if (teams.length > 0) setConfirmRandomOpen(true);
+                if (teams.length > 0) setPendingGenerateMode('random');
                 else void handleGenerateTeams('random');
               }}
-              className="inline-flex min-h-[42px] items-center justify-center gap-1.5 rounded-lg bg-zinc-950 px-4 py-2 text-xs font-semibold text-white transition hover:bg-zinc-800 disabled:opacity-50"
+              className="inline-flex min-h-[40px] items-center justify-center gap-1.5 rounded-lg bg-zinc-950 px-4 py-2 text-xs font-semibold text-white transition hover:bg-zinc-800 disabled:opacity-50"
             >
               <ShuffleIcon className="h-3.5 w-3.5" aria-hidden="true" />
               <span>
@@ -377,8 +412,11 @@ export default function PembagianTimPage({
               <button
                 type="button"
                 disabled={busyMode !== null || totalPeserta === 0}
-                onClick={() => void handleGenerateTeams('from_excel')}
-                className="inline-flex min-h-[42px] items-center justify-center rounded-lg border border-zinc-500 bg-white px-4 py-2 text-xs font-semibold text-zinc-950 transition hover:bg-zinc-100 disabled:opacity-50"
+                onClick={() => {
+                  if (teams.length > 0) setPendingGenerateMode('from_excel');
+                  else void handleGenerateTeams('from_excel');
+                }}
+                className="inline-flex min-h-[40px] items-center justify-center rounded-lg border border-zinc-500 bg-white px-4 py-2 text-xs font-semibold text-zinc-950 transition hover:bg-zinc-100 disabled:opacity-50"
               >
                 {busyMode === 'from_excel' ? 'Memproses...' : 'Pakai Tim dari Excel'}
               </button>
@@ -387,33 +425,21 @@ export default function PembagianTimPage({
             <button
               type="button"
               disabled={busyMode !== null || totalPeserta === 0}
-              onClick={() => void handleGenerateTeams('auto_10')}
-              className="inline-flex min-h-[42px] items-center justify-center rounded-lg border border-zinc-500 bg-white px-4 py-2 text-xs font-medium text-zinc-800 transition hover:bg-zinc-100 disabled:opacity-50"
+              onClick={() => {
+                if (teams.length > 0) setPendingGenerateMode('auto_10');
+                else void handleGenerateTeams('auto_10');
+              }}
+              className="inline-flex min-h-[40px] items-center justify-center rounded-lg border border-zinc-500 bg-white px-4 py-2 text-xs font-medium text-zinc-800 transition hover:bg-zinc-100 disabled:opacity-50"
             >
               {busyMode === 'auto_10' ? 'Membagi...' : 'Bagi Urut Abjad (10/tim)'}
             </button>
           </div>
         </div>
 
-        {/* Ringkasan Cepat + Filter Pencarian Peserta */}
-        <div className="flex flex-col justify-between gap-3 border-t border-zinc-200 pt-3.5 sm:flex-row sm:items-center">
-          <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-700">
-            <span>
-              Total peserta: <strong className="text-zinc-950">{totalPeserta}</strong>
-            </span>
-            <span>
-              Jumlah tim: <strong className="text-zinc-950">{teams.length}</strong>
-            </span>
-            <span>
-              Tim siap dengan Evaluator:{' '}
-              <strong className="text-zinc-950">
-                {assignedCount}/{teams.length}
-              </strong>
-            </span>
-          </div>
-
-          {teams.length > 0 && (
-            <div className="relative sm:w-64">
+        {/* Pencarian Peserta + Tautan & Langkah Berikutnya */}
+        {teams.length > 0 && (
+          <div className="flex flex-col justify-between gap-3 border-t border-zinc-200 pt-3.5 lg:flex-row lg:items-center">
+            <div className="relative w-full lg:w-72">
               <MagnifyingGlassIcon
                 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500"
                 aria-hidden="true"
@@ -427,8 +453,32 @@ export default function PembagianTimPage({
                 className="min-h-[38px] w-full rounded-lg border border-zinc-500 bg-white pl-9 pr-3 text-xs text-zinc-950 placeholder:text-zinc-500 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950"
               />
             </div>
-          )}
-        </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={handleCopyPublicLink}
+                className="inline-flex min-h-[38px] items-center gap-1.5 rounded-lg border border-zinc-400 bg-white px-3 py-1.5 text-xs font-medium text-zinc-900 transition hover:bg-zinc-50"
+              >
+                {copiedPublicLink ? (
+                  <CheckIcon className="h-3.5 w-3.5 text-zinc-950" aria-hidden="true" />
+                ) : (
+                  <CopyIcon className="h-3.5 w-3.5 text-zinc-700" aria-hidden="true" />
+                )}
+                <span>
+                  {copiedPublicLink ? 'Tautan Peserta Disalin' : 'Salin Tautan Unggah Peserta'}
+                </span>
+              </button>
+              <Link
+                href={`/kegiatan/${params.id}/pantau-wawancara`}
+                className="inline-flex min-h-[38px] items-center gap-1.5 rounded-lg bg-zinc-950 px-3.5 py-1.5 text-xs font-semibold text-white transition hover:bg-zinc-800"
+              >
+                <span>Lanjut ke 4. Pantau Wawancara</span>
+                <ArrowRightIcon className="h-3.5 w-3.5" aria-hidden="true" />
+              </Link>
+            </div>
+          </div>
+        )}
       </div>
 
       {banner && (
@@ -497,8 +547,15 @@ export default function PembagianTimPage({
       )}
 
       {loading ? (
-        <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-zinc-200 bg-white">
-          <ReloadIcon className="h-5 w-5 animate-spin text-zinc-700" aria-hidden="true" />
+        <div className="grid gap-4 lg:grid-cols-2" aria-busy="true" aria-label="Memuat daftar tim">
+          {Array.from({ length: 2 }).map((_, idx) => (
+            <div key={idx} className="space-y-3 rounded-2xl border border-zinc-200 bg-white p-5">
+              <Skeleton className="h-6 w-40" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ))}
         </div>
       ) : teams.length === 0 ? (
         <div className="rounded-2xl border border-zinc-200 bg-white p-10 text-center text-sm text-zinc-600">
@@ -689,15 +746,37 @@ export default function PembagianTimPage({
       )}
 
       <ConfirmDialog
-        open={confirmRandomOpen}
-        onOpenChange={setConfirmRandomOpen}
-        title="Acak Ulang Peserta & Evaluator?"
-        description="Seluruh peserta pada kegiatan ini akan dibagi ulang secara acak (~10 peserta/tim) dan dipasangkan otomatis dengan Evaluator secara acak (termasuk membuat akun baru jika Evaluator aktif kurang)."
-        confirmLabel="Ya, Acak Sekarang"
-        tone="primary"
-        loading={busyMode === 'random'}
+        open={pendingGenerateMode !== null}
+        onOpenChange={(open) => {
+          if (!open && busyMode === null) setPendingGenerateMode(null);
+        }}
+        title={
+          pendingGenerateMode === 'random'
+            ? 'Acak Ulang Peserta & Evaluator?'
+            : pendingGenerateMode === 'from_excel'
+            ? 'Kembalikan Tim Sesuai Excel?'
+            : 'Bagi Ulang Tim Urut Abjad?'
+        }
+        description={
+          pendingGenerateMode === 'random'
+            ? 'Seluruh peserta pada kegiatan ini akan dibagi ulang secara acak (~10 peserta/tim) dan dipasangkan otomatis dengan Evaluator secara acak (termasuk membuat akun baru jika Evaluator aktif kurang).'
+            : pendingGenerateMode === 'from_excel'
+            ? 'Susunan tim dan penugasan Evaluator saat ini akan ditimpa mengikuti nama tim dari kolom file Excel yang diimpor.'
+            : 'Susunan tim saat ini akan ditimpa menjadi kelompok urut abjad (~10 peserta/tim).'
+        }
+        confirmLabel={
+          pendingGenerateMode === 'random'
+            ? 'Ya, Acak Sekarang'
+            : pendingGenerateMode === 'from_excel'
+            ? 'Ya, Pakai Tim Excel'
+            : 'Ya, Bagi Ulang'
+        }
+        tone="warning"
+        loading={busyMode !== null}
         onConfirm={() => {
-          void handleGenerateTeams('random');
+          if (pendingGenerateMode) {
+            void handleGenerateTeams(pendingGenerateMode);
+          }
         }}
       />
 

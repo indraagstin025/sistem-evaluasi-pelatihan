@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { ConfirmDialog } from '@/components/ui/alert-dialog';
 import { invalidateKegiatanCache } from '@/lib/client-cache';
 import {
   fetchFormDataWithRetry,
@@ -46,6 +47,7 @@ export interface ImportSuccessPayload {
 interface ImportExcelModalProps {
   kegiatanId: string;
   isOpen: boolean;
+  hasExistingData?: boolean;
   onClose: () => void;
   onSuccess: (payload?: ImportSuccessPayload) => void;
 }
@@ -61,12 +63,14 @@ interface DetectedFile {
 export default function ImportExcelModal({
   kegiatanId,
   isOpen,
+  hasExistingData = false,
   onClose,
   onSuccess,
 }: ImportExcelModalProps) {
   const [files, setFiles] = useState<DetectedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [confirmReplaceOpen, setConfirmReplaceOpen] = useState(false);
   const [selectedSurveyIndex, setSelectedSurveyIndex] = useState<number>(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isNetworkBlockedError, setIsNetworkBlockedError] = useState(false);
@@ -184,12 +188,8 @@ export default function ImportExcelModal({
   const hasOnlySurvey = surveyFiles.length === 1 && interviewFiles.length === 0;
   const isReady = surveyFiles.length >= 1;
 
-  const handleStartImport = async () => {
-    if (!isReady) {
-      setErrorMessage('Minimal perlu 1 file survei (Olah Data) sebagai data utama peserta.');
-      return;
-    }
-
+  const executeImport = async () => {
+    setConfirmReplaceOpen(false);
     try {
       setIsProcessing(true);
       setErrorMessage(null);
@@ -247,7 +247,20 @@ export default function ImportExcelModal({
     }
   };
 
+  const handleStartImport = () => {
+    if (!isReady) {
+      setErrorMessage('Minimal perlu 1 file survei (Olah Data) sebagai data utama peserta.');
+      return;
+    }
+    if (hasExistingData) {
+      setConfirmReplaceOpen(true);
+      return;
+    }
+    void executeImport();
+  };
+
   return (
+    <>
     <Dialog
       open={isOpen}
       onOpenChange={(open) => {
@@ -500,5 +513,21 @@ export default function ImportExcelModal({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <ConfirmDialog
+      open={confirmReplaceOpen}
+      onOpenChange={(open) => {
+        if (!isProcessing) setConfirmReplaceOpen(open);
+      }}
+      title="Timpa Data Peserta Sebelumnya?"
+      description="Kegiatan ini sudah memiliki data peserta. Impor ulang akan memperbarui/mengganti daftar peserta, skor survei, dan susunan tim sebelumnya sesuai file Excel baru."
+      confirmLabel="Ya, Impor & Perbarui"
+      tone="warning"
+      loading={isProcessing}
+      onConfirm={() => {
+        void executeImport();
+      }}
+    />
+    </>
   );
 }

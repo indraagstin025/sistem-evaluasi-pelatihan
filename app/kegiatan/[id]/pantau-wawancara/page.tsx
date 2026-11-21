@@ -12,6 +12,7 @@ import {
 } from '@radix-ui/react-icons';
 import { StatusBanner } from '@/components/ui/status-banner';
 import { TablePagination } from '@/components/ui/table-pagination';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   fetchJsonWithCache,
   getClientCache,
@@ -193,9 +194,10 @@ export default function PantauWawancaraPage({
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-8 text-xs text-zinc-600">
-            <ReloadIcon className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-            Memuat daftar tim...
+          <div className="mt-4 grid gap-3 lg:grid-cols-3" aria-busy="true" aria-label="Memuat daftar tim">
+            {Array.from({ length: 3 }).map((_, idx) => (
+              <Skeleton key={idx} className="h-24 w-full rounded-xl" />
+            ))}
           </div>
         ) : teams.length === 0 ? (
           <div className="py-6 text-xs text-zinc-600">
