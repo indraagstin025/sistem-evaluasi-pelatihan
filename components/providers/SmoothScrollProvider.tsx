@@ -329,6 +329,11 @@ export function SmoothScrollProvider({
         return;
       }
 
+      if (e.target instanceof Element && e.target.closest('[data-smooth-isolate]')) {
+        e.preventDefault();
+        return;
+      }
+
       const now = performance.now();
       const dt = now - s.lastWheelTime;
       s.lastWheelTime = now;

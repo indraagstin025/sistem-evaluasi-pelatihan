@@ -121,7 +121,7 @@ export default function ChartEksposeOverview({
               </div>
             </div>
 
-            <div className="pb-2 pt-6">
+            <div className="pb-1 pt-6">
               <div className="relative h-40">
                 <div className="pointer-events-none absolute inset-0 text-[10px] font-normal text-zinc-600">
                   {[100, 80, 60, 40, 20, 0].map((tick) => (
@@ -138,21 +138,21 @@ export default function ChartEksposeOverview({
                   ))}
                 </div>
 
-                <div className="relative z-10 ml-7 flex h-full items-end justify-center gap-2.5">
+                <div className="relative z-10 ml-7 flex h-full items-end justify-center gap-3">
                   {col.bars.map((bar) => {
                     const barHeightPercent = Math.min(Math.max(bar.value, 0), 100);
 
                     return (
                       <div
                         key={bar.label}
-                        className="flex h-full max-w-[42px] flex-1 flex-col items-center justify-end"
+                        className="flex h-full max-w-[38px] flex-1 flex-col items-center justify-end"
                       >
                         <div
                           style={{ height: `${barHeightPercent}%` }}
                           className={`relative w-full rounded-t-sm ${bar.barClass} transition-opacity duration-200 hover:opacity-85`}
                         >
-                          <span className="absolute bottom-full left-1/2 mb-1 -translate-x-1/2 whitespace-nowrap font-mono text-[10px] font-medium leading-none text-zinc-950 tabular-nums">
-                            {bar.value.toFixed(1)} poin
+                          <span className="absolute bottom-full left-1/2 mb-1 -translate-x-1/2 whitespace-nowrap font-mono text-[10px] font-semibold leading-none text-zinc-950 tabular-nums">
+                            {bar.value.toFixed(1)}
                           </span>
                         </div>
                       </div>
@@ -160,10 +160,21 @@ export default function ChartEksposeOverview({
                   })}
                 </div>
               </div>
+
+              <div className="ml-7 mt-1.5 flex items-center justify-center gap-3">
+                {col.bars.map((bar) => (
+                  <span
+                    key={bar.label}
+                    className="max-w-[38px] flex-1 text-center font-mono text-[10px] font-medium text-zinc-600"
+                  >
+                    {bar.label}
+                  </span>
+                ))}
+              </div>
             </div>
 
             <div className="mt-2.5 flex items-center justify-center gap-1.5 border-t border-zinc-100 pt-2">
-              <span className={`h-2 w-2 rounded-sm ${col.swatchClass}`} aria-hidden="true" />
+              <span className={`h-2 w-2 shrink-0 rounded-sm ${col.swatchClass}`} aria-hidden="true" />
               <span className="text-[11px] font-medium text-zinc-700">{col.legend}</span>
             </div>
           </div>

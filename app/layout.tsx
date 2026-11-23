@@ -7,9 +7,9 @@ import { WibThemeProvider } from '@/components/providers/WibThemeProvider';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { getSessionUser } from '@/lib/auth';
 
-const plusJakarta = localFont({
-  src: '../node_modules/@fontsource-variable/plus-jakarta-sans/files/plus-jakarta-sans-latin-wght-normal.woff2',
-  weight: '400 700',
+const interFont = localFont({
+  src: '../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2',
+  weight: '100 900',
   variable: '--font-sans',
   display: 'swap',
 });
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     'Platform terpadu pengelolaan kegiatan evaluasi, unggahan dokumen Proper (Proyek Perubahan), penilaian wawancara, dan ekspose hasil evaluasi pasca pelatihan.',
 };
 
-const WIB_THEME_INIT_SCRIPT = `(function(){try{var m=localStorage.getItem('bpsdm-theme-mode')||'auto-wib';var dark=m==='dark';if(m==='auto-wib'){var h=parseInt(new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Jakarta',hour:'2-digit',hour12:false}).format(new Date()),10);dark=(h>=18||h<6);}document.documentElement.classList.toggle('dark',dark);}catch(e){}})();`;
+const WIB_THEME_INIT_SCRIPT = `(function(){try{localStorage.removeItem('bpsdm-theme-mode');var h=parseInt(new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Jakarta',hour:'2-digit',hour12:false}).format(new Date()),10);document.documentElement.classList.toggle('dark',h>=18||h<6);}catch(e){}})();`;
 
 export default async function RootLayout({
   children,
@@ -40,7 +40,7 @@ export default async function RootLayout({
     <html
       lang="id"
       suppressHydrationWarning
-      className={`${plusJakarta.variable} ${jetbrainsMono.variable}`}
+      className={`${interFont.variable} ${jetbrainsMono.variable}`}
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: WIB_THEME_INIT_SCRIPT }} />
