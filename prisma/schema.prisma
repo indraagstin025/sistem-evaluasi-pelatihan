@@ -37,9 +37,10 @@ model Kegiatan {
   createdBy      User            @relation(fields: [createdById], references: [id])
   peserta        Peserta[]
   tim            TimEvaluator[]
-  pembahasan     Pembahasan[]
-  aiJobs         AiJob[]
-  selisihImport  SelisihImport[]
+  pembahasan      Pembahasan[]
+  aiJobs          AiJob[]
+  analisisTerbuka AnalisisTerbuka[]
+  selisihImport   SelisihImport[]
   inovasiProper  InovasiProper[]
   uploadedFiles  UploadedFile[]
   createdAt      DateTime        @default(now())
@@ -245,4 +246,20 @@ model AiJob {
 
   @@index([kegiatanId, status, nextRunAt, createdAt])
   @@index([kegiatanId, grafikKey, status])
+}
+
+model AnalisisTerbuka {
+  id         String   @id @default(cuid())
+  kegiatanId String
+  kegiatan   Kegiatan @relation(fields: [kegiatanId], references: [id], onDelete: Cascade)
+  kategori   String   // "kendala_survei" | "dukungan_survei" | "deskripsi_wawancara"
+  temaJson   Json     // Array<{ namaTema: string; ringkasan: string; recordIds: string[]; jumlah: number; jumlahPeserta: number }>
+  totalTeks  Int
+  sumber     String   @default("template") // "ai" | "template"
+  modelUsed  String?
+  catatan    String?
+  updatedAt  DateTime @updatedAt
+
+  @@unique([kegiatanId, kategori])
+  @@index([kegiatanId])
 }
