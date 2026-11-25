@@ -1,12 +1,16 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { ReloadIcon } from '@radix-ui/react-icons';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StatusBanner } from '@/components/ui/status-banner';
 import { TableSectionSkeleton } from '@/components/ui/page-skeletons';
+import { AnalisisTerbukaCard } from '@/components/kegiatan/AnalisisTerbukaCard';
 import { fetchJsonWithCache, getClientCache } from '@/lib/client-cache';
-import { formatClientErrorMessage } from '@/lib/client-error';
+import { apiFetchJson, formatClientErrorMessage } from '@/lib/client-error';
+import type {
+  AnalisisTerbukaKategori,
+  AnalisisTerbukaView,
+} from '@/lib/ai-jawaban-terbuka';
 import type {
   HasilSurveyKegiatanSummary,
   LikertSummarySide,
@@ -176,6 +180,84 @@ export default function HasilSurveiPage({
   const [loading, setLoading] = useState(!cached?.data?.data);
   const [error, setError] = useState<string | null>(null);
 
+  const analisisUrl = `/api/kegiatan/${params.id}/analisis-terbuka`;
+  const [analisisMap, setAnalisisMap] = useState<
+    Record<AnalisisTerbukaKategori, AnalisisTerbukaView> | null
+  >(null);
+  const [analisisLoading, setAnalisisLoading] = useState(true);
+  const [analyzingKat, setAnalyzingKat] = useState<AnalisisTerbukaKategori | null>(null);
+  const [analisisErrors, setAnalisisErrors] = useState<
+    Partial<Record<AnalisisTerbukaKategori, string | null>>
+  >({});
+
+  useEffect(() => {
+    let active = true;
+    async function loadAnalisis() {
+      try {
+        setAnalisisLoading(true);
+        const json = await apiFetchJson<{
+          success: boolean;
+          data?: Record<AnalisisTerbukaKategori, AnalisisTerbukaView>;
+          error?: string;
+        }>(analisisUrl, {
+          fallbackError: 'Gagal memuat analisis tema jawaban terbuka.',
+        });
+        if (!active) return;
+        if (json.success && json.data) {
+          setAnalisisMap(json.data);
+        }
+      } catch (err: unknown) {
+        if (!active) return;
+        const msg = formatClientErrorMessage(
+          err,
+          'Gagal memuat analisis tema jawaban terbuka.'
+        );
+        setAnalisisErrors({
+          kendala_survei: msg,
+          dukungan_survei: msg,
+          deskripsi_wawancara: msg,
+        });
+      } finally {
+        if (active) setAnalisisLoading(false);
+      }
+    }
+    void loadAnalisis();
+    return () => {
+      active = false;
+    };
+  }, [analisisUrl]);
+
+  async function handleAnalyzeKategori(kategori: AnalisisTerbukaKategori) {
+    setAnalyzingKat(kategori);
+    setAnalisisErrors((prev) => ({ ...prev, [kategori]: null }));
+    try {
+      const json = await apiFetchJson<{
+        success: boolean;
+        data?: Record<AnalisisTerbukaKategori, AnalisisTerbukaView>;
+        error?: string;
+      }>(analisisUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kategori }),
+        fallbackError: 'Gagal menjalankan analisis tema AI. Coba lagi beberapa saat.',
+      });
+      if (!json.success || !json.data) {
+        throw new Error(json.error || 'Gagal menjalankan analisis tema AI.');
+      }
+      setAnalisisMap(json.data);
+    } catch (err: unknown) {
+      setAnalisisErrors((prev) => ({
+        ...prev,
+        [kategori]: formatClientErrorMessage(
+          err,
+          'Gagal menjalankan analisis tema AI. Coba lagi beberapa saat.'
+        ),
+      }));
+    } finally {
+      setAnalyzingKat((curr) => (curr === kategori ? null : curr));
+    }
+  }
+
   useEffect(() => {
     let active = true;
     async function load(silent = false) {
@@ -307,11 +389,28 @@ export default function HasilSurveiPage({
                 </TabsTrigger>
               );
             })}
+            <TabsTrigger value="CATATAN_WAWANCARA" className="text-xs">
+              Catatan Wawancara (
+              {analisisMap?.deskripsi_wawancara.totalTeksAktual ?? '...'} catatan)
+            </TabsTrigger>
           </TabsList>
 
           {KELOMPOK_TABS.map((t) => (
             <TabsContent key={t.key} value={t.key} className="space-y-4">
               <QuestionTable items={summary.pertanyaanByKelompok[t.key] || []} />
+
+              {t.key === 'DUKUNGAN' && (
+                <AnalisisTerbukaCard
+                  data={analisisMap?.dukungan_survei ?? null}
+                  loading={analisisLoading}
+                  analyzing={analyzingKat === 'dukungan_survei'}
+                  error={analisisErrors.dukungan_survei ?? null}
+                  onAnalyze={() => void handleAnalyzeKategori('dukungan_survei')}
+                  onDismissError={() =>
+                    setAnalisisErrors((prev) => ({ ...prev, dukungan_survei: null }))
+                  }
+                />
+              )}
 
               {t.key === 'DUKUNGAN' && summary.dukunganTerbuka.length > 0 && (
                 <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
@@ -329,6 +428,19 @@ export default function HasilSurveiPage({
                     ))}
                   </ul>
                 </div>
+              )}
+
+              {t.key === 'KENDALA' && (
+                <AnalisisTerbukaCard
+                  data={analisisMap?.kendala_survei ?? null}
+                  loading={analisisLoading}
+                  analyzing={analyzingKat === 'kendala_survei'}
+                  error={analisisErrors.kendala_survei ?? null}
+                  onAnalyze={() => void handleAnalyzeKategori('kendala_survei')}
+                  onDismissError={() =>
+                    setAnalisisErrors((prev) => ({ ...prev, kendala_survei: null }))
+                  }
+                />
               )}
 
               {t.key === 'KENDALA' && summary.kendalaTerbuka.length > 0 && (
@@ -350,6 +462,19 @@ export default function HasilSurveiPage({
               )}
             </TabsContent>
           ))}
+
+          <TabsContent value="CATATAN_WAWANCARA" className="space-y-4">
+            <AnalisisTerbukaCard
+              data={analisisMap?.deskripsi_wawancara ?? null}
+              loading={analisisLoading}
+              analyzing={analyzingKat === 'deskripsi_wawancara'}
+              error={analisisErrors.deskripsi_wawancara ?? null}
+              onAnalyze={() => void handleAnalyzeKategori('deskripsi_wawancara')}
+              onDismissError={() =>
+                setAnalisisErrors((prev) => ({ ...prev, deskripsi_wawancara: null }))
+              }
+            />
+          </TabsContent>
         </Tabs>
       </section>
     </div>
