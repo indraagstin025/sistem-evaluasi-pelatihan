@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireSession } from '@/lib/auth';
 import { getHasilSurveyKegiatan } from '@/lib/survey-summary';
+import { handleApiError } from '@/lib/api-error';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,11 +15,11 @@ export async function GET(
   try {
     const summary = await getHasilSurveyKegiatan(params.id);
     return NextResponse.json({ success: true, data: summary });
-  } catch (error: any) {
-    console.error('GET /api/kegiatan/[id]/hasil-survei error:', error);
-    return NextResponse.json(
-      { success: false, error: error?.message || 'Gagal memuat hasil survei keseluruhan.' },
-      { status: 500 }
+  } catch (error: unknown) {
+    return handleApiError(
+      error,
+      'GET /api/kegiatan/[id]/hasil-survei',
+      'Gagal memuat hasil survei keseluruhan.'
     );
   }
 }

@@ -9,7 +9,12 @@ import {
   ExternalLinkIcon,
   ReloadIcon,
 } from '@radix-ui/react-icons';
-import { WAWANCARA_KRITERIA } from '@/lib/wawancara-kriteria';
+import {
+  STATUS_KONFIRMASI_OPTIONS,
+  WAWANCARA_KRITERIA,
+  normalizeStatusKonfirmasi,
+  type StatusKonfirmasiWawancara,
+} from '@/lib/wawancara-kriteria';
 import {
   Dialog,
   DialogBody,
@@ -28,9 +33,11 @@ import {
   invalidateClientCache,
   invalidateKegiatanCache,
 } from '@/lib/client-cache';
+import { apiFetchJson, formatClientErrorMessage } from '@/lib/client-error';
 
 interface DraftCriterion {
   nilai: string;
+  statusKonfirmasi: StatusKonfirmasiWawancara;
   deskripsi: string;
   lockedFromImport: boolean;
   sumber: string;
@@ -42,6 +49,7 @@ function buildInitialDrafts(p: any): Record<string, DraftCriterion> {
     const found = (p?.wawancara || []).find((w: any) => w.kriteria === meta.key);
     nextDrafts[meta.key] = {
       nilai: found && typeof found.nilai === 'number' ? String(found.nilai) : '',
+      statusKonfirmasi: normalizeStatusKonfirmasi(found?.statusKonfirmasi),
       deskripsi: found?.deskripsi || '',
       lockedFromImport: Boolean(found?.lockedFromImport),
       sumber: found?.sumber || 'KOSONG',
@@ -107,8 +115,10 @@ export default function FormWawancaraPesertaPage({
     } catch (err: any) {
       if (!options?.silent) {
         setError(
-          err?.message ||
-            'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.'
+          formatClientErrorMessage(
+            err,
+            'Gagal memuat detail wawancara peserta. Coba muat ulang halaman.'
+          )
         );
       }
     } finally {
@@ -175,23 +185,30 @@ export default function FormWawancaraPesertaPage({
       const items = WAWANCARA_KRITERIA.map((meta) => {
         const d = drafts[meta.key] || {
           nilai: '',
+          statusKonfirmasi: 'BELUM_KONFIRMASI' as StatusKonfirmasiWawancara,
           deskripsi: '',
           lockedFromImport: false,
         };
         return {
           kriteria: meta.key,
           deskripsi: d.deskripsi,
+          statusKonfirmasi: d.statusKonfirmasi,
           nilai: d.nilai.trim() === '' ? null : Number(d.nilai.trim()),
         };
       });
 
-      const res = await fetch(`/api/peserta/${params.pesertaId}/wawancara`, {
+      const json = await apiFetchJson<{
+        success: boolean;
+        message?: string;
+        error?: string;
+      }>(`/api/peserta/${params.pesertaId}/wawancara`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items, markSelesai }),
+        fallbackError:
+          'Gagal menyimpan hasil wawancara. Periksa isian nilai, lalu coba lagi.',
       });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
+      if (!json.success) {
         setError(
           json.error || 'Gagal menyimpan hasil wawancara. Periksa isian nilai, lalu coba lagi.'
         );
@@ -207,8 +224,13 @@ export default function FormWawancaraPesertaPage({
             : 'Draf hasil wawancara berhasil disimpan.')
       );
       await loadPeserta({ force: true });
-    } catch {
-      setError('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
+    } catch (err: unknown) {
+      setError(
+        formatClientErrorMessage(
+          err,
+          'Gagal menyimpan hasil wawancara. Silakan coba lagi.'
+        )
+      );
     } finally {
       setSaving(false);
     }
@@ -387,16 +409,16 @@ export default function FormWawancaraPesertaPage({
         {!canEditWawancara ? (
           <StatusBanner
             tone="info"
-            title="Mode Baca Saja (Super Admin)"
-            message="Formulir ini hanya bisa diisi oleh evaluator tim peserta."
+            title="Mode Baca Saja"
+            message="Anda tidak memiliki akses untuk mengubah formulir wawancara peserta ini."
           />
         ) : (
           <div className="space-y-3">
             <div className="rounded-2xl border border-zinc-900 bg-zinc-50 px-5 py-3.5 text-xs text-zinc-800">
-              <strong>Panduan Pengisian:</strong> Isi <strong>Nilai wawancara</strong> (skala
-              0–100; kosongkan bila belum dinilai) dan <strong>Hasil wawancara &amp; bukti</strong>{' '}
-              untuk setiap kriteria, berdasarkan dokumen Proper dan konfirmasi langsung dengan
-              peserta.
+              <strong>Panduan Pengisian (Super Admin &amp; Evaluator):</strong> Isi{' '}
+              <strong>Nilai wawancara</strong> (skala 0–100; kosongkan bila belum dinilai), pilih{' '}
+              <strong>Status konfirmasi</strong> (Belum Konfirmasi / YA / TIDAK), dan catat{' '}
+              <strong>Hasil wawancara &amp; bukti</strong> berdasarkan dokumen Proper dan konfirmasi langsung dengan peserta.
             </div>
             {!proper && (
               <StatusBanner
@@ -411,6 +433,7 @@ export default function FormWawancaraPesertaPage({
         {WAWANCARA_KRITERIA.map((meta) => {
           const d = drafts[meta.key] || {
             nilai: '',
+            statusKonfirmasi: 'BELUM_KONFIRMASI' as StatusKonfirmasiWawancara,
             deskripsi: '',
             lockedFromImport: false,
             sumber: 'KOSONG',
@@ -455,35 +478,70 @@ export default function FormWawancaraPesertaPage({
                 </span>
               </div>
 
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-                <div className="w-full shrink-0 sm:w-36">
-                  <label
-                    htmlFor={`nilai-${meta.key}`}
-                    className="mb-1.5 block text-xs font-medium text-zinc-800"
-                  >
-                    Nilai wawancara
-                  </label>
-                  <input
-                    id={`nilai-${meta.key}`}
-                    type="number"
-                    min={0}
-                    max={100}
-                    step={1}
-                    inputMode="numeric"
-                    disabled={!canEditWawancara}
-                    value={d.nilai}
-                    placeholder="-"
-                    onChange={(e) =>
-                      setDrafts((prev) => ({
-                        ...prev,
-                        [meta.key]: { ...d, nilai: e.target.value },
-                      }))
-                    }
-                    className="min-h-[60px] w-full rounded-xl border border-zinc-500 bg-white px-3 text-center font-mono text-xl font-bold text-zinc-950 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-700"
-                  />
-                  <p className="mt-1.5 text-[11px] leading-snug text-zinc-600">
-                    Skala 0–100 (bilangan bulat). Kosongkan bila belum dinilai.
-                  </p>
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:flex lg:shrink-0 lg:items-start lg:gap-4">
+                  <div className="w-full lg:w-36">
+                    <label
+                      htmlFor={`nilai-${meta.key}`}
+                      className="mb-1.5 block text-xs font-medium text-zinc-800"
+                    >
+                      Nilai wawancara
+                    </label>
+                    <input
+                      id={`nilai-${meta.key}`}
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={1}
+                      inputMode="numeric"
+                      disabled={!canEditWawancara}
+                      value={d.nilai}
+                      placeholder="-"
+                      onChange={(e) =>
+                        setDrafts((prev) => ({
+                          ...prev,
+                          [meta.key]: { ...d, nilai: e.target.value },
+                        }))
+                      }
+                      className="min-h-[60px] w-full rounded-xl border border-zinc-500 bg-white px-3 text-center font-mono text-xl font-bold text-zinc-950 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-700"
+                    />
+                    <p className="mt-1.5 text-[11px] leading-snug text-zinc-600">
+                      Skala 0–100 (bilangan bulat). Kosongkan bila belum dinilai.
+                    </p>
+                  </div>
+
+                  <div className="w-full lg:w-48">
+                    <label
+                      htmlFor={`konfirmasi-${meta.key}`}
+                      className="mb-1.5 block text-xs font-medium text-zinc-800"
+                    >
+                      Status konfirmasi
+                    </label>
+                    <select
+                      id={`konfirmasi-${meta.key}`}
+                      disabled={!canEditWawancara}
+                      value={d.statusKonfirmasi}
+                      onChange={(e) =>
+                        setDrafts((prev) => ({
+                          ...prev,
+                          [meta.key]: {
+                            ...d,
+                            statusKonfirmasi: normalizeStatusKonfirmasi(e.target.value),
+                          },
+                        }))
+                      }
+                      className="min-h-[44px] w-full rounded-xl border border-zinc-500 bg-white px-3 py-2 text-xs font-semibold text-zinc-950 focus:border-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-700"
+                    >
+                      {STATUS_KONFIRMASI_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1.5 text-[11px] leading-snug text-zinc-600">
+                      Pilihan: Belum Konfirmasi, YA, atau TIDAK.
+                    </p>
+                  </div>
                 </div>
 
                 <div className="min-w-0 flex-1">

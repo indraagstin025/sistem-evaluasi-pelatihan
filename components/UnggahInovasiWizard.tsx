@@ -26,6 +26,12 @@ import {
   formatUploadNetworkError,
   readFileIntoMemoryBlob,
 } from '@/lib/upload-client';
+import {
+  apiFetchJson,
+  formatClientErrorMessage,
+  isNetworkErrorLike,
+  parseApiErrorFromResponse,
+} from '@/lib/client-error';
 
 const MAX_BYTES = 3 * 1024 * 1024; // 3 MB batas upload Vercel
 
@@ -118,16 +124,22 @@ export default function UnggahInovasiWizard() {
   useEffect(() => {
     const loadKegiatan = async () => {
       try {
-        const res = await fetch('/api/public/kegiatan', { cache: 'no-store' });
-        const json = await res.json();
+        const json = await apiFetchJson<{ success: boolean; data?: PublicKegiatanItem[] }>(
+          '/api/public/kegiatan'
+        );
         if (json.success && Array.isArray(json.data)) {
           setKegiatanList(json.data);
           if (json.data.length === 1) {
             setSelectedKegiatanId(json.data[0].id);
           }
         }
-      } catch {
-        setErrorMsg('Gagal memuat daftar kegiatan pelatihan. Coba muat ulang halaman.');
+      } catch (err: unknown) {
+        setErrorMsg(
+          formatClientErrorMessage(
+            err,
+            'Gagal memuat daftar kegiatan pelatihan. Coba muat ulang halaman.'
+          )
+        );
       } finally {
         setLoadingKegiatan(false);
       }
@@ -143,13 +155,18 @@ export default function UnggahInovasiWizard() {
     setSuccessMsg(null);
     setVerifying(true);
     try {
-      const res = await fetch('/api/public/verifikasi-peserta', {
+      const json = await apiFetchJson<{
+        success: boolean;
+        data?: VerifiedPeserta;
+        error?: string;
+      }>('/api/public/verifikasi-peserta', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ kegiatanId: selectedKegiatanId, nip }),
+        fallbackError:
+          'NIP atau NIK tidak ditemukan pada kegiatan ini. Periksa kembali angka yang dimasukkan.',
       });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
+      if (!json.success || !json.data) {
         setErrorMsg(json.error || 'NIP atau NIK tidak ditemukan pada kegiatan ini. Periksa kembali angka yang dimasukkan.');
         return;
       }
@@ -171,8 +188,8 @@ export default function UnggahInovasiWizard() {
       setDokumenNama(prev?.dokumenNama || null);
       setDokumenSizeBytes(prev?.dokumenSizeBytes || null);
       setStep(3);
-    } catch {
-      setErrorMsg('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
+    } catch (err: unknown) {
+      setErrorMsg(formatClientErrorMessage(err, 'Gagal memverifikasi NIP peserta.'));
     } finally {
       setVerifying(false);
     }
@@ -203,8 +220,13 @@ export default function UnggahInovasiWizard() {
         fd.append('file', memoryBlob, file.name);
         return fd;
       });
+      if (!res.ok) {
+        const parsed = await parseApiErrorFromResponse(res, 'Gagal mengunggah file. Silakan coba lagi.');
+        setErrorMsg(parsed.message);
+        return;
+      }
       const json = await res.json();
-      if (!res.ok || !json.success) {
+      if (!json.success) {
         setErrorMsg(json.error || 'Gagal mengunggah file. Silakan coba lagi.');
         return;
       }
@@ -222,9 +244,9 @@ export default function UnggahInovasiWizard() {
       }
     } catch (err: any) {
       setErrorMsg(
-        err instanceof TypeError
+        isNetworkErrorLike(err)
           ? formatUploadNetworkError()
-          : err?.message || formatUploadNetworkError()
+          : formatClientErrorMessage(err, formatUploadNetworkError())
       );
     } finally {
       setUploadingField(null);
@@ -243,7 +265,11 @@ export default function UnggahInovasiWizard() {
     setSubmitting(true);
 
     try {
-      const res = await fetch('/api/public/unggah-inovasi', {
+      const json = await apiFetchJson<{
+        success: boolean;
+        message?: string;
+        error?: string;
+      }>('/api/public/unggah-inovasi', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -259,17 +285,17 @@ export default function UnggahInovasiWizard() {
           kondisiSaatIni,
           dokumenFileId,
         }),
+        fallbackError: 'Gagal menyimpan unggahan Proper. Silakan coba lagi.',
       });
 
-      const json = await res.json();
-      if (!res.ok || !json.success) {
+      if (!json.success) {
         setErrorMsg(json.error || 'Gagal menyimpan unggahan Proper. Silakan coba lagi.');
         return;
       }
 
       setSuccessMsg(json.message || 'Dokumen Proper berhasil disimpan.');
-    } catch {
-      setErrorMsg('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
+    } catch (err: unknown) {
+      setErrorMsg(formatClientErrorMessage(err, 'Gagal menyimpan unggahan Proper.'));
     } finally {
       setSubmitting(false);
     }

@@ -28,6 +28,11 @@ import {
   formatUploadNetworkError,
   readFileIntoMemoryBlob,
 } from '@/lib/upload-client';
+import {
+  formatClientErrorMessage,
+  isNetworkErrorLike,
+  parseApiErrorFromResponse,
+} from '@/lib/client-error';
 
 export interface ImportedEvaluatorAccount {
   userId: string;
@@ -217,6 +222,16 @@ export default function ImportExcelModal({
 
       const res = await fetchFormDataWithRetry('/api/peserta/import', buildFormData);
 
+      if (!res.ok) {
+        const parsedErr = await parseApiErrorFromResponse(
+          res,
+          'Gagal memproses file Excel. Periksa isi file, lalu coba lagi.'
+        );
+        setIsNetworkBlockedError(parsedErr.isNetworkError);
+        setErrorMessage(parsedErr.message);
+        return;
+      }
+
       const json = await res.json();
       if (json.success || json.ok) {
         invalidateKegiatanCache(kegiatanId);
@@ -240,8 +255,11 @@ export default function ImportExcelModal({
       }
     } catch (err) {
       console.error('Import error:', err);
-      setIsNetworkBlockedError(true);
-      setErrorMessage(formatUploadNetworkError());
+      const isNet = isNetworkErrorLike(err);
+      setIsNetworkBlockedError(isNet);
+      setErrorMessage(
+        isNet ? formatUploadNetworkError() : formatClientErrorMessage(err, formatUploadNetworkError())
+      );
     } finally {
       setIsProcessing(false);
     }

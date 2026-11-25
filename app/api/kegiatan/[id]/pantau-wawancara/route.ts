@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireSession } from '@/lib/auth';
+import { handleApiError } from '@/lib/api-error';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,70 +12,78 @@ export async function GET(
   const guard = await requireSession(['SUPER_ADMIN']);
   if (!guard.ok) return guard.response;
 
-  const [teams, peserta] = await Promise.all([
-    prisma.timEvaluator.findMany({
-      where: { kegiatanId: params.id },
-      include: {
-        evaluator: { select: { id: true, nama: true, nip: true } },
-        _count: { select: { peserta: true } },
-      },
-      orderBy: { urutan: 'asc' },
-    }),
-    prisma.peserta.findMany({
-      where: { kegiatanId: params.id },
-      include: {
-        tim: {
-          include: {
-            evaluator: { select: { id: true, nama: true, nip: true } },
+  try {
+    const [teams, peserta] = await Promise.all([
+      prisma.timEvaluator.findMany({
+        where: { kegiatanId: params.id },
+        include: {
+          evaluator: { select: { id: true, nama: true, nip: true } },
+          _count: { select: { peserta: true } },
+        },
+        orderBy: { urutan: 'asc' },
+      }),
+      prisma.peserta.findMany({
+        where: { kegiatanId: params.id },
+        include: {
+          tim: {
+            include: {
+              evaluator: { select: { id: true, nama: true, nip: true } },
+            },
+          },
+          wawancara: true,
+          hasil: true,
+          inovasiProper: {
+            select: {
+              id: true,
+              judulProper: true,
+              jangkaMenengahStatus: true,
+              jangkaPanjangStatus: true,
+              dokumenNama: true,
+              updatedAt: true,
+            },
           },
         },
-        wawancara: true,
-        hasil: true,
-        inovasiProper: {
-          select: {
-            id: true,
-            judulProper: true,
-            jangkaMenengahStatus: true,
-            jangkaPanjangStatus: true,
-            dokumenNama: true,
-            updatedAt: true,
-          },
-        },
-      },
-      orderBy: [{ tim: { urutan: 'asc' } }, { nama: 'asc' }],
-    }),
-  ]);
+        orderBy: [{ tim: { urutan: 'asc' } }, { nama: 'asc' }],
+      }),
+    ]);
 
-  const rows = peserta.map((p) => {
-    const filledNilai = p.wawancara.filter((w) => w.nilai !== null).length;
-    const filledDeskripsi = p.wawancara.filter((w) => Boolean(w.deskripsi?.trim())).length;
-    return {
-      id: p.id,
-      nama: p.nama,
-      nip: p.nip,
-      instansi: p.instansi,
-      jabatanSaatIni: p.jabatanSaatIni,
-      timId: p.timId,
-      timNama: p.tim?.namaTim || p.namaTimExcel || 'Belum Dibagi',
-      evaluatorNama: p.tim?.evaluator?.nama || null,
-      linkMeeting: p.tim?.linkMeeting || null,
-      linkInternalWawancara: `/kegiatan/${params.id}/wawancara/${p.id}`,
-      filledNilai,
-      filledDeskripsi,
-      wawancaraSelesaiAt: p.wawancaraSelesaiAt,
-      rataSurveiL: p.hasil?.rataSurveiL ?? null,
-      rataWawancaraM: p.hasil?.rataWawancaraM ?? null,
-      totalForm: p.hasil?.totalForm ?? null,
-      hasProper: Boolean(p.inovasiProper),
-      properJudul: p.inovasiProper?.judulProper || p.judulAksiPerubahan || null,
-      properDokumenNama: p.inovasiProper?.dokumenNama || null,
-    };
-  });
+    const rows = peserta.map((p) => {
+      const filledNilai = p.wawancara.filter((w) => w.nilai !== null).length;
+      const filledDeskripsi = p.wawancara.filter((w) => Boolean(w.deskripsi?.trim())).length;
+      return {
+        id: p.id,
+        nama: p.nama,
+        nip: p.nip,
+        instansi: p.instansi,
+        jabatanSaatIni: p.jabatanSaatIni,
+        timId: p.timId,
+        timNama: p.tim?.namaTim || p.namaTimExcel || 'Belum Dibagi',
+        evaluatorNama: p.tim?.evaluator?.nama || null,
+        linkMeeting: p.tim?.linkMeeting || null,
+        linkInternalWawancara: `/kegiatan/${params.id}/wawancara/${p.id}`,
+        filledNilai,
+        filledDeskripsi,
+        wawancaraSelesaiAt: p.wawancaraSelesaiAt,
+        rataSurveiL: p.hasil?.rataSurveiL ?? null,
+        rataWawancaraM: p.hasil?.rataWawancaraM ?? null,
+        totalForm: p.hasil?.totalForm ?? null,
+        hasProper: Boolean(p.inovasiProper),
+        properJudul: p.inovasiProper?.judulProper || p.judulAksiPerubahan || null,
+        properDokumenNama: p.inovasiProper?.dokumenNama || null,
+      };
+    });
 
-  return NextResponse.json({
-    success: true,
-    data: { teams, peserta: rows },
-  });
+    return NextResponse.json({
+      success: true,
+      data: { teams, peserta: rows },
+    });
+  } catch (error: unknown) {
+    return handleApiError(
+      error,
+      'GET /api/kegiatan/[id]/pantau-wawancara',
+      'Gagal memuat pemantauan wawancara.'
+    );
+  }
 }
 
 export async function PATCH(
@@ -113,10 +122,11 @@ export async function PATCH(
     });
 
     return NextResponse.json({ success: true, data: updated });
-  } catch (error: any) {
-    return NextResponse.json(
-      { success: false, error: error?.message || 'Gagal menyimpan tautan meeting.' },
-      { status: 500 }
+  } catch (error: unknown) {
+    return handleApiError(
+      error,
+      'PATCH /api/kegiatan/[id]/pantau-wawancara',
+      'Gagal menyimpan tautan meeting.'
     );
   }
 }

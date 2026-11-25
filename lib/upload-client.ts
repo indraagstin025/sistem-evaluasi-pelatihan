@@ -1,5 +1,11 @@
 'use client';
 
+import {
+  CLIENT_NETWORK_ERROR_MESSAGE,
+  ClientRequestError,
+  isBrowserOffline,
+} from '@/lib/client-error';
+
 /**
  * Membaca seluruh byte File ke Blob di memori browser agar pengiriman FormData
  * tidak bergantung lagi pada handle file disk yang rawan terkunci/kedaluwarsa.
@@ -27,6 +33,13 @@ export async function fetchFormDataWithRetry(
   buildFormData: () => FormData,
   options?: { quickFailureThresholdMs?: number; retryDelayMs?: number }
 ): Promise<Response> {
+  if (isBrowserOffline()) {
+    throw new ClientRequestError(CLIENT_NETWORK_ERROR_MESSAGE, {
+      code: 'OFFLINE',
+      isNetworkError: true,
+    });
+  }
+
   const quickThreshold = options?.quickFailureThresholdMs ?? 3000;
   const retryDelay = options?.retryDelayMs ?? 300;
   const startedAt = Date.now();
@@ -57,8 +70,8 @@ export async function fetchFormDataWithRetry(
  * Menyusun pesan error upload yang akurat ketika fetch gagal di lapisan jaringan browser.
  */
 export function formatUploadNetworkError(): string {
-  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-    return 'Koneksi internet terputus. Periksa jaringan Anda, lalu coba lagi.';
+  if (isBrowserOffline()) {
+    return CLIENT_NETWORK_ERROR_MESSAGE;
   }
-  return 'Permintaan unggah tertahan di browser/jaringan lokal sebelum mencapai server (sering terjadi pada tab lama, ekstensi browser, antivirus/firewall, atau file yang masih terbuka). Muat ulang halaman lalu coba unggah kembali.';
+  return 'Ada masalah pada koneksi internet atau permintaan unggah tertahan di jaringan lokal sebelum mencapai server. Periksa internet Anda atau muat ulang halaman lalu coba kembali.';
 }

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireSession } from '@/lib/auth';
 import { encryptVaultPassword, hashPassword } from '@/lib/password';
+import { handleApiError } from '@/lib/api-error';
 
 export async function POST(
   request: Request,
@@ -42,10 +43,11 @@ export async function POST(
       success: true,
       message: `Sandi untuk ${target.nama} berhasil direset. Evaluator wajib mengganti sandi saat login berikutnya.`,
     });
-  } catch (error: any) {
-    return NextResponse.json(
-      { success: false, error: error?.message || 'Gagal mereset kata sandi.' },
-      { status: 500 }
+  } catch (error: unknown) {
+    return handleApiError(
+      error,
+      'POST /api/users/[id]/reset-password',
+      'Gagal mereset kata sandi.'
     );
   }
 }

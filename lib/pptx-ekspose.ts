@@ -8,6 +8,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import PptxGenJS from 'pptxgenjs';
 import type { PembahasanItem, RekapGrafikData } from './ai';
+import type { KonfirmasiWawancaraMap } from './pembahasan-server';
 import {
   EKSPOSE_CATEGORIES,
   EKSPOSE_COLORS,
@@ -15,11 +16,13 @@ import {
   extractKesimpulanContent,
   parseBoldSegments,
 } from './ekspose-config';
+import { EKSPOSE_SLIDE_KRITERIA_MAP } from './wawancara-kriteria';
 
 export interface EksposePptxInput {
   kegiatanNama?: string;
   rekapMap: Record<'grafik1' | 'grafik2' | 'grafik3' | 'grafik4' | 'grafik5', RekapGrafikData>;
   pembahasanMap: Record<string, PembahasanItem>;
+  konfirmasiMap?: KonfirmasiWawancaraMap;
 }
 
 const SLIDE_W = 13.333; // 16:9 widescreen (inches)
@@ -119,6 +122,21 @@ function buildListTextProps(
   return runs;
 }
 
+function buildKonfirmasiLines(
+  konfirmasiMap: KonfirmasiWawancaraMap | undefined,
+  slideKey: keyof typeof EKSPOSE_SLIDE_KRITERIA_MAP
+): string[] {
+  if (!konfirmasiMap) return [];
+  const keys = EKSPOSE_SLIDE_KRITERIA_MAP[slideKey] || [];
+  return keys
+    .map((key) => konfirmasiMap[key])
+    .filter(Boolean)
+    .map(
+      (r) =>
+        `${r.judul}: YA ${r.ya} | TIDAK ${r.tidak} | Belum Konfirmasi ${r.belumKonfirmasi} (${r.totalPeserta} peserta)`
+    );
+}
+
 function addStyledNarrativePanel(
   slide: PptxGenJS.Slide,
   opts: {
@@ -132,6 +150,7 @@ function addStyledNarrativePanel(
     bulletMode: 'bullet' | 'number';
     emptyFallback?: string;
     denseThreshold?: [number, number];
+    konfirmasiLines?: string[];
   }
 ) {
   slide.addShape('rect', {
@@ -162,14 +181,24 @@ function addStyledNarrativePanel(
   const bodyX = opts.x + 0.24;
   const bodyY = opts.y + 0.64;
   const bodyW = opts.w - 0.48;
-  const bodyH = opts.h - 0.80;
+  const totalBodyH = opts.h - 0.80;
+  const konfLines = opts.konfirmasiLines || [];
+  const noteH =
+    konfLines.length === 0
+      ? 0
+      : konfLines.length >= 4
+        ? 1.56
+        : konfLines.length >= 2
+          ? 0.94
+          : 0.68;
+  const bodyH = konfLines.length > 0 ? Math.max(2.0, totalBodyH - noteH - 0.1) : totalBodyH;
 
   if (opts.items.length === 0) {
     slide.addText(opts.emptyFallback || 'Belum ada catatan pembahasan.', {
       x: bodyX,
-      y: bodyY + 0.3,
+      y: bodyY + 0.25,
       w: bodyW,
-      h: bodyH - 0.6,
+      h: Math.max(1.2, bodyH - 0.4),
       fontFace: FONT_FAMILY,
       fontSize: 12,
       italic: true,
@@ -177,27 +206,84 @@ function addStyledNarrativePanel(
       align: 'center',
       valign: 'top',
     });
-    return;
+  } else {
+    const [tNormal, tCompact] = opts.denseThreshold ?? [620, 880];
+    const effectiveThresholds =
+      konfLines.length >= 4 ? [Math.round(tNormal * 0.72), Math.round(tCompact * 0.72)] : [tNormal, tCompact];
+    const { fontSize, paraSpaceAfter } = computeBoxTypography(
+      opts.items,
+      effectiveThresholds[0],
+      effectiveThresholds[1]
+    );
+    const textProps = buildListTextProps(opts.items, opts.bulletMode, {
+      fontSize,
+      color: '1E293B',
+      paraSpaceAfter,
+    });
+
+    slide.addText(textProps, {
+      x: bodyX,
+      y: bodyY,
+      w: bodyW,
+      h: bodyH,
+      align: 'left',
+      valign: 'top',
+      lineSpacingMultiple: 1.15,
+      margin: [2, 6, 4, 6],
+    });
   }
 
-  const [tNormal, tCompact] = opts.denseThreshold ?? [620, 880];
-  const { fontSize, paraSpaceAfter } = computeBoxTypography(opts.items, tNormal, tCompact);
-  const textProps = buildListTextProps(opts.items, opts.bulletMode, {
-    fontSize,
-    color: '1E293B',
-    paraSpaceAfter,
-  });
+  if (konfLines.length > 0) {
+    const noteY = bodyY + bodyH + 0.08;
+    slide.addShape('rect', {
+      x: bodyX,
+      y: noteY,
+      w: bodyW,
+      h: noteH,
+      fill: { color: 'FFFFFF' },
+      line: { color: 'CBD5E1', width: 0.75 },
+    });
 
-  slide.addText(textProps, {
-    x: bodyX,
-    y: bodyY,
-    w: bodyW,
-    h: bodyH,
-    align: 'left',
-    valign: 'top',
-    lineSpacingMultiple: 1.15,
-    margin: [2, 6, 4, 6],
-  });
+    const noteRuns: PptxGenJS.TextProps[] = [
+      {
+        text: 'Catatan Konfirmasi Wawancara (Sesuai Data):',
+        options: {
+          fontFace: FONT_FAMILY,
+          fontSize: 9.5,
+          bold: true,
+          color: '0F172A',
+          breakLine: true,
+          paraSpaceAfter: 3,
+        },
+      },
+    ];
+
+    const lineFontSize = konfLines.length >= 4 ? 8.2 : 9.2;
+    konfLines.forEach((line, idx) => {
+      noteRuns.push({
+        text: `• ${line}`,
+        options: {
+          fontFace: FONT_FAMILY,
+          fontSize: lineFontSize,
+          bold: false,
+          color: '1E293B',
+          breakLine: idx < konfLines.length - 1,
+          paraSpaceAfter: 2,
+        },
+      });
+    });
+
+    slide.addText(noteRuns, {
+      x: bodyX + 0.08,
+      y: noteY + 0.05,
+      w: bodyW - 0.16,
+      h: noteH - 0.1,
+      align: 'left',
+      valign: 'top',
+      lineSpacingMultiple: 1.12,
+      margin: [2, 4, 2, 4],
+    });
+  }
 }
 
 function addHorizontalEksposeChart(
@@ -327,6 +413,7 @@ export async function generateEksposePptxBuffer(input: EksposePptxInput): Promis
       bulletMode: 'bullet',
       emptyFallback: 'Pembahasan untuk slide ini belum tersedia.',
       denseThreshold: [600, 860],
+      konfirmasiLines: buildKonfirmasiLines(input.konfirmasiMap, meta.key),
     });
   }
 
@@ -349,6 +436,7 @@ export async function generateEksposePptxBuffer(input: EksposePptxInput): Promis
     bulletMode: 'bullet',
     emptyFallback: 'Pembahasan kesimpulan belum dibuat.',
     denseThreshold: [740, 1020],
+    konfirmasiLines: buildKonfirmasiLines(input.konfirmasiMap, 'kesimpulan'),
   });
 
   addStyledNarrativePanel(closingSlide, {

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { canAccessKegiatan, requireSession } from '@/lib/auth';
+import { handleApiError } from '@/lib/api-error';
 
 export const dynamic = 'force-dynamic';
 
@@ -150,12 +151,8 @@ export async function GET(request: Request) {
       },
       ...(countsResult ? { counts: countsResult } : {}),
     });
-  } catch (error: any) {
-    console.error('GET /api/peserta error:', error);
-    return NextResponse.json(
-      { success: false, error: error.message || 'Gagal mengambil data peserta' },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return handleApiError(error, 'GET /api/peserta', 'Gagal mengambil data peserta.');
   }
 }
 

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireSession } from '@/lib/auth';
 import { getKegiatanDetailForUser } from '@/lib/queries/kegiatan';
+import { handleApiError } from '@/lib/api-error';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,30 +13,34 @@ export async function GET(
   const guard = await requireSession();
   if (!guard.ok) return guard.response;
 
-  const { searchParams } = new URL(request.url);
-  const includePeserta = searchParams.get('includePeserta') !== '0';
+  try {
+    const { searchParams } = new URL(request.url);
+    const includePeserta = searchParams.get('includePeserta') !== '0';
 
-  const result = await getKegiatanDetailForUser(guard.user, params.id, {
-    includePeserta,
-  });
+    const result = await getKegiatanDetailForUser(guard.user, params.id, {
+      includePeserta,
+    });
 
-  if (result.status === 'forbidden') {
-    return NextResponse.json(
-      { success: false, error: 'Anda tidak terdaftar pada kegiatan ini.' },
-      { status: 403 }
-    );
+    if (result.status === 'forbidden') {
+      return NextResponse.json(
+        { success: false, error: 'Anda tidak terdaftar pada kegiatan ini.' },
+        { status: 403 }
+      );
+    }
+    if (result.status === 'not_found') {
+      return NextResponse.json(
+        { success: false, error: 'Kegiatan tidak ditemukan.' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: result.data,
+    });
+  } catch (error: unknown) {
+    return handleApiError(error, 'GET /api/kegiatan/[id]', 'Gagal memuat detail kegiatan.');
   }
-  if (result.status === 'not_found') {
-    return NextResponse.json(
-      { success: false, error: 'Kegiatan tidak ditemukan.' },
-      { status: 404 }
-    );
-  }
-
-  return NextResponse.json({
-    success: true,
-    data: result.data,
-  });
 }
 
 export async function PATCH(
@@ -106,11 +111,8 @@ export async function PATCH(
       },
     });
     return NextResponse.json({ success: true, data: updated });
-  } catch (error: any) {
-    return NextResponse.json(
-      { success: false, error: error?.message || 'Gagal memperbarui kegiatan.' },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return handleApiError(error, 'PATCH /api/kegiatan/[id]', 'Gagal memperbarui kegiatan.');
   }
 }
 
@@ -124,10 +126,7 @@ export async function DELETE(
   try {
     await prisma.kegiatan.delete({ where: { id: params.id } });
     return NextResponse.json({ success: true, message: 'Kegiatan berhasil dihapus.' });
-  } catch (error: any) {
-    return NextResponse.json(
-      { success: false, error: error?.message || 'Gagal menghapus kegiatan.' },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return handleApiError(error, 'DELETE /api/kegiatan/[id]', 'Gagal menghapus kegiatan.');
   }
 }

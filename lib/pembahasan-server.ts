@@ -5,6 +5,99 @@ import {
   tentukanRentangItemSurvei,
 } from './hitung';
 import type { RekapGrafikData } from './ai';
+import {
+  normalizeStatusKonfirmasi,
+  WAWANCARA_KRITERIA,
+  type KriteriaWawancaraKey,
+} from './wawancara-kriteria';
+
+export interface KriteriaKonfirmasiRekap {
+  kriteria: KriteriaWawancaraKey;
+  judul: string;
+  totalPeserta: number;
+  ya: number;
+  tidak: number;
+  belumKonfirmasi: number;
+}
+
+export type KonfirmasiWawancaraMap = Record<KriteriaWawancaraKey, KriteriaKonfirmasiRekap>;
+
+/**
+ * Menghitung rekapitulasi status konfirmasi dropdown (Belum Konfirmasi, YA, TIDAK)
+ * untuk kelima kriteria wawancara langsung dari daftar peserta & baris Wawancara aktual.
+ */
+export function hitungKonfirmasiWawancaraRekap(
+  listPeserta: Array<{
+    wawancara: Array<{ kriteria: string; statusKonfirmasi?: string | null }>;
+  }>
+): KonfirmasiWawancaraMap {
+  const totalPeserta = listPeserta.length;
+  const result = {} as KonfirmasiWawancaraMap;
+
+  for (const meta of WAWANCARA_KRITERIA) {
+    let ya = 0;
+    let tidak = 0;
+    let belumKonfirmasi = 0;
+
+    for (const p of listPeserta) {
+      const row = p.wawancara.find((w) => w.kriteria === meta.key);
+      const status = normalizeStatusKonfirmasi(row?.statusKonfirmasi);
+      if (status === 'YA') {
+        ya += 1;
+      } else if (status === 'TIDAK') {
+        tidak += 1;
+      } else {
+        belumKonfirmasi += 1;
+      }
+    }
+
+    result[meta.key] = {
+      kriteria: meta.key,
+      judul: meta.judul,
+      totalPeserta,
+      ya,
+      tidak,
+      belumKonfirmasi,
+    };
+  }
+
+  return result;
+}
+
+export async function getKonfirmasiWawancaraMap(
+  kegiatanId: string
+): Promise<KonfirmasiWawancaraMap> {
+  const listPeserta = await prisma.peserta.findMany({
+    where: { kegiatanId },
+    select: {
+      id: true,
+      wawancara: {
+        select: {
+          kriteria: true,
+          statusKonfirmasi: true,
+        },
+      },
+    },
+  });
+
+  return hitungKonfirmasiWawancaraRekap(listPeserta);
+}
+
+export function ringkasKonfirmasiUntukAi(
+  konfirmasiMap: KonfirmasiWawancaraMap,
+  keys?: KriteriaWawancaraKey[]
+): string {
+  const targetKeys =
+    keys && keys.length > 0 ? keys : WAWANCARA_KRITERIA.map((k) => k.key);
+  return targetKeys
+    .map((key) => {
+      const r = konfirmasiMap[key];
+      if (!r) return null;
+      return `- ${r.judul}: YA ${r.ya} peserta, TIDAK ${r.tidak} peserta, Belum Konfirmasi ${r.belumKonfirmasi} peserta (Total ${r.totalPeserta} peserta)`;
+    })
+    .filter(Boolean)
+    .join('\n');
+}
 
 export const PEMBAHASAN_KEYS = [
   'grafik1',

@@ -37,6 +37,7 @@ import {
   invalidateKegiatanCache,
   setClientCache,
 } from '@/lib/client-cache';
+import { apiFetchJson, formatClientErrorMessage } from '@/lib/client-error';
 import type { KegiatanListItem } from '@/lib/queries/kegiatan';
 
 interface KegiatanFormState {
@@ -272,8 +273,10 @@ export default function KegiatanListClient({
       setKegiatan(kegJson.data || []);
     } catch (err: any) {
       setFetchError(
-        err?.message ||
-          'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.'
+        formatClientErrorMessage(
+          err,
+          'Gagal memuat daftar kegiatan. Coba muat ulang halaman.'
+        )
       );
     }
   };
@@ -320,13 +323,13 @@ export default function KegiatanListClient({
     }
     setCreating(true);
     try {
-      const res = await fetch('/api/kegiatan', {
+      const json = await apiFetchJson<{ success: boolean; error?: string }>('/api/kegiatan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
+        fallbackError: 'Gagal membuat kegiatan baru. Periksa isian, lalu coba lagi.',
       });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
+      if (!json.success) {
         setCreateError(
           json.error || 'Gagal membuat kegiatan baru. Periksa isian, lalu coba lagi.'
         );
@@ -337,10 +340,8 @@ export default function KegiatanListClient({
       setCreateError(null);
       setForm(EMPTY_FORM);
       await reloadKegiatan();
-    } catch {
-      setCreateError(
-        'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.'
-      );
+    } catch (err: unknown) {
+      setCreateError(formatClientErrorMessage(err, 'Gagal membuat kegiatan baru.'));
     } finally {
       setCreating(false);
     }
@@ -371,13 +372,16 @@ export default function KegiatanListClient({
     }
     setEditing(true);
     try {
-      const res = await fetch(`/api/kegiatan/${editTarget.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editForm),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
+      const json = await apiFetchJson<{ success: boolean; error?: string }>(
+        `/api/kegiatan/${editTarget.id}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(editForm),
+          fallbackError: 'Gagal memperbarui kegiatan. Periksa isian, lalu coba lagi.',
+        }
+      );
+      if (!json.success) {
         setEditError(
           json.error || 'Gagal memperbarui kegiatan. Periksa isian, lalu coba lagi.'
         );
@@ -387,10 +391,8 @@ export default function KegiatanListClient({
       setEditTarget(null);
       setEditError(null);
       await reloadKegiatan();
-    } catch {
-      setEditError(
-        'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.'
-      );
+    } catch (err: unknown) {
+      setEditError(formatClientErrorMessage(err, 'Gagal memperbarui kegiatan.'));
     } finally {
       setEditing(false);
     }
@@ -401,11 +403,14 @@ export default function KegiatanListClient({
     setDeleting(true);
     setActionError(null);
     try {
-      const res = await fetch(`/api/kegiatan/${deleteTarget.id}`, {
-        method: 'DELETE',
-      });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
+      const json = await apiFetchJson<{ success: boolean; error?: string }>(
+        `/api/kegiatan/${deleteTarget.id}`,
+        {
+          method: 'DELETE',
+          fallbackError: 'Gagal menghapus kegiatan. Muat ulang halaman, lalu coba lagi.',
+        }
+      );
+      if (!json.success) {
         setActionError(
           json.error || 'Gagal menghapus kegiatan. Muat ulang halaman, lalu coba lagi.'
         );
@@ -414,10 +419,8 @@ export default function KegiatanListClient({
       invalidateKegiatanCache(deleteTarget.id);
       setDeleteTarget(null);
       await reloadKegiatan();
-    } catch {
-      setActionError(
-        'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.'
-      );
+    } catch (err: unknown) {
+      setActionError(formatClientErrorMessage(err, 'Gagal menghapus kegiatan.'));
     } finally {
       setDeleting(false);
     }

@@ -1,8 +1,13 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireSession } from '@/lib/auth';
+import { handleApiError } from '@/lib/api-error';
 import { generatePembahasanTemplate, type PembahasanItem } from '@/lib/ai';
-import { getRekapGrafikMap, PEMBAHASAN_KEYS } from '@/lib/pembahasan-server';
+import {
+  getKonfirmasiWawancaraMap,
+  getRekapGrafikMap,
+  PEMBAHASAN_KEYS,
+} from '@/lib/pembahasan-server';
 import { generateEksposePptxBuffer } from '@/lib/pptx-ekspose';
 
 export const runtime = 'nodejs';
@@ -38,8 +43,9 @@ export async function GET(request: Request) {
       );
     }
 
-    const [rekapMap, saved] = await Promise.all([
+    const [rekapMap, konfirmasiMap, saved] = await Promise.all([
       getRekapGrafikMap(kegiatanId),
+      getKonfirmasiWawancaraMap(kegiatanId),
       prisma.pembahasan.findMany({ where: { kegiatanId } }),
     ]);
 
@@ -70,6 +76,7 @@ export async function GET(request: Request) {
       kegiatanNama: kegiatan.nama,
       rekapMap,
       pembahasanMap,
+      konfirmasiMap,
     });
 
     const dateStamp = new Date().toISOString().slice(0, 10);
@@ -88,11 +95,7 @@ export async function GET(request: Request) {
         'Cache-Control': 'no-store',
       },
     });
-  } catch (error: any) {
-    console.error('GET /api/ekspose/pptx error:', error);
-    return NextResponse.json(
-      { success: false, error: error?.message || 'Gagal membuat file PPTX.' },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return handleApiError(error, 'GET /api/ekspose/pptx', 'Gagal membuat file PPTX.');
   }
 }

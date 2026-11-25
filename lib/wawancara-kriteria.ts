@@ -121,3 +121,41 @@ export const KRITERIA_LABEL_MAP: Record<string, string> = {
   manfaat: 'Manfaat Aksi Perubahan (30%)',
   komunikasi: 'Teknik Komunikasi (10%)',
 };
+
+export type StatusKonfirmasiWawancara = 'BELUM_KONFIRMASI' | 'YA' | 'TIDAK';
+
+export const STATUS_KONFIRMASI_OPTIONS: ReadonlyArray<{
+  value: StatusKonfirmasiWawancara;
+  label: string;
+}> = [
+  { value: 'BELUM_KONFIRMASI', label: 'Belum Konfirmasi' },
+  { value: 'YA', label: 'YA' },
+  { value: 'TIDAK', label: 'TIDAK' },
+];
+
+export function normalizeStatusKonfirmasi(raw: unknown): StatusKonfirmasiWawancara {
+  const upper = String(raw || '')
+    .trim()
+    .toUpperCase();
+  if (upper === 'YA') return 'YA';
+  if (upper === 'TIDAK') return 'TIDAK';
+  return 'BELUM_KONFIRMASI';
+}
+
+export function formatStatusKonfirmasiLabel(status: StatusKonfirmasiWawancara): string {
+  if (status === 'YA') return 'YA';
+  if (status === 'TIDAK') return 'TIDAK';
+  return 'Belum Konfirmasi';
+}
+
+export const EKSPOSE_SLIDE_KRITERIA_MAP: Record<
+  'grafik1' | 'grafik2' | 'grafik3' | 'grafik4' | 'grafik5' | 'kesimpulan',
+  KriteriaWawancaraKey[]
+> = {
+  grafik1: ['menengah', 'jangkaPanjang'],
+  grafik2: ['jangkaPanjang'],
+  grafik3: ['seluruhTujuan'],
+  grafik4: ['manfaat'],
+  grafik5: ['komunikasi', 'menengah', 'jangkaPanjang', 'seluruhTujuan', 'manfaat'],
+  kesimpulan: ['menengah', 'jangkaPanjang', 'seluruhTujuan', 'manfaat', 'komunikasi'],
+};

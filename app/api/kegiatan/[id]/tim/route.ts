@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { canAccessKegiatan, requireSession } from '@/lib/auth';
+import { handleApiError } from '@/lib/api-error';
 import { encryptVaultPassword, hashPassword } from '@/lib/password';
 import {
   bagiTimAcakOtomatis,
@@ -17,61 +18,65 @@ export async function GET(
   const guard = await requireSession();
   if (!guard.ok) return guard.response;
 
-  const allowed = await canAccessKegiatan(guard.user, params.id);
-  if (!allowed) {
-    return NextResponse.json(
-      { success: false, error: 'Anda tidak terdaftar pada kegiatan ini.' },
-      { status: 403 }
-    );
-  }
+  try {
+    const allowed = await canAccessKegiatan(guard.user, params.id);
+    if (!allowed) {
+      return NextResponse.json(
+        { success: false, error: 'Anda tidak terdaftar pada kegiatan ini.' },
+        { status: 403 }
+      );
+    }
 
-  const isAdmin = guard.user.role === 'SUPER_ADMIN';
-  const [teams, evaluators, totalPeserta, excelTeamCount] = await Promise.all([
-    prisma.timEvaluator.findMany({
-      where: isAdmin
-        ? { kegiatanId: params.id }
-        : { kegiatanId: params.id, evaluatorId: guard.user.id },
-      include: {
-        evaluator: {
-          select: { id: true, nama: true, nip: true, email: true, aktif: true },
-        },
-        peserta: {
-          orderBy: { nama: 'asc' },
-          select: {
-            id: true,
-            nama: true,
-            nip: true,
-            instansi: true,
-            jabatanSaatIni: true,
-            wawancaraSelesaiAt: true,
-            inovasiProper: { select: { id: true } },
+    const isAdmin = guard.user.role === 'SUPER_ADMIN';
+    const [teams, evaluators, totalPeserta, excelTeamCount] = await Promise.all([
+      prisma.timEvaluator.findMany({
+        where: isAdmin
+          ? { kegiatanId: params.id }
+          : { kegiatanId: params.id, evaluatorId: guard.user.id },
+        include: {
+          evaluator: {
+            select: { id: true, nama: true, nip: true, email: true, aktif: true },
+          },
+          peserta: {
+            orderBy: { nama: 'asc' },
+            select: {
+              id: true,
+              nama: true,
+              nip: true,
+              instansi: true,
+              jabatanSaatIni: true,
+              wawancaraSelesaiAt: true,
+              inovasiProper: { select: { id: true } },
+            },
           },
         },
-      },
-      orderBy: { urutan: 'asc' },
-    }),
-    isAdmin
-      ? prisma.user.findMany({
-          where: { role: 'EVALUATOR', aktif: true },
-          select: { id: true, nama: true, nip: true, email: true },
-          orderBy: { nama: 'asc' },
-        })
-      : Promise.resolve([]),
-    prisma.peserta.count({ where: { kegiatanId: params.id } }),
-    prisma.peserta.count({
-      where: { kegiatanId: params.id, namaTimExcel: { not: null } },
-    }),
-  ]);
+        orderBy: { urutan: 'asc' },
+      }),
+      isAdmin
+        ? prisma.user.findMany({
+            where: { role: 'EVALUATOR', aktif: true },
+            select: { id: true, nama: true, nip: true, email: true },
+            orderBy: { nama: 'asc' },
+          })
+        : Promise.resolve([]),
+      prisma.peserta.count({ where: { kegiatanId: params.id } }),
+      prisma.peserta.count({
+        where: { kegiatanId: params.id, namaTimExcel: { not: null } },
+      }),
+    ]);
 
-  return NextResponse.json({
-    success: true,
-    data: {
-      teams,
-      evaluators,
-      totalPeserta,
-      hasExcelTeams: excelTeamCount > 0,
-    },
-  });
+    return NextResponse.json({
+      success: true,
+      data: {
+        teams,
+        evaluators,
+        totalPeserta,
+        hasExcelTeams: excelTeamCount > 0,
+      },
+    });
+  } catch (error: unknown) {
+    return handleApiError(error, 'GET /api/kegiatan/[id]/tim', 'Gagal memuat pembagian tim.');
+  }
 }
 
 export async function POST(
@@ -113,12 +118,8 @@ export async function POST(
         (createdCount > 0 ? `, ${createdCount} akun evaluator baru dibuat` : '') +
         ').',
     });
-  } catch (error: any) {
-    console.error('POST /api/kegiatan/[id]/tim error:', error);
-    return NextResponse.json(
-      { success: false, error: error?.message || 'Gagal melakukan pembagian tim.' },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return handleApiError(error, 'POST /api/kegiatan/[id]/tim', 'Gagal melakukan pembagian tim.');
   }
 }
 
@@ -236,11 +237,11 @@ export async function PATCH(
     });
 
     return NextResponse.json({ success: true, data: updated });
-  } catch (error: any) {
-    console.error('PATCH /api/kegiatan/[id]/tim error:', error);
-    return NextResponse.json(
-      { success: false, error: error?.message || 'Gagal memperbarui tim evaluator.' },
-      { status: 500 }
+  } catch (error: unknown) {
+    return handleApiError(
+      error,
+      'PATCH /api/kegiatan/[id]/tim',
+      'Gagal memperbarui tim evaluator.'
     );
   }
 }

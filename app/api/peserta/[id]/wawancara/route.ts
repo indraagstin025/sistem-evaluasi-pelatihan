@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { hitungHasil } from '@/lib/hitung';
 import { canAccessPeserta, requireSession } from '@/lib/auth';
+import { handleApiError } from '@/lib/api-error';
 
 const DEFAULT_BOBOT: Record<string, number> = {
   menengah: 20,
@@ -11,23 +12,14 @@ const DEFAULT_BOBOT: Record<string, number> = {
   komunikasi: 10,
 };
 
+const VALID_STATUS_KONFIRMASI = new Set(['BELUM_KONFIRMASI', 'YA', 'TIDAK']);
+
 export async function POST(
   request: Request,
   { params }: { params: { id: string } }
 ) {
-  const guard = await requireSession();
+  const guard = await requireSession(['SUPER_ADMIN', 'EVALUATOR']);
   if (!guard.ok) return guard.response;
-
-  if (guard.user.role !== 'EVALUATOR') {
-    return NextResponse.json(
-      {
-        success: false,
-        error:
-          'Mode Super Admin bersifat baca saja (read-only). Hanya Evaluator tim yang berhak mengisi atau memperbarui wawancara.',
-      },
-      { status: 403 }
-    );
-  }
 
   try {
     const access = await canAccessPeserta(guard.user, params.id);
@@ -51,6 +43,7 @@ export async function POST(
       where: { pesertaId: params.id },
     });
     const existingMap = new Map(existingRows.map((w) => [w.kriteria, w]));
+    const actorLabel = guard.user.role === 'SUPER_ADMIN' ? 'Super Admin' : 'Evaluator';
 
     for (const item of items) {
       const kriteria = String(item?.kriteria || '');
@@ -81,17 +74,40 @@ export async function POST(
         );
       }
 
+      const hasSubmittedStatus = item.statusKonfirmasi !== undefined;
+      let submittedStatus: string | undefined;
+      if (hasSubmittedStatus) {
+        const upperStatus = String(item.statusKonfirmasi || '')
+          .trim()
+          .toUpperCase();
+        if (!VALID_STATUS_KONFIRMASI.has(upperStatus)) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: `Status konfirmasi ${kriteria} harus Belum Konfirmasi, YA, atau TIDAK.`,
+            },
+            { status: 400 }
+          );
+        }
+        submittedStatus = upperStatus;
+      }
+
+      const finalStatusKonfirmasi =
+        submittedStatus ?? existing?.statusKonfirmasi ?? 'BELUM_KONFIRMASI';
       const finalNilai = hasSubmittedNilai ? submittedNilai : (existing?.nilai ?? null);
       const deskripsi =
         item.deskripsi !== undefined ? (String(item.deskripsi).trim() || null) : existing?.deskripsi ?? null;
       const isStillExcelValue =
-        Boolean(existing?.lockedFromImport) && finalNilai !== null && finalNilai === existing?.nilai;
+        Boolean(existing?.lockedFromImport) &&
+        finalNilai !== null &&
+        finalNilai === existing?.nilai &&
+        finalStatusKonfirmasi === (existing?.statusKonfirmasi ?? 'BELUM_KONFIRMASI');
       const sumber =
         finalNilai === null
           ? 'KOSONG'
           : isStillExcelValue
             ? existing?.sumber || 'Form Penilaian Excel'
-            : 'Evaluator';
+            : actorLabel;
 
       await prisma.wawancara.upsert({
         where: {
@@ -103,6 +119,7 @@ export async function POST(
         update: {
           nilai: finalNilai,
           bobot: DEFAULT_BOBOT[kriteria],
+          statusKonfirmasi: finalStatusKonfirmasi,
           lockedFromImport: isStillExcelValue,
           deskripsi,
           sumber,
@@ -113,6 +130,7 @@ export async function POST(
           kriteria,
           bobot: DEFAULT_BOBOT[kriteria],
           nilai: finalNilai,
+          statusKonfirmasi: finalStatusKonfirmasi,
           lockedFromImport: false,
           deskripsi,
           sumber,
@@ -167,11 +185,11 @@ export async function POST(
       message,
       hasil: hasilBaru,
     });
-  } catch (error: any) {
-    console.error('POST /api/peserta/[id]/wawancara error:', error);
-    return NextResponse.json(
-      { success: false, error: error.message || 'Gagal menyimpan wawancara' },
-      { status: 500 }
+  } catch (error: unknown) {
+    return handleApiError(
+      error,
+      'POST /api/peserta/[id]/wawancara',
+      'Gagal menyimpan hasil wawancara.'
     );
   }
 }

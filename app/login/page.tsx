@@ -12,6 +12,7 @@ import {
 } from '@radix-ui/react-icons';
 import { StatusBanner } from '@/components/ui/status-banner';
 import { invalidateClientCache } from '@/lib/client-cache';
+import { apiFetchJson, formatClientErrorMessage } from '@/lib/client-error';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -26,13 +27,17 @@ export default function LoginPage() {
     setErrorMsg(null);
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/login', {
+      const json = await apiFetchJson<{
+        success: boolean;
+        error?: string;
+        user?: { mustChangePassword?: boolean };
+      }>('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ identifier, password }),
+        fallbackError: 'Email/NIP atau kata sandi salah. Periksa kembali, lalu coba lagi.',
       });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
+      if (!json.success) {
         setErrorMsg(
           json.error || 'Email/NIP atau kata sandi salah. Periksa kembali, lalu coba lagi.'
         );
@@ -47,8 +52,13 @@ export default function LoginPage() {
         router.push('/kegiatan');
       }
       router.refresh();
-    } catch {
-      setErrorMsg('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
+    } catch (err: unknown) {
+      setErrorMsg(
+        formatClientErrorMessage(
+          err,
+          'Gagal memproses masuk ke sistem. Silakan coba lagi.'
+        )
+      );
     } finally {
       setLoading(false);
     }

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { canAccessPeserta, requireSession } from '@/lib/auth';
+import { handleApiError } from '@/lib/api-error';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,14 +48,12 @@ export async function GET(
 
     return NextResponse.json({
       success: true,
-      canEditWawancara: guard.user.role === 'EVALUATOR',
+      canEditWawancara:
+        guard.user.role === 'SUPER_ADMIN' || guard.user.role === 'EVALUATOR',
       data: peserta,
     });
-  } catch (error: any) {
-    return NextResponse.json(
-      { success: false, error: error.message || 'Gagal mengambil detail peserta' },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return handleApiError(error, 'GET /api/peserta/[id]', 'Gagal mengambil detail peserta.');
   }
 }
 

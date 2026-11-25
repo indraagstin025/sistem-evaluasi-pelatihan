@@ -18,6 +18,7 @@ import {
   getClientCache,
   invalidateKegiatanCache,
 } from '@/lib/client-cache';
+import { apiFetchJson, formatClientErrorMessage } from '@/lib/client-error';
 
 export default function PantauWawancaraPage({
   params,
@@ -78,8 +79,10 @@ export default function PantauWawancaraPage({
     } catch (err: any) {
       if (!options?.silent) {
         setError(
-          err?.message ||
-            'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.'
+          formatClientErrorMessage(
+            err,
+            'Gagal memuat pemantauan wawancara. Coba muat ulang halaman.'
+          )
         );
       }
     } finally {
@@ -102,16 +105,19 @@ export default function PantauWawancaraPage({
       setSavingTimId(timId);
       setError(null);
       setSaveFeedback(null);
-      const res = await fetch(`/api/kegiatan/${params.id}/pantau-wawancara`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          timId,
-          linkMeeting: (linkDrafts[timId] || '').trim() || null,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
+      const json = await apiFetchJson<{ success: boolean; error?: string }>(
+        `/api/kegiatan/${params.id}/pantau-wawancara`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            timId,
+            linkMeeting: (linkDrafts[timId] || '').trim() || null,
+          }),
+          fallbackError: 'Gagal memperbarui tautan meeting. Periksa tautan, lalu coba lagi.',
+        }
+      );
+      if (!json.success) {
         setError(
           json.error || 'Gagal memperbarui tautan meeting. Periksa tautan, lalu coba lagi.'
         );
@@ -120,8 +126,13 @@ export default function PantauWawancaraPage({
       invalidateKegiatanCache(params.id);
       setSaveFeedback('Tautan meeting tim berhasil diperbarui.');
       await loadData({ force: true, silent: true });
-    } catch {
-      setError('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
+    } catch (err: unknown) {
+      setError(
+        formatClientErrorMessage(
+          err,
+          'Gagal memperbarui tautan meeting. Periksa tautan, lalu coba lagi.'
+        )
+      );
     } finally {
       setSavingTimId(null);
     }

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { findPesertaByKegiatanAndNip } from '@/lib/public-peserta';
+import { handleApiError } from '@/lib/api-error';
 
 export async function POST(request: Request) {
   try {
@@ -169,11 +170,11 @@ export async function POST(request: Request) {
         : 'Dokumen dan informasi Inovasi/Proper berhasil diunggah.',
       data: saved,
     });
-  } catch (error: any) {
-    console.error('POST /api/public/unggah-inovasi error:', error);
-    return NextResponse.json(
-      { success: false, error: error?.message || 'Gagal menyimpan unggahan Inovasi/Proper.' },
-      { status: 500 }
+  } catch (error: unknown) {
+    return handleApiError(
+      error,
+      'POST /api/public/unggah-inovasi',
+      'Gagal menyimpan unggahan Inovasi/Proper.'
     );
   }
 }

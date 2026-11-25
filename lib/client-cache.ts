@@ -1,5 +1,14 @@
 'use client';
 
+import {
+  CLIENT_NETWORK_ERROR_MESSAGE,
+  ClientRequestError,
+  formatClientErrorMessage,
+  isBrowserOffline,
+  isNetworkErrorLike,
+  parseApiErrorFromResponse,
+} from '@/lib/client-error';
+
 interface CacheEntry<T> {
   data: T;
   fetchedAt: number;
@@ -69,32 +78,67 @@ export async function fetchJsonWithCache<T = any>(
     }
   }
 
+  const executeFetch = async (signal?: AbortSignal): Promise<T> => {
+    if (signal?.aborted) {
+      throw new DOMException('The operation was aborted.', 'AbortError');
+    }
+    if (isBrowserOffline()) {
+      throw new ClientRequestError(CLIENT_NETWORK_ERROR_MESSAGE, {
+        code: 'OFFLINE',
+        isNetworkError: true,
+      });
+    }
+
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        cache: 'no-store',
+        signal,
+      });
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError' && signal?.aborted) {
+        throw err;
+      }
+      throw new ClientRequestError(formatClientErrorMessage(err), {
+        code: 'NETWORK_ERROR',
+        isNetworkError: isNetworkErrorLike(err),
+      });
+    }
+
+    if (!res.ok) {
+      throw await parseApiErrorFromResponse(res);
+    }
+
+    const json = (await res.json().catch(() => null)) as T | null;
+    if (!json) {
+      throw new ClientRequestError('Respons server kosong atau tidak valid.', {
+        status: res.status,
+      });
+    }
+    setClientCache(key, json);
+    return json;
+  };
+
+  if (options?.signal) {
+    const data = await executeFetch(options.signal);
+    return { data, fromCache: false };
+  }
+
   let promise = inFlightRequests.get(key) as Promise<T> | undefined;
   if (!promise || options?.force) {
-    promise = (async () => {
-      const res = await fetch(url, {
-        cache: 'no-store',
-        signal: options?.signal,
-      });
-      const json = (await res.json().catch(() => null)) as T | null;
-      if (!res.ok) {
-        const errMsg =
-          (json as any)?.error || `Permintaan gagal (${res.status}). Coba muat ulang halaman.`;
-        throw new Error(errMsg);
+    let createdPromise!: Promise<T>;
+    createdPromise = (async () => {
+      try {
+        return await executeFetch();
+      } finally {
+        if (inFlightRequests.get(key) === createdPromise) {
+          inFlightRequests.delete(key);
+        }
       }
-      if (!json) {
-        throw new Error('Respons server kosong atau tidak valid.');
-      }
-      setClientCache(key, json);
-      return json;
     })();
 
-    inFlightRequests.set(key, promise);
-    promise.finally(() => {
-      if (inFlightRequests.get(key) === promise) {
-        inFlightRequests.delete(key);
-      }
-    });
+    promise = createdPromise;
+    inFlightRequests.set(key, createdPromise);
   }
 
   const data = await promise;

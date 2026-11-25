@@ -30,6 +30,7 @@ import {
   getClientCache,
   invalidateClientCache,
 } from '@/lib/client-cache';
+import { apiFetchJson, formatClientErrorMessage } from '@/lib/client-error';
 
 interface EvaluatorUser {
   id: string;
@@ -96,13 +97,16 @@ export default function KelolaEvaluatorPage() {
     setEditError(null);
     setBanner(null);
     try {
-      const res = await fetch(`/api/users/${editTarget.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editForm),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
+      const json = await apiFetchJson<{ success: boolean; data?: any; error?: string }>(
+        `/api/users/${editTarget.id}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(editForm),
+          fallbackError: 'Gagal memperbarui profil Evaluator.',
+        }
+      );
+      if (!json.success) {
         setEditError(json.error || 'Gagal memperbarui profil Evaluator.');
         return;
       }
@@ -110,8 +114,8 @@ export default function KelolaEvaluatorPage() {
       setEditTarget(null);
       setBanner({ tone: 'success', text: `Data Evaluator ${json.data.nama} berhasil diperbarui.` });
       await loadUsers({ force: true, silent: true });
-    } catch {
-      setEditError('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
+    } catch (err: unknown) {
+      setEditError(formatClientErrorMessage(err, 'Gagal memperbarui profil Evaluator.'));
     } finally {
       setSavingEdit(false);
     }
@@ -138,8 +142,10 @@ export default function KelolaEvaluatorPage() {
     } catch (err: any) {
       if (!options?.silent) {
         setFetchError(
-          err?.message ||
-            'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.'
+          formatClientErrorMessage(
+            err,
+            'Gagal memuat daftar Evaluator. Coba muat ulang halaman.'
+          )
         );
       }
     } finally {
@@ -162,13 +168,17 @@ export default function KelolaEvaluatorPage() {
     setBanner(null);
     setCreating(true);
     try {
-      const res = await fetch('/api/users', {
+      const json = await apiFetchJson<{
+        success: boolean;
+        message?: string;
+        error?: string;
+      }>('/api/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
+        fallbackError: 'Gagal membuat akun Evaluator. Periksa isian, lalu coba lagi.',
       });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
+      if (!json.success) {
         setCreateError(
           json.error || 'Gagal membuat akun Evaluator. Periksa isian, lalu coba lagi.'
         );
@@ -178,11 +188,11 @@ export default function KelolaEvaluatorPage() {
       setCreateOpen(false);
       setCreateError(null);
       setForm({ nama: '', nip: '', email: '', password: '' });
-      setBanner({ tone: 'success', text: json.message });
+      setBanner({ tone: 'success', text: json.message || 'Akun Evaluator berhasil dibuat.' });
       setPage(1);
       await loadUsers({ force: true, silent: true });
-    } catch {
-      setCreateError('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
+    } catch (err: unknown) {
+      setCreateError(formatClientErrorMessage(err, 'Gagal membuat akun Evaluator.'));
     } finally {
       setCreating(false);
     }
@@ -195,13 +205,17 @@ export default function KelolaEvaluatorPage() {
     setResetError(null);
     setBanner(null);
     try {
-      const res = await fetch(`/api/users/${resetTarget.id}/reset-password`, {
+      const json = await apiFetchJson<{
+        success: boolean;
+        message?: string;
+        error?: string;
+      }>(`/api/users/${resetTarget.id}/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ newPassword: resetPassword }),
+        fallbackError: 'Gagal mereset kata sandi. Periksa kata sandi baru, lalu coba lagi.',
       });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
+      if (!json.success) {
         setResetError(
           json.error || 'Gagal mereset kata sandi. Periksa kata sandi baru, lalu coba lagi.'
         );
@@ -211,10 +225,10 @@ export default function KelolaEvaluatorPage() {
       setResetTarget(null);
       setResetPassword('');
       setResetError(null);
-      setBanner({ tone: 'success', text: json.message });
+      setBanner({ tone: 'success', text: json.message || 'Kata sandi berhasil direset.' });
       await loadUsers({ force: true, silent: true });
-    } catch {
-      setResetError('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
+    } catch (err: unknown) {
+      setResetError(formatClientErrorMessage(err, 'Gagal mereset kata sandi.'));
     } finally {
       setResetting(false);
     }
@@ -224,13 +238,16 @@ export default function KelolaEvaluatorPage() {
     setBanner(null);
     setTogglingAktif(true);
     try {
-      const res = await fetch(`/api/users/${u.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ aktif: !u.aktif }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
+      const json = await apiFetchJson<{ success: boolean; error?: string }>(
+        `/api/users/${u.id}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ aktif: !u.aktif }),
+          fallbackError: 'Gagal mengubah keaktifan akun. Coba muat ulang halaman.',
+        }
+      );
+      if (!json.success) {
         setBanner({
           tone: 'error',
           text: json.error || 'Gagal mengubah keaktifan akun. Coba muat ulang halaman.',
@@ -240,10 +257,10 @@ export default function KelolaEvaluatorPage() {
       invalidateClientCache('/api/users');
       setDeactivateTarget(null);
       await loadUsers({ force: true, silent: true });
-    } catch {
+    } catch (err: unknown) {
       setBanner({
         tone: 'error',
-        text: 'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.',
+        text: formatClientErrorMessage(err, 'Gagal mengubah keaktifan akun.'),
       });
     } finally {
       setTogglingAktif(false);

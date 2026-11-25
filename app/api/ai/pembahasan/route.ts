@@ -1,9 +1,16 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireSession } from '@/lib/auth';
+import { handleApiError } from '@/lib/api-error';
 import { buatPembahasanGrafik, generatePembahasanTemplate } from '@/lib/ai';
-import { getRekapGrafikMap, PEMBAHASAN_KEYS } from '@/lib/pembahasan-server';
+import {
+  getKonfirmasiWawancaraMap,
+  getRekapGrafikMap,
+  PEMBAHASAN_KEYS,
+  ringkasKonfirmasiUntukAi,
+} from '@/lib/pembahasan-server';
 import { getHasilSurveyKegiatan, ringkasHasilSurveyUntukAi } from '@/lib/survey-summary';
+import { EKSPOSE_SLIDE_KRITERIA_MAP } from '@/lib/wawancara-kriteria';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -61,12 +68,8 @@ export async function GET(request: Request) {
     );
 
     return NextResponse.json({ success: true, data: result });
-  } catch (error: any) {
-    console.error('GET /api/ai/pembahasan error:', error);
-    return NextResponse.json(
-      { success: false, error: error.message || 'Gagal memuat pembahasan AI' },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return handleApiError(error, 'GET /api/ai/pembahasan', 'Gagal memuat pembahasan AI.');
   }
 }
 
@@ -97,7 +100,10 @@ export async function POST(request: Request) {
     }
 
     const targetKey = body.grafikKey || 'all';
-    const rekapMap = await getRekapGrafikMap(kegiatanId);
+    const [rekapMap, konfirmasiMap] = await Promise.all([
+      getRekapGrafikMap(kegiatanId),
+      getKonfirmasiWawancaraMap(kegiatanId),
+    ]);
     const keysToProcess =
       targetKey === 'all' ? ([...PEMBAHASAN_KEYS] as string[]) : ([targetKey] as string[]);
 
@@ -113,15 +119,27 @@ export async function POST(request: Request) {
       }
 
       let extraSurveySummary: string | undefined;
+      let extraKonfirmasiSummary: string | undefined;
       if (key === 'kesimpulan') {
         const surveySummary = await getHasilSurveyKegiatan(kegiatanId);
         extraSurveySummary = ringkasHasilSurveyUntukAi(surveySummary);
+        extraKonfirmasiSummary = ringkasKonfirmasiUntukAi(konfirmasiMap);
       }
+
+      const slideKeys =
+        EKSPOSE_SLIDE_KRITERIA_MAP[key as keyof typeof EKSPOSE_SLIDE_KRITERIA_MAP];
+      const slideKonfirmasiSummary =
+        key !== 'kesimpulan' && slideKeys
+          ? ringkasKonfirmasiUntukAi(konfirmasiMap, slideKeys)
+          : undefined;
 
       const hasil = await buatPembahasanGrafik(
         key,
         rekap,
-        key === 'kesimpulan' ? { totalPeserta, rekapMap, extraSurveySummary } : undefined
+        key === 'kesimpulan'
+          ? { totalPeserta, rekapMap, extraSurveySummary, extraKonfirmasiSummary }
+          : undefined,
+        slideKonfirmasiSummary
       );
       const payload = {
         judul: hasil.judul,
@@ -152,12 +170,8 @@ export async function POST(request: Request) {
           : `Berhasil memperbarui pembahasan ${targetKey}`,
       data: updatedMap,
     });
-  } catch (error: any) {
-    console.error('POST /api/ai/pembahasan error:', error);
-    return NextResponse.json(
-      { success: false, error: error.message || 'Gagal membuat pembahasan AI' },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return handleApiError(error, 'POST /api/ai/pembahasan', 'Gagal membuat pembahasan AI.');
   }
 }
 
@@ -211,11 +225,7 @@ export async function PUT(request: Request) {
       message: 'Perubahan pembahasan berhasil disimpan secara manual.',
       data: updated,
     });
-  } catch (error: any) {
-    console.error('PUT /api/ai/pembahasan error:', error);
-    return NextResponse.json(
-      { success: false, error: error.message || 'Gagal menyimpan suntingan' },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return handleApiError(error, 'PUT /api/ai/pembahasan', 'Gagal menyimpan perubahan pembahasan.');
   }
 }

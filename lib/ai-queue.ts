@@ -1,7 +1,14 @@
 import { prisma } from '@/lib/prisma';
 import { buatPembahasanGrafikWithMeta } from '@/lib/ai';
-import { getRekapGrafikMap, PEMBAHASAN_KEYS, type PembahasanKey } from '@/lib/pembahasan-server';
+import {
+  getKonfirmasiWawancaraMap,
+  getRekapGrafikMap,
+  PEMBAHASAN_KEYS,
+  ringkasKonfirmasiUntukAi,
+  type PembahasanKey,
+} from '@/lib/pembahasan-server';
 import { getHasilSurveyKegiatan, ringkasHasilSurveyUntukAi } from '@/lib/survey-summary';
+import { EKSPOSE_SLIDE_KRITERIA_MAP } from '@/lib/wawancara-kriteria';
 
 export const DEFAULT_COOLDOWN_MS = 1_200;
 export const STALE_PROCESSING_MS = 90_000;
@@ -347,7 +354,10 @@ export async function processNextAiJob(kegiatanId: string): Promise<ProcessAiJob
       });
     }
 
-    const rekapMap = await getRekapGrafikMap(kegiatanId);
+    const [rekapMap, konfirmasiMap] = await Promise.all([
+      getRekapGrafikMap(kegiatanId),
+      getKonfirmasiWawancaraMap(kegiatanId),
+    ]);
     const rekap =
       claimedJob.grafikKey === 'kesimpulan'
         ? undefined
@@ -371,17 +381,29 @@ export async function processNextAiJob(kegiatanId: string): Promise<ProcessAiJob
     }
 
     let extraSurveySummary: string | undefined;
+    let extraKonfirmasiSummary: string | undefined;
     if (claimedJob.grafikKey === 'kesimpulan') {
       const surveySummary = await getHasilSurveyKegiatan(kegiatanId);
       extraSurveySummary = ringkasHasilSurveyUntukAi(surveySummary);
+      extraKonfirmasiSummary = ringkasKonfirmasiUntukAi(konfirmasiMap);
     }
+
+    const slideKeys =
+      EKSPOSE_SLIDE_KRITERIA_MAP[
+        claimedJob.grafikKey as keyof typeof EKSPOSE_SLIDE_KRITERIA_MAP
+      ];
+    const slideKonfirmasiSummary =
+      claimedJob.grafikKey !== 'kesimpulan' && slideKeys
+        ? ringkasKonfirmasiUntukAi(konfirmasiMap, slideKeys)
+        : undefined;
 
     const meta = await buatPembahasanGrafikWithMeta(
       claimedJob.grafikKey,
       rekap,
       claimedJob.grafikKey === 'kesimpulan'
-        ? { totalPeserta, rekapMap, extraSurveySummary }
-        : undefined
+        ? { totalPeserta, rekapMap, extraSurveySummary, extraKonfirmasiSummary }
+        : undefined,
+      slideKonfirmasiSummary
     );
 
     if (meta.rateLimited && claimedJob.attempts < claimedJob.maxAttempts) {

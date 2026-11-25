@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { attachSessionCookie } from '@/lib/auth';
 import { verifyPassword } from '@/lib/password';
+import { handleApiError } from '@/lib/api-error';
 
 export async function POST(request: Request) {
   try {
@@ -77,11 +78,7 @@ export async function POST(request: Request) {
     });
 
     return response;
-  } catch (error: any) {
-    console.error('POST /api/auth/login error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Terjadi kesalahan saat proses masuk.' },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return handleApiError(error, 'POST /api/auth/login', 'Terjadi kesalahan saat proses masuk.');
   }
 }

@@ -19,6 +19,7 @@ import { StatusBanner } from '@/components/ui/status-banner';
 import { TablePagination } from '@/components/ui/table-pagination';
 import { TableSectionSkeleton } from '@/components/ui/page-skeletons';
 import { fetchJsonWithCache, getClientCache } from '@/lib/client-cache';
+import { formatClientErrorMessage } from '@/lib/client-error';
 
 export default function KegiatanPerbandinganClient({
   kegiatanId,
@@ -61,8 +62,10 @@ export default function KegiatanPerbandinganClient({
       console.error('Error fetching perbandingan data:', err);
       if (!options?.silent) {
         setFetchError(
-          err?.message ||
-            'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.'
+          formatClientErrorMessage(
+            err,
+            'Gagal memuat data perbandingan nilai. Coba muat ulang halaman.'
+          )
         );
       }
     } finally {

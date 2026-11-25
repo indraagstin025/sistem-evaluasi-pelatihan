@@ -9,6 +9,7 @@ import PesertaWawancaraTable, {
   type PesertaPagination,
 } from '@/components/kegiatan/PesertaWawancaraTable';
 import { fetchJsonWithCache, getClientCache } from '@/lib/client-cache';
+import { formatClientErrorMessage } from '@/lib/client-error';
 
 export default function DaftarWawancaraTimPage({
   params,
@@ -93,8 +94,10 @@ export default function DaftarWawancaraTimPage({
       } catch (err: any) {
         if (active && !silent) {
           setError(
-            err?.message ||
-              'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.'
+            formatClientErrorMessage(
+              err,
+              'Gagal memuat daftar peserta wawancara. Coba muat ulang halaman.'
+            )
           );
         }
       } finally {

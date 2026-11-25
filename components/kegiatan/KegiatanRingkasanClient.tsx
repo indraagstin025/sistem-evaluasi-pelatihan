@@ -19,6 +19,7 @@ import {
   getClientCache,
   setClientCache,
 } from '@/lib/client-cache';
+import { formatClientErrorMessage } from '@/lib/client-error';
 
 interface KegiatanRingkasanClientProps {
   kegiatanId: string;
@@ -75,8 +76,10 @@ export default function KegiatanRingkasanClient({
     } catch (err: any) {
       if (!options?.silent) {
         setError(
-          err?.message ||
-            'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.'
+          formatClientErrorMessage(
+            err,
+            'Gagal memuat ringkasan kegiatan. Coba muat ulang halaman.'
+          )
         );
       }
     } finally {

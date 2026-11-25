@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireSession } from '@/lib/auth';
+import { handleApiError } from '@/lib/api-error';
 
 export async function PATCH(
   request: Request,
@@ -87,10 +88,7 @@ export async function PATCH(
     });
 
     return NextResponse.json({ success: true, data: updated });
-  } catch (error: any) {
-    return NextResponse.json(
-      { success: false, error: error?.message || 'Gagal memperbarui akun Evaluator.' },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return handleApiError(error, 'PATCH /api/users/[id]', 'Gagal memperbarui akun Evaluator.');
   }
 }

@@ -30,6 +30,7 @@ export interface KesimpulanContext {
   totalPeserta: number;
   rekapMap?: Record<string, RekapGrafikData>;
   extraSurveySummary?: string;
+  extraKonfirmasiSummary?: string;
 }
 
 function ringkasRentangDominan(dataA: number[], dataB: number[]) {
@@ -400,7 +401,8 @@ async function requestAiPembahasan(
 export async function buatPembahasanGrafikWithMeta(
   grafikKey: string,
   rekap?: RekapGrafikData,
-  kesimpulanCtx?: KesimpulanContext
+  kesimpulanCtx?: KesimpulanContext,
+  konfirmasiSummary?: string
 ): Promise<AiExecutionMeta> {
   const rawGeminiModel = process.env.GEMINI_MODEL || 'deep-research-preview-04-2026';
   const config: AiProviderConfig = {
@@ -437,9 +439,13 @@ export async function buatPembahasanGrafikWithMeta(
       ? `\nRingkasan Hasil Survei Keseluruhan (Alumni vs Atasan):\n${kesimpulanCtx.extraSurveySummary}\n`
       : '';
 
+    const konfirmasiContextBlock = kesimpulanCtx?.extraKonfirmasiSummary
+      ? `\nRekapitulasi Status Konfirmasi Wawancara 5 Kriteria (Data Aktual Database):\n${kesimpulanCtx.extraKonfirmasiSummary}\n`
+      : '';
+
     const promptKesimpulan = `Anda adalah analis evaluasi pasca pelatihan di BPSDM Provinsi Jawa Barat.
 Berikut adalah data rekapitulasi aktual dari ${kesimpulanCtx?.totalPeserta ?? 'seluruh'} peserta terdaftar:
-${ringkasanTeks}${surveyContextBlock}
+${ringkasanTeks}${surveyContextBlock}${konfirmasiContextBlock}
 
 Susunlah narasi resmi Slide Kesimpulan & Rekomendasi berbasis data aktual di atas (jangan mengarang angka di luar data):
 - "poin1": Paragraf kesimpulan umum tentang capaian implementasi aksi perubahan peserta berdasarkan data survei dan wawancara aktual${totalPesertaLabel}.
@@ -480,13 +486,17 @@ Format balasan wajib JSON:
     };
   }
 
+  const konfirmasiBlock = konfirmasiSummary
+    ? `\nCatatan Data Status Konfirmasi Wawancara Terkait (Data Aktual Database):\n${konfirmasiSummary}\n(Jangan mengarang angka di luar data di atas.)\n`
+    : '';
+
   const promptGrafik = `Anda adalah analis evaluasi pasca pelatihan di BPSDM Provinsi Jawa Barat.
 Tugas Anda adalah menulis narasi Pembahasan 4 poin gaya slide ekspose resmi untuk grafik berikut:
 
 Judul: "${rekap.judul}"
 Data ${rekap.labelA}: [Rentang 0: ${rekap.dataA[0]}, Rentang 1-25: ${rekap.dataA[1]}, Rentang 26-50: ${rekap.dataA[2]}, Rentang 51-75: ${rekap.dataA[3]}, Rentang 76-100: ${rekap.dataA[4]}]
 Data ${rekap.labelB}: [Rentang 0: ${rekap.dataB[0]}, Rentang 1-25: ${rekap.dataB[1]}, Rentang 26-50: ${rekap.dataB[2]}, Rentang 51-75: ${rekap.dataB[3]}, Rentang 76-100: ${rekap.dataB[4]}]
-
+${konfirmasiBlock}
 Wajib susun tepat 4 poin berurutan dan akurat:
 Poin 1: Konsentrasi penilaian secara umum.
 Poin 2: Rentang Optimal (76-100) — wajib sebutkan angka ${rekap.dataA[4]} dan ${rekap.dataB[4]}.
@@ -525,8 +535,14 @@ Format balasan wajib JSON:
 export async function buatPembahasanGrafik(
   grafikKey: string,
   rekap?: RekapGrafikData,
-  kesimpulanCtx?: KesimpulanContext
+  kesimpulanCtx?: KesimpulanContext,
+  konfirmasiSummary?: string
 ): Promise<PembahasanItem> {
-  const { item } = await buatPembahasanGrafikWithMeta(grafikKey, rekap, kesimpulanCtx);
+  const { item } = await buatPembahasanGrafikWithMeta(
+    grafikKey,
+    rekap,
+    kesimpulanCtx,
+    konfirmasiSummary
+  );
   return item;
 }

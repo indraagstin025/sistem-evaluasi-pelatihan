@@ -23,6 +23,7 @@ import {
   getClientCache,
   invalidateKegiatanCache,
 } from '@/lib/client-cache';
+import { formatClientErrorMessage } from '@/lib/client-error';
 
 export default function InputDataKegiatanPage({
   params,
@@ -129,8 +130,10 @@ export default function InputDataKegiatanPage({
       } catch (err: any) {
         if (!options?.silent) {
           setError(
-            err?.message ||
-              'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.'
+            formatClientErrorMessage(
+              err,
+              'Gagal memuat data kegiatan. Coba muat ulang halaman.'
+            )
           );
         }
       } finally {
@@ -167,8 +170,10 @@ export default function InputDataKegiatanPage({
       await loadPesertaPage(nextPage);
     } catch (err: any) {
       setError(
-        err?.message ||
+        formatClientErrorMessage(
+          err,
           'Gagal memuat halaman daftar peserta. Coba pilih ulang halaman atau muat ulang.'
+        )
       );
     } finally {
       setLoadingPeserta(false);

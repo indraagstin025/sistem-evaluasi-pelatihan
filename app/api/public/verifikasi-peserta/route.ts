@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { findPesertaByKegiatanAndNip } from '@/lib/public-peserta';
+import { handleApiError } from '@/lib/api-error';
 
 export async function POST(request: Request) {
   try {
@@ -54,11 +55,11 @@ export async function POST(request: Request) {
           : null,
       },
     });
-  } catch (error: any) {
-    console.error('POST /api/public/verifikasi-peserta error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Gagal memverifikasi NIP peserta.' },
-      { status: 500 }
+  } catch (error: unknown) {
+    return handleApiError(
+      error,
+      'POST /api/public/verifikasi-peserta',
+      'Gagal memverifikasi NIP peserta.'
     );
   }
 }

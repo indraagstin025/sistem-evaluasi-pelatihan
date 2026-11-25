@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireSession } from '@/lib/auth';
 import { decryptVaultPassword, encryptVaultPassword, hashPassword } from '@/lib/password';
+import { handleApiError } from '@/lib/api-error';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,35 +10,39 @@ export async function GET() {
   const guard = await requireSession(['SUPER_ADMIN']);
   if (!guard.ok) return guard.response;
 
-  const users = await prisma.user.findMany({
-    where: { role: 'EVALUATOR' },
-    select: {
-      id: true,
-      nama: true,
-      email: true,
-      nip: true,
-      role: true,
-      passwordEncrypted: true,
-      mustChangePassword: true,
-      aktif: true,
-      createdAt: true,
-      timDiampu: {
-        select: {
-          id: true,
-          namaTim: true,
-          kegiatan: { select: { id: true, nama: true } },
+  try {
+    const users = await prisma.user.findMany({
+      where: { role: 'EVALUATOR' },
+      select: {
+        id: true,
+        nama: true,
+        email: true,
+        nip: true,
+        role: true,
+        passwordEncrypted: true,
+        mustChangePassword: true,
+        aktif: true,
+        createdAt: true,
+        timDiampu: {
+          select: {
+            id: true,
+            namaTim: true,
+            kegiatan: { select: { id: true, nama: true } },
+          },
         },
       },
-    },
-    orderBy: [{ createdAt: 'desc' }, { nama: 'asc' }],
-  });
+      orderBy: [{ createdAt: 'desc' }, { nama: 'asc' }],
+    });
 
-  const data = users.map(({ passwordEncrypted, ...rest }) => ({
-    ...rest,
-    revealedPassword: decryptVaultPassword(passwordEncrypted),
-  }));
+    const data = users.map(({ passwordEncrypted, ...rest }) => ({
+      ...rest,
+      revealedPassword: decryptVaultPassword(passwordEncrypted),
+    }));
 
-  return NextResponse.json({ success: true, data });
+    return NextResponse.json({ success: true, data });
+  } catch (error: unknown) {
+    return handleApiError(error, 'GET /api/users', 'Gagal memuat daftar akun Evaluator.');
+  }
 }
 
 export async function POST(request: Request) {
@@ -117,11 +122,7 @@ export async function POST(request: Request) {
       },
       { status: 201 }
     );
-  } catch (error: any) {
-    console.error('POST /api/users error:', error);
-    return NextResponse.json(
-      { success: false, error: error?.message || 'Gagal membuat akun Evaluator.' },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return handleApiError(error, 'POST /api/users', 'Gagal membuat akun Evaluator.');
   }
 }

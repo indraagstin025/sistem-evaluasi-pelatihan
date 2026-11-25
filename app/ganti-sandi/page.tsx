@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CheckIcon, EyeClosedIcon, EyeOpenIcon, LockClosedIcon } from '@radix-ui/react-icons';
 import { StatusBanner } from '@/components/ui/status-banner';
+import { apiFetchJson, formatClientErrorMessage } from '@/lib/client-error';
 
 export default function GantiSandiPage() {
   const router = useRouter();
@@ -33,13 +34,17 @@ export default function GantiSandiPage() {
 
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/change-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ currentPassword, newPassword }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
+      const json = await apiFetchJson<{ success: boolean; error?: string }>(
+        '/api/auth/change-password',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ currentPassword, newPassword }),
+          fallbackError:
+            'Gagal menyimpan kata sandi baru. Periksa kata sandi saat ini, lalu coba lagi.',
+        }
+      );
+      if (!json.success) {
         setErrorMsg(
           json.error ||
             'Gagal menyimpan kata sandi baru. Periksa kata sandi saat ini, lalu coba lagi.'
@@ -49,8 +54,10 @@ export default function GantiSandiPage() {
 
       router.push('/kegiatan');
       router.refresh();
-    } catch {
-      setErrorMsg('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
+    } catch (err: unknown) {
+      setErrorMsg(
+        formatClientErrorMessage(err, 'Gagal menyimpan kata sandi baru. Silakan coba lagi.')
+      );
     } finally {
       setLoading(false);
     }

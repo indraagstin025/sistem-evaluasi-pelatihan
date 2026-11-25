@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { attachSessionCookie, requireSession } from '@/lib/auth';
 import { hashPassword, encryptVaultPassword, verifyPassword } from '@/lib/password';
+import { handleApiError } from '@/lib/api-error';
 
 export async function POST(request: Request) {
   const guard = await requireSession(undefined, { allowDuringPasswordChange: true });
@@ -73,11 +74,7 @@ export async function POST(request: Request) {
     });
 
     return response;
-  } catch (error: any) {
-    console.error('POST /api/auth/change-password error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Gagal mengubah kata sandi.' },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return handleApiError(error, 'POST /api/auth/change-password', 'Gagal mengubah kata sandi.');
   }
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireSession } from '@/lib/auth';
+import { handleApiError } from '@/lib/api-error';
 import { cancelQueuedJobs, enqueueAiJobs, getQueueSnapshot } from '@/lib/ai-queue';
 
 export const dynamic = 'force-dynamic';
@@ -23,12 +24,8 @@ export async function GET(request: Request) {
       success: true,
       ...snapshot,
     });
-  } catch (error: any) {
-    console.error('GET /api/ai/queue error:', error);
-    return NextResponse.json(
-      { success: false, error: error.message || 'Gagal mengambil status antrian AI' },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return handleApiError(error, 'GET /api/ai/queue', 'Gagal mengambil status antrean AI.');
   }
 }
 
@@ -76,12 +73,8 @@ export async function POST(request: Request) {
       },
       { status: 202 }
     );
-  } catch (error: any) {
-    console.error('POST /api/ai/queue error:', error);
-    return NextResponse.json(
-      { success: false, error: error.message || 'Gagal menambahkan antrian AI' },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return handleApiError(error, 'POST /api/ai/queue', 'Gagal menambahkan antrean AI.');
   }
 }
 
@@ -109,11 +102,7 @@ export async function DELETE(request: Request) {
       cancelledCount: res.cancelledCount,
       ...res.snapshot,
     });
-  } catch (error: any) {
-    console.error('DELETE /api/ai/queue error:', error);
-    return NextResponse.json(
-      { success: false, error: error.message || 'Gagal membatalkan antrian AI' },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return handleApiError(error, 'DELETE /api/ai/queue', 'Gagal membatalkan antrean AI.');
   }
 }

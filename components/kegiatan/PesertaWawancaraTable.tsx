@@ -5,17 +5,18 @@ import Link from 'next/link';
 import {
   CheckCircledIcon,
   ExternalLinkIcon,
-  EyeOpenIcon,
   MagnifyingGlassIcon,
   Pencil1Icon,
   ReloadIcon,
 } from '@radix-ui/react-icons';
 import { TablePagination } from '@/components/ui/table-pagination';
+import { StatusBanner } from '@/components/ui/status-banner';
 import {
   fetchJsonWithCache,
   getClientCache,
   setClientCache,
 } from '@/lib/client-cache';
+import { formatClientErrorMessage } from '@/lib/client-error';
 
 export interface PesertaPagination {
   page: number;
@@ -86,6 +87,7 @@ export default function PesertaWawancaraTable({
   const [pagination, setPagination] = useState<PesertaPagination>(initialPagination);
   const [counts, setCounts] = useState<PesertaCounts>(initialCounts);
   const [fetching, setFetching] = useState(false);
+  const [tableError, setTableError] = useState<string | null>(null);
 
   const [page, setPage] = useState(initialPagination.page || 1);
   const [search, setSearch] = useState('');
@@ -152,6 +154,7 @@ export default function PesertaWawancaraTable({
       }
 
       try {
+        setTableError(null);
         if (!cached?.data?.success) setFetching(true);
         const { data: json } = await fetchJsonWithCache<{
           success: boolean;
@@ -162,16 +165,24 @@ export default function PesertaWawancaraTable({
           staleTimeMs: 30_000,
           signal: controller.signal,
         });
-        if (!json.success) return;
+        if (controller.signal.aborted || !json.success) return;
         setRows(json.data || []);
         if (json.pagination) setPagination(json.pagination);
         if (json.counts) setCounts(json.counts);
       } catch (err: any) {
-        if (err?.name !== 'AbortError') {
+        if (err?.name !== 'AbortError' && !controller.signal.aborted) {
           console.error('Error memuat paginasi peserta:', err);
+          setTableError(
+            formatClientErrorMessage(
+              err,
+              'Gagal memuat daftar peserta. Silakan coba lagi.'
+            )
+          );
         }
       } finally {
-        setFetching(false);
+        if (!controller.signal.aborted) {
+          setFetching(false);
+        }
       }
     }
 
@@ -205,8 +216,8 @@ export default function PesertaWawancaraTable({
             </h2>
             <p className="mt-0.5 text-xs text-zinc-600">
               {isAdmin
-                ? 'Daftar peserta kegiatan dalam mode baca saja, 10 peserta per halaman. Klik "Lihat Form" untuk memeriksa kelengkapan Proper (laporan Proyek Perubahan peserta) dan bukti wawancara.'
-                : 'Klik "Wawancara" untuk mengisi nilai (skala 0–100) dan catatan bukti. Status "Selesai" baru berlaku setelah Proper (laporan Proyek Perubahan peserta) diunggah dan wawancara ditandai selesai.'}
+                ? 'Daftar seluruh peserta kegiatan (10 peserta per halaman). Super Admin & Evaluator tim dapat klik "Edit / Nilai" untuk mengisi nilai, status konfirmasi, dan bukti wawancara.'
+                : 'Klik "Wawancara" untuk mengisi nilai (skala 0–100), status konfirmasi (YA/TIDAK), dan catatan bukti. Status "Selesai" baru berlaku setelah Proper (laporan Proyek Perubahan peserta) diunggah dan wawancara ditandai selesai.'}
             </p>
           </div>
           {fetching && (
@@ -216,6 +227,10 @@ export default function PesertaWawancaraTable({
             </span>
           )}
         </div>
+
+        {tableError && (
+          <StatusBanner tone="error" title="Gagal memuat daftar" message={tableError} />
+        )}
 
         <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center">
           <div className="relative flex-1">
@@ -393,18 +408,10 @@ export default function PesertaWawancaraTable({
                         <div className="inline-flex items-center justify-end gap-1.5">
                           <Link
                             href={`/kegiatan/${kegiatanId}/wawancara/${p.id}`}
-                            className={
-                              isAdmin
-                                ? 'inline-flex min-h-[36px] items-center gap-1 whitespace-nowrap rounded-lg border border-zinc-500 bg-white px-2.5 py-1 text-[11px] font-semibold text-zinc-950 transition hover:bg-zinc-950 hover:text-white'
-                                : 'inline-flex min-h-[36px] items-center gap-1 whitespace-nowrap rounded-lg bg-zinc-950 px-2.5 py-1 text-[11px] font-semibold text-white transition hover:bg-zinc-800'
-                            }
+                            className="inline-flex min-h-[36px] items-center gap-1 whitespace-nowrap rounded-lg bg-zinc-950 px-2.5 py-1 text-[11px] font-semibold text-white transition hover:bg-zinc-800"
                           >
-                            {isAdmin ? (
-                              <EyeOpenIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                            ) : (
-                              <Pencil1Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                            )}
-                            <span>{isAdmin ? 'Lihat Form' : 'Wawancara'}</span>
+                            <Pencil1Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                            <span>{isAdmin ? 'Edit / Nilai' : 'Wawancara'}</span>
                           </Link>
                           {p.tim?.linkMeeting && (
                             <a

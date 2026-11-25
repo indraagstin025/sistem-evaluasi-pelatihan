@@ -132,9 +132,10 @@ model Wawancara {
   kriteria         String   // "menengah" | "jangkaPanjang" | "seluruhTujuan" | "manfaat" | "komunikasi"
   bobot            Int      // 20, 20, 20, 30, 10
   nilai            Int?     // 0-100, null = KOSONG
+  statusKonfirmasi String   @default("BELUM_KONFIRMASI") // "BELUM_KONFIRMASI" | "YA" | "TIDAK"
   lockedFromImport Boolean  @default(false)
   deskripsi        String?
-  sumber           String   @default("Form") // "Form" | "Evaluator" | "KOSONG"
+  sumber           String   @default("Form") // "Form" | "Evaluator" | "Super Admin" | "KOSONG"
   updatedById      String?
   updatedAt        DateTime @updatedAt
 

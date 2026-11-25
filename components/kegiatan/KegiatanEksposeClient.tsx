@@ -19,6 +19,7 @@ import {
   extractKesimpulanContent,
   parseBoldSegments,
 } from '@/lib/ekspose-config';
+import { EKSPOSE_SLIDE_KRITERIA_MAP } from '@/lib/wawancara-kriteria';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -44,6 +45,13 @@ import {
   getClientCache,
   invalidateClientCache,
 } from '@/lib/client-cache';
+import {
+  apiFetchJson,
+  CLIENT_NETWORK_ERROR_MESSAGE,
+  formatClientErrorMessage,
+  isBrowserOffline,
+  parseApiErrorFromResponse,
+} from '@/lib/client-error';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, ChartJsTooltip, Legend);
 
@@ -86,6 +94,73 @@ function renderFormattedText(text: string) {
         )
       )}
     </>
+  );
+}
+
+interface KriteriaKonfirmasiItem {
+  kriteria: string;
+  judul: string;
+  totalPeserta: number;
+  ya: number;
+  tidak: number;
+  belumKonfirmasi: number;
+}
+
+function KonfirmasiWawancaraNotes({
+  slideKey,
+  konfirmasiMap,
+  variant = 'blue',
+}: {
+  slideKey: keyof typeof EKSPOSE_SLIDE_KRITERIA_MAP;
+  konfirmasiMap?: Record<string, KriteriaKonfirmasiItem> | null;
+  variant?: 'blue' | 'peach';
+}) {
+  if (!konfirmasiMap) return null;
+  const keys = EKSPOSE_SLIDE_KRITERIA_MAP[slideKey] || [];
+  const rows = keys.map((k) => konfirmasiMap[k]).filter(Boolean);
+  if (rows.length === 0) return null;
+
+  const wrapperClass =
+    variant === 'peach'
+      ? 'mt-4 rounded-md border border-[#E5B88B] bg-white/80 p-3'
+      : 'mt-4 rounded-md border border-[#B2C2DE] bg-white/85 p-3';
+
+  return (
+    <div className={wrapperClass}>
+      <p className="text-[11px] font-semibold text-slate-900">
+        Catatan Konfirmasi Wawancara (Data Aktual)
+      </p>
+      <div className="mt-2 space-y-2">
+        {rows.map((r, idx) => (
+          <div
+            key={r.kriteria}
+            className="flex flex-col gap-1 border-t border-slate-200/80 pt-1.5 text-[11px] first:border-t-0 first:pt-0"
+          >
+            <div className="flex flex-wrap items-baseline justify-between gap-1">
+              <span className="font-medium text-slate-900">
+                {slideKey === 'grafik5' && idx === 0
+                  ? `${r.judul} (Fokus Slide 5)`
+                  : r.judul}
+              </span>
+              <span className="font-mono text-[10px] text-slate-600 tabular-nums">
+                {r.totalPeserta} peserta
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] tabular-nums">
+              <span className="rounded border border-slate-900 bg-slate-900 px-1.5 py-0.5 font-semibold text-white">
+                YA: {r.ya}
+              </span>
+              <span className="rounded border border-slate-500 bg-white px-1.5 py-0.5 font-semibold text-slate-900">
+                TIDAK: {r.tidak}
+              </span>
+              <span className="rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 font-medium text-slate-800">
+                Belum Konfirmasi: {r.belumKonfirmasi}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -184,15 +259,15 @@ export default function KegiatanEksposeClient({
     }
 
     try {
-      const res = await fetch('/api/ai/queue/process', {
+      const json = await apiFetchJson<any>('/api/ai/queue/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ kegiatanId }),
+        fallbackError: 'Gagal memproses antrean AI. Coba muat ulang halaman.',
       });
-      const json = await res.json();
       if (!mountedRef.current) return;
 
-      if (!res.ok || !json.success) {
+      if (!json.success) {
         setQueueError(json.error || 'Gagal memproses antrean AI. Coba muat ulang halaman.');
         if (Array.isArray(json.activeJobs)) {
           setActiveJobs(json.activeJobs);
@@ -223,7 +298,12 @@ export default function KegiatanEksposeClient({
     } catch (err) {
       console.error('Queue worker error:', err);
       if (mountedRef.current) {
-        setQueueError('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
+        setQueueError(
+          formatClientErrorMessage(
+            err,
+            'Gagal memproses antrean AI. Coba muat ulang halaman.'
+          )
+        );
       }
     } finally {
       workerRunningRef.current = false;
@@ -265,8 +345,10 @@ export default function KegiatanEksposeClient({
       console.error('Error fetching ekspose data:', err);
       if (!options?.silent) {
         setFetchError(
-          err?.message ||
-            'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.'
+          formatClientErrorMessage(
+            err,
+            'Gagal memuat data slide ekspose. Coba muat ulang halaman.'
+          )
         );
       }
     } finally {
@@ -299,13 +381,13 @@ export default function KegiatanEksposeClient({
       setQueueError(null);
       setActionError(null);
 
-      const res = await fetch('/api/ai/queue', {
+      const json = await apiFetchJson<any>('/api/ai/queue', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ kegiatanId, grafikKey }),
+        fallbackError: 'Gagal memasukkan slide ke antrean AI. Silakan coba lagi.',
       });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
+      if (!json.success) {
         setActionError(json.error || 'Gagal memasukkan slide ke antrean AI. Silakan coba lagi.');
         return;
       }
@@ -321,7 +403,9 @@ export default function KegiatanEksposeClient({
       }
     } catch (err) {
       console.error(err);
-      setActionError('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
+      setActionError(
+        formatClientErrorMessage(err, 'Gagal memasukkan slide ke antrean AI. Silakan coba lagi.')
+      );
     }
   };
 
@@ -333,17 +417,21 @@ export default function KegiatanEksposeClient({
         clearTimeout(timerRef.current);
         timerRef.current = null;
       }
-      const res = await fetch(
+      const json = await apiFetchJson<any>(
         `/api/ai/queue?kegiatanId=${encodeURIComponent(kegiatanId)}`,
-        { method: 'DELETE' }
+        {
+          method: 'DELETE',
+          fallbackError: 'Gagal membatalkan antrean AI. Coba muat ulang halaman.',
+        }
       );
-      const json = await res.json();
       if (json.success && Array.isArray(json.activeJobs)) {
         setActiveJobs(json.activeJobs);
       }
     } catch (err) {
       console.error(err);
-      setActionError('Gagal membatalkan antrean AI. Coba muat ulang halaman.');
+      setActionError(
+        formatClientErrorMessage(err, 'Gagal membatalkan antrean AI. Coba muat ulang halaman.')
+      );
     } finally {
       setCancellingQueue(false);
     }
@@ -387,7 +475,7 @@ export default function KegiatanEksposeClient({
     try {
       setSavingKey(key);
       setActionError(null);
-      const res = await fetch('/api/ai/pembahasan', {
+      const json = await apiFetchJson<any>('/api/ai/pembahasan', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -395,9 +483,9 @@ export default function KegiatanEksposeClient({
           grafikKey: key,
           ...editForm,
         }),
+        fallbackError: 'Gagal menyimpan perubahan pembahasan. Silakan coba lagi.',
       });
-      const json = await res.json();
-      if (res.ok && json.success) {
+      if (json.success) {
         invalidateClientCache(pembahasanUrl);
         setPembahasanMap((prev) => ({
           ...prev,
@@ -409,7 +497,9 @@ export default function KegiatanEksposeClient({
       }
     } catch (err) {
       console.error(err);
-      setActionError('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
+      setActionError(
+        formatClientErrorMessage(err, 'Gagal menyimpan perubahan pembahasan. Silakan coba lagi.')
+      );
     } finally {
       setSavingKey(null);
     }
@@ -451,6 +541,10 @@ export default function KegiatanEksposeClient({
       setActionError('Simpan atau batalkan perubahan pembahasan sebelum mengunduh file PowerPoint (PPTX).');
       return;
     }
+    if (isBrowserOffline()) {
+      setActionError(CLIENT_NETWORK_ERROR_MESSAGE);
+      return;
+    }
     setActionError(null);
     setDownloadingPptx(true);
     try {
@@ -459,8 +553,11 @@ export default function KegiatanEksposeClient({
         { cache: 'no-store' }
       );
       if (!res.ok) {
-        const errJson = await res.json().catch(() => null);
-        setActionError(errJson?.error || 'Gagal membuat file PowerPoint (PPTX). Silakan coba lagi.');
+        const parsed = await parseApiErrorFromResponse(
+          res,
+          'Gagal membuat file PowerPoint (PPTX). Silakan coba lagi.'
+        );
+        setActionError(parsed.message);
         return;
       }
 
@@ -481,8 +578,13 @@ export default function KegiatanEksposeClient({
       link.click();
       link.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1500);
-    } catch {
-      setActionError('Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.');
+    } catch (err) {
+      setActionError(
+        formatClientErrorMessage(
+          err,
+          'Gagal mengunduh file PowerPoint (PPTX). Silakan coba lagi.'
+        )
+      );
     } finally {
       setDownloadingPptx(false);
     }
@@ -1108,6 +1210,12 @@ export default function KegiatanEksposeClient({
                               })}
                             </div>
                           )}
+
+                          <KonfirmasiWawancaraNotes
+                            slideKey={slide.key}
+                            konfirmasiMap={data?.konfirmasiWawancara}
+                            variant="blue"
+                          />
                         </div>
 
                         <div className="mt-4 flex items-center justify-between border-t border-slate-500/25 pt-2 text-[10px] font-normal text-slate-700">
@@ -1247,6 +1355,12 @@ export default function KegiatanEksposeClient({
                         </div>
                       </div>
                     )}
+
+                    <KonfirmasiWawancaraNotes
+                      slideKey="kesimpulan"
+                      konfirmasiMap={data?.konfirmasiWawancara}
+                      variant="peach"
+                    />
                   </div>
 
                   <div className="mt-4 border-t border-slate-500/25 pt-2 text-right text-[10px] font-normal text-slate-700">

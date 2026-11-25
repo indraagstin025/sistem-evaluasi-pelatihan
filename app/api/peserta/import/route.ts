@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireSession } from '@/lib/auth';
+import { handleApiError } from '@/lib/api-error';
 import { executeExcelImport } from '@/lib/excel-importer';
 
 export const dynamic = 'force-dynamic';
@@ -64,11 +65,7 @@ export async function POST(request: Request) {
       success: true,
       ...result,
     });
-  } catch (error: any) {
-    console.error('Error import file Excel/CSV:', error);
-    return NextResponse.json(
-      { success: false, error: error.message || 'Gagal memproses file Excel.' },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return handleApiError(error, 'POST /api/peserta/import', 'Gagal memproses file Excel.');
   }
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { handleApiError } from '@/lib/api-error';
 import {
   ALLOWED_DOC_EXTENSIONS,
   ALLOWED_IMAGE_EXTENSIONS,
@@ -83,11 +84,7 @@ export async function POST(request: Request) {
       success: true,
       data: saved,
     });
-  } catch (error: any) {
-    console.error('POST /api/public/upload-file error:', error);
-    return NextResponse.json(
-      { success: false, error: error?.message || 'Gagal mengunggah berkas.' },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return handleApiError(error, 'POST /api/public/upload-file', 'Gagal mengunggah berkas.');
   }
 }

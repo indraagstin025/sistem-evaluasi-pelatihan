@@ -34,6 +34,7 @@ import {
   getClientCache,
   invalidateKegiatanCache,
 } from '@/lib/client-cache';
+import { apiFetchJson, formatClientErrorMessage } from '@/lib/client-error';
 
 interface GeneratedAcc {
   userId: string;
@@ -145,9 +146,10 @@ export default function PembagianTimPage({
       if (!options?.silent) {
         setBanner({
           tone: 'error',
-          message:
-            err?.message ||
-            'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.',
+          message: formatClientErrorMessage(
+            err,
+            'Gagal memuat pembagian tim. Coba muat ulang halaman.'
+          ),
         });
       }
     } finally {
@@ -170,13 +172,18 @@ export default function PembagianTimPage({
       setBusyMode(mode);
       setBanner(null);
       setPendingGenerateMode(null);
-      const res = await fetch(`/api/kegiatan/${params.id}/tim`, {
+      const json = await apiFetchJson<{
+        success: boolean;
+        data?: any;
+        message?: string;
+        error?: string;
+      }>(`/api/kegiatan/${params.id}/tim`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mode }),
+        fallbackError: 'Gagal membagi tim. Muat ulang halaman, lalu coba lagi.',
       });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
+      if (!json.success) {
         setBanner({
           tone: 'error',
           message: json.error || 'Gagal membagi tim. Muat ulang halaman, lalu coba lagi.',
@@ -187,10 +194,10 @@ export default function PembagianTimPage({
       setGeneratedAccounts(json.data?.evaluatorAccounts || []);
       setBanner({ tone: 'success', message: json.message || 'Pembagian tim selesai.' });
       await loadData({ force: true, silent: true });
-    } catch {
+    } catch (err: unknown) {
       setBanner({
         tone: 'error',
-        message: 'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.',
+        message: formatClientErrorMessage(err, 'Gagal membagi tim.'),
       });
     } finally {
       setBusyMode(null);
@@ -202,16 +209,19 @@ export default function PembagianTimPage({
     try {
       setSavingTimId(timId);
       setBanner(null);
-      const res = await fetch(`/api/kegiatan/${params.id}/tim`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          timId,
-          evaluatorId: nextEvaluatorId || null,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
+      const json = await apiFetchJson<{ success: boolean; error?: string }>(
+        `/api/kegiatan/${params.id}/tim`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            timId,
+            evaluatorId: nextEvaluatorId || null,
+          }),
+          fallbackError: 'Gagal menautkan evaluator ke tim.',
+        }
+      );
+      if (!json.success) {
         setBanner({
           tone: 'error',
           message: json.error || 'Gagal menautkan evaluator ke tim.',
@@ -223,10 +233,10 @@ export default function PembagianTimPage({
       setSavedNoticeId(timId);
       setTimeout(() => setSavedNoticeId((prev) => (prev === timId ? null : prev)), 2000);
       await loadData({ force: true, silent: true });
-    } catch {
+    } catch (err: unknown) {
       setBanner({
         tone: 'error',
-        message: 'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.',
+        message: formatClientErrorMessage(err, 'Gagal menautkan evaluator ke tim.'),
       });
     } finally {
       setSavingTimId(null);
@@ -237,16 +247,19 @@ export default function PembagianTimPage({
     try {
       setSavingTimId(timId);
       setBanner(null);
-      const res = await fetch(`/api/kegiatan/${params.id}/tim`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          timId,
-          linkMeeting: (linkDrafts[timId] || '').trim() || null,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
+      const json = await apiFetchJson<{ success: boolean; error?: string }>(
+        `/api/kegiatan/${params.id}/tim`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            timId,
+            linkMeeting: (linkDrafts[timId] || '').trim() || null,
+          }),
+          fallbackError: 'Gagal menyimpan tautan meeting.',
+        }
+      );
+      if (!json.success) {
         setBanner({
           tone: 'error',
           message: json.error || 'Gagal menyimpan tautan meeting.',
@@ -257,10 +270,10 @@ export default function PembagianTimPage({
       setSavedNoticeId(timId);
       setTimeout(() => setSavedNoticeId((prev) => (prev === timId ? null : prev)), 2000);
       await loadData({ force: true, silent: true });
-    } catch {
+    } catch (err: unknown) {
       setBanner({
         tone: 'error',
-        message: 'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.',
+        message: formatClientErrorMessage(err, 'Gagal menyimpan tautan meeting.'),
       });
     } finally {
       setSavingTimId(null);
@@ -272,25 +285,29 @@ export default function PembagianTimPage({
     try {
       setMovingPesertaId(pesertaId);
       setBanner(null);
-      const res = await fetch(`/api/kegiatan/${params.id}/tim`, {
+      const json = await apiFetchJson<{
+        success: boolean;
+        message?: string;
+        error?: string;
+      }>(`/api/kegiatan/${params.id}/tim`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           movePeserta: { pesertaId, targetTimId },
         }),
+        fallbackError: 'Gagal memindahkan peserta.',
       });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
+      if (!json.success) {
         setBanner({ tone: 'error', message: json.error || 'Gagal memindahkan peserta.' });
         return;
       }
       invalidateKegiatanCache(params.id);
       setBanner({ tone: 'success', message: json.message || 'Peserta dipindahkan.' });
       await loadData({ force: true, silent: true });
-    } catch {
+    } catch (err: unknown) {
       setBanner({
         tone: 'error',
-        message: 'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.',
+        message: formatClientErrorMessage(err, 'Gagal memindahkan peserta.'),
       });
     } finally {
       setMovingPesertaId(null);
@@ -303,21 +320,25 @@ export default function PembagianTimPage({
     try {
       setCreatingEval(true);
       setBanner(null);
-      const res = await fetch(`/api/kegiatan/${params.id}/tim`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          timId: createForTim.id,
-          newEvaluator: {
-            nama: newNama.trim(),
-            nip: newNip.trim(),
-            email: newEmail.trim() || undefined,
-            password: newPassword,
-          },
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
+      const json = await apiFetchJson<{ success: boolean; error?: string }>(
+        `/api/kegiatan/${params.id}/tim`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            timId: createForTim.id,
+            newEvaluator: {
+              nama: newNama.trim(),
+              nip: newNip.trim(),
+              email: newEmail.trim() || undefined,
+              password: newPassword,
+            },
+          }),
+          fallbackError:
+            'Gagal membuat dan menautkan akun evaluator. Periksa isian, lalu coba lagi.',
+        }
+      );
+      if (!json.success) {
         setBanner({
           tone: 'error',
           message:
@@ -338,10 +359,13 @@ export default function PembagianTimPage({
         message: 'Akun Evaluator baru dibuat dan langsung ditugaskan ke tim.',
       });
       await loadData({ force: true, silent: true });
-    } catch {
+    } catch (err: unknown) {
       setBanner({
         tone: 'error',
-        message: 'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.',
+        message: formatClientErrorMessage(
+          err,
+          'Gagal membuat dan menautkan akun evaluator. Periksa isian, lalu coba lagi.'
+        ),
       });
     } finally {
       setCreatingEval(false);

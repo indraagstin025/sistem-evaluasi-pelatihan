@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireSession } from '@/lib/auth';
+import { handleApiError } from '@/lib/api-error';
 import { isValidNumber } from '@/lib/hitung';
-import { getRekapGrafikMap } from '@/lib/pembahasan-server';
+import {
+  getRekapGrafikMap,
+  hitungKonfirmasiWawancaraRekap,
+} from '@/lib/pembahasan-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -105,12 +109,14 @@ export async function GET(request: Request) {
         : null;
 
     const kosongList = mapped.filter((p) => p.isWawancaraKosong);
+    const konfirmasiWawancara = hitungKonfirmasiWawancaraRekap(listPeserta);
 
     return NextResponse.json(
       {
         success: true,
         kegiatan,
         rekap: rekapMap,
+        konfirmasiWawancara,
         ringkasan: {
           totalPeserta: mapped.length,
           totalValidSurvei: validL.length,
@@ -131,11 +137,7 @@ export async function GET(request: Request) {
         },
       }
     );
-  } catch (error: any) {
-    console.error('GET /api/ekspose error:', error);
-    return NextResponse.json(
-      { success: false, error: error.message || 'Gagal mengambil data ekspose' },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return handleApiError(error, 'GET /api/ekspose', 'Gagal mengambil data ekspose.');
   }
 }

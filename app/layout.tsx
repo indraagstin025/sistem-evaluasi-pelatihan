@@ -4,6 +4,7 @@ import localFont from 'next/font/local';
 import Navbar from '@/components/Navbar';
 import { SmoothScrollProvider } from '@/components/providers/SmoothScrollProvider';
 import { WibThemeProvider } from '@/components/providers/WibThemeProvider';
+import { NetworkStatusBanner } from '@/components/providers/NetworkStatusBanner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { getSessionUser } from '@/lib/auth';
 
@@ -47,6 +48,7 @@ export default async function RootLayout({
       </head>
       <body className="min-h-screen bg-canvas font-sans text-zinc-950 antialiased">
         <WibThemeProvider>
+          <NetworkStatusBanner />
           <TooltipProvider delayDuration={200}>
             <a
               href="#main-content"

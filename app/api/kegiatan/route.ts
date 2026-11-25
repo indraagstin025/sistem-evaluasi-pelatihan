@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireSession } from '@/lib/auth';
 import { listKegiatanForUser } from '@/lib/queries/kegiatan';
+import { handleApiError } from '@/lib/api-error';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,8 +10,12 @@ export async function GET() {
   const guard = await requireSession();
   if (!guard.ok) return guard.response;
 
-  const formatted = await listKegiatanForUser(guard.user);
-  return NextResponse.json({ success: true, data: formatted });
+  try {
+    const formatted = await listKegiatanForUser(guard.user);
+    return NextResponse.json({ success: true, data: formatted });
+  } catch (error: unknown) {
+    return handleApiError(error, 'GET /api/kegiatan', 'Gagal memuat daftar kegiatan.');
+  }
 }
 
 export async function POST(request: Request) {
@@ -67,11 +72,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ success: true, data: created }, { status: 201 });
-  } catch (error: any) {
-    console.error('POST /api/kegiatan error:', error);
-    return NextResponse.json(
-      { success: false, error: error?.message || 'Gagal membuat kegiatan baru.' },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return handleApiError(error, 'POST /api/kegiatan', 'Gagal membuat kegiatan baru.');
   }
 }

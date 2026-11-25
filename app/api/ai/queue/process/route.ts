@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireSession } from '@/lib/auth';
+import { handleApiError } from '@/lib/api-error';
 import { processNextAiJob } from '@/lib/ai-queue';
 
 export const dynamic = 'force-dynamic';
@@ -25,11 +26,7 @@ export async function POST(request: Request) {
       success: true,
       ...result,
     });
-  } catch (error: any) {
-    console.error('POST /api/ai/queue/process error:', error);
-    return NextResponse.json(
-      { success: false, error: error.message || 'Gagal memproses antrian AI' },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return handleApiError(error, 'POST /api/ai/queue/process', 'Gagal memproses antrean AI.');
   }
 }

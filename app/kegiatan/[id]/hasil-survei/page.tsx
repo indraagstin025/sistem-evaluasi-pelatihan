@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StatusBanner } from '@/components/ui/status-banner';
 import { TableSectionSkeleton } from '@/components/ui/page-skeletons';
 import { fetchJsonWithCache, getClientCache } from '@/lib/client-cache';
+import { formatClientErrorMessage } from '@/lib/client-error';
 import type {
   HasilSurveyKegiatanSummary,
   LikertSummarySide,
@@ -196,8 +197,10 @@ export default function HasilSurveiPage({
       } catch (err: any) {
         if (active && !silent) {
           setError(
-            err?.message ||
-              'Tidak bisa terhubung ke server. Periksa koneksi internet Anda, lalu coba lagi.'
+            formatClientErrorMessage(
+              err,
+              'Gagal memuat hasil survei. Coba muat ulang halaman.'
+            )
           );
         }
       } finally {
