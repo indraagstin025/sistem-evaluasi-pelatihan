@@ -221,6 +221,7 @@ export default function KegiatanEksposeClient({
   const [actionError, setActionError] = useState<string | null>(null);
   const [activeJobs, setActiveJobs] = useState<AiQueueJob[]>([]);
   const [queueError, setQueueError] = useState<string | null>(null);
+  const [fallbackNotice, setFallbackNotice] = useState<string | null>(null);
   const [cancellingQueue, setCancellingQueue] = useState(false);
   const [confirmRegenerateAllOpen, setConfirmRegenerateAllOpen] = useState(false);
   const [confirmCancelQueueOpen, setConfirmCancelQueueOpen] = useState(false);
@@ -282,6 +283,15 @@ export default function KegiatanEksposeClient({
           ...prev,
           [json.savedPembahasan.grafikKey]: json.savedPembahasan,
         }));
+        if (json.usedTemplateFallback || json.savedPembahasan.sumber === 'template') {
+          const slideLabel =
+            SLIDE_QUEUE_LABELS[json.savedPembahasan.grafikKey] ||
+            json.savedPembahasan.grafikKey;
+          const reason = json.fallbackReason ? ` (${json.fallbackReason})` : '';
+          setFallbackNotice(
+            `${slideLabel} menggunakan templat resmi cadangan agar angka tetap akurat${reason}. Anda dapat mencoba buat ulang atau menyunting manual.`
+          );
+        }
       }
 
       if (Array.isArray(json.activeJobs)) {
@@ -379,6 +389,7 @@ export default function KegiatanEksposeClient({
         setEditingKey(null);
       }
       setQueueError(null);
+      setFallbackNotice(null);
       setActionError(null);
 
       const json = await apiFetchJson<any>('/api/ai/queue', {
@@ -779,6 +790,16 @@ export default function KegiatanEksposeClient({
           tone="error"
           message={actionError}
           onDismiss={() => setActionError(null)}
+          className="no-print"
+        />
+      )}
+
+      {fallbackNotice && (
+        <StatusBanner
+          tone="info"
+          title="Menggunakan Templat Cadangan Terverifikasi"
+          message={fallbackNotice}
+          onDismiss={() => setFallbackNotice(null)}
           className="no-print"
         />
       )}

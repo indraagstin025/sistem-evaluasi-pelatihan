@@ -167,34 +167,132 @@ export function generatePembahasanTemplate(
 }
 
 /**
+ * Sanitasi pesan error AI agar tidak pernah membocorkan API key, query string,
+ * atau stack trace mentah ke database AiJob maupun antarmuka pengguna.
+ */
+export function sanitizeAiErrorMessage(raw: unknown, fallback = 'Gagal memproses respons AI'): string {
+  const str = String(raw || '').trim();
+  if (!str) return fallback;
+  const cleaned = str
+    .replace(/([?&]key=)[^&\s"']+/gi, '$1[REDACTED]')
+    .replace(/\b(?:AIza[0-9A-Za-z_-]{20,}|AQ\.[0-9A-Za-z._-]{12,})\b/g, '[REDACTED_KEY]')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return cleaned.length > 200 ? `${cleaned.slice(0, 197)}...` : cleaned;
+}
+
+/**
+ * Lapis pengaman privasi (defense-in-depth) sebelum prompt dikirim ke Gemini:
+ * memastikan pola NIP/NIK 16-18 digit atau alamat email tidak pernah terkirim keluar.
+ */
+export function sanitizeAiPromptText(prompt: string): string {
+  return String(prompt || '')
+    .replace(/\b\d{16,18}\b/g, '[REDACT_ID]')
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[REDACT_EMAIL]');
+}
+
+const UNSUITABLE_MODEL_RE =
+  /(?:deep-research|-tts\b|-image\b|nano-banana|lyria|robotics|computer-use|transcribe)/i;
+
+export const DEFAULT_GEMINI_MODEL = 'models/gemini-3.5-flash-lite';
+
+export const GEMINI_FALLBACK_MODELS = [
+  'models/gemini-3.5-flash-lite',
+  'models/gemini-3.6-flash',
+  'models/gemini-3.5-flash',
+] as const;
+
+/**
+ * Menyusun urutan model Gemini yang cocok untuk keluaran JSON cepat & terstruktur.
+ * Model yang tidak cocok (mis. deep-research, TTS, image, audio) otomatis dilewati
+ * agar tidak memicu timeout sebelum jatuh ke model Flash yang stabil.
+ */
+export function resolveGeminiModelOrder(configuredModel?: string): string[] {
+  const normalized = (configuredModel || '').trim();
+  const candidates: string[] = [];
+
+  if (normalized && !UNSUITABLE_MODEL_RE.test(normalized)) {
+    candidates.push(normalized.startsWith('models/') ? normalized : `models/${normalized}`);
+  }
+
+  for (const fallback of GEMINI_FALLBACK_MODELS) {
+    candidates.push(fallback);
+  }
+
+  return Array.from(new Set(candidates));
+}
+
+/**
  * PENGAMAN ANGKA (NUMBER SAFEGUARD - URD Bab 7.2)
- * Memeriksa apakah teks yang dihasilkan AI memuat 4 angka kunci:
- * jumlah orang rentang 76-100 dan 51-75 untuk dataA dan dataB.
+ * Memeriksa apakah teks yang dihasilkan AI memuat 4 poin substantif,
+ * 4 angka kunci (rentang 76-100 & 51-75 untuk dataA dan dataB),
+ * serta tidak mengklaim jumlah orang melebihi total responden valid.
  */
 export function verifikasiHasilAI(
   teks: string,
   rekap: RekapGrafikData
 ): boolean {
   if (!teks || typeof teks !== 'string') return false;
+  if (/(lorem ipsum|placeholder|\bTODO\b|\bN\/A\b)/i.test(teks)) return false;
 
-  const optA = String(rekap.dataA[4] ?? 0);
-  const optB = String(rekap.dataB[4] ?? 0);
-  const domA = String(rekap.dataA[3] ?? 0);
-  const domB = String(rekap.dataB[3] ?? 0);
+  const sections = teks.includes('• ')
+    ? teks
+        .split(/\r?\n(?=• )/)
+        .map((s) => s.replace(/^•\s*/, '').trim())
+    : teks
+        .split(/\r?\n/)
+        .map((s) => s.trim())
+        .filter(Boolean);
 
-  // Periksa apakah keempat angka muncul di dalam teks
-  const hasOptA = new RegExp(`\\b${optA}\\b`).test(teks);
-  const hasOptB = new RegExp(`\\b${optB}\\b`).test(teks);
-  const hasDomA = new RegExp(`\\b${domA}\\b`).test(teks);
-  const hasDomB = new RegExp(`\\b${domB}\\b`).test(teks);
+  if (sections.length !== 4 || sections.some((s) => s.length < 10)) {
+    return false;
+  }
 
-  return hasOptA && hasOptB && hasDomA && hasDomB;
+  const checkKeyNumber = (val: number): boolean => {
+    if (val === 0) {
+      return /\b0\b|tidak ada|nihil|nol/i.test(teks);
+    }
+    return new RegExp(`\\b${val}\\b`).test(teks);
+  };
+
+  const optA = rekap.dataA[4] ?? 0;
+  const optB = rekap.dataB[4] ?? 0;
+  const domA = rekap.dataA[3] ?? 0;
+  const domB = rekap.dataB[3] ?? 0;
+
+  if (!checkKeyNumber(optA) || !checkKeyNumber(optB) || !checkKeyNumber(domA) || !checkKeyNumber(domB)) {
+    return false;
+  }
+
+  const maxTotal = Math.max(rekap.totalA ?? 0, rekap.totalB ?? 0);
+  if (maxTotal > 0) {
+    const countPattern =
+      /(?:^|[^\d.,\-–%])\b(\d+)\s+(?:orang|peserta|responden|alumni)\b/gi;
+    const contextIgnorePattern =
+      /\b(?:tahun|angkatan|periode|skala|skor|nilai|rentang|kategori|bab|slide|grafik|pkp)\s*$/i;
+
+    for (const match of Array.from(teks.matchAll(countPattern))) {
+      const fullIndex = match.index ?? 0;
+      const before = teks.slice(Math.max(0, fullIndex - 24), fullIndex);
+      if (contextIgnorePattern.test(before)) continue;
+      const num = Number(match[1]);
+      if (!Number.isNaN(num) && num > maxTotal) {
+        return false;
+      }
+    }
+  }
+
+  return true;
 }
+
+const OVERPROMISE_RE =
+  /\b(?:pasti|dijamin|dipastikan)\s+(?:akan\s+)?(?:meningkat|naik|berhasil|optimal|tercapai\s+100%)/i;
 
 /**
  * PENGAMAN NARASI KESIMPULAN AI (R-7)
  * Memastikan struktur 4 poin terisi substantif, angka total peserta tercantum
- * akurat bila tersedia, dan tidak ada angka jumlah orang/peserta yang melampaui totalPeserta.
+ * akurat bila tersedia, tidak ada klaim jumlah melebihi totalPeserta,
+ * dan tidak memuat janji hasil pasti tanpa dasar data.
  */
 export function verifikasiKesimpulanAI(
   teks: string,
@@ -211,11 +309,15 @@ export function verifikasiKesimpulanAI(
         .map((s) => s.trim())
         .filter(Boolean);
 
-  if (sections.length !== 4 || sections.some((s) => s.length < 5)) {
+  if (sections.length !== 4 || sections.some((s) => s.length < 10)) {
     return false;
   }
 
-  if (/(lorem ipsum|placeholder)/i.test(teks)) {
+  if (/(lorem ipsum|placeholder|\bTODO\b|\bN\/A\b)/i.test(teks)) {
+    return false;
+  }
+
+  if (OVERPROMISE_RE.test(teks)) {
     return false;
   }
 
@@ -247,11 +349,12 @@ export function verifikasiKesimpulanAI(
 }
 
 /**
- * Helper untuk mem-parsing respons JSON dari model Google Gemini
- * Menangani kasus jika output dibungkus markdown code fences (```json ... ```)
+ * Helper tahan banting untuk mem-parsing respons JSON dari model Google Gemini.
+ * Menangani markdown code fences (```json ... ```), objek terbungkus array, dan teks pengantar
+ * tanpa melempar SyntaxError tak tertangani.
  */
-function parseAiJsonResponse(rawText: string): any {
-  if (!rawText) return null;
+export function parseAiJsonResponse(rawText: string): any {
+  if (!rawText || typeof rawText !== 'string') return null;
   let text = rawText.trim();
   if (text.startsWith('```')) {
     text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
@@ -261,12 +364,20 @@ function parseAiJsonResponse(rawText: string): any {
   if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
     text = text.slice(firstBrace, lastBrace + 1);
   }
-  return JSON.parse(text);
+  try {
+    const parsed = JSON.parse(text);
+    if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'object') {
+      return parsed[0];
+    }
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
 }
 
 interface AiProviderConfig {
   geminiApiKey?: string;
-  geminiModel: string;
+  geminiModel?: string;
 }
 
 export interface AiExecutionMeta {
@@ -276,12 +387,7 @@ export interface AiExecutionMeta {
   errorMessage?: string;
 }
 
-const GEMINI_FALLBACK_MODELS = [
-  'models/gemini-3.8-flash',
-  'models/gemini-3.5-flash-lite',
-] as const;
-
-const GEMINI_REQUEST_TIMEOUT_MS = 25_000;
+const GEMINI_REQUEST_TIMEOUT_MS = 15_000;
 
 interface RawAiAttemptResult {
   item: PembahasanItem | null;
@@ -291,7 +397,7 @@ interface RawAiAttemptResult {
 }
 
 /**
- * Helper terpadu memanggil Google Gemini API dan memvalidasi JSON 4 poin.
+ * Helper terpadu memanggil Google Gemini API via header x-goog-api-key dan memvalidasi JSON 4 poin.
  */
 async function requestAiPembahasan(
   prompt: string,
@@ -300,6 +406,8 @@ async function requestAiPembahasan(
   config: AiProviderConfig,
   validate?: (teksLengkap: string) => boolean
 ): Promise<RawAiAttemptResult> {
+  const safePrompt = sanitizeAiPromptText(prompt);
+
   const formatResult = (parsed: any): PembahasanItem | null => {
     if (!parsed?.poin1 || !parsed?.poin2 || !parsed?.poin3 || !parsed?.poin4) {
       return null;
@@ -308,6 +416,8 @@ async function requestAiPembahasan(
     const poin2 = String(parsed.poin2).trim();
     const poin3 = String(parsed.poin3).trim();
     const poin4 = String(parsed.poin4).trim();
+    if (!poin1 || !poin2 || !poin3 || !poin4) return null;
+
     const teksLengkap = [poin1, poin2, poin3, poin4].map((p) => `• ${p}`).join('\n');
 
     if (validate && !validate(teksLengkap)) {
@@ -329,22 +439,24 @@ async function requestAiPembahasan(
   let hitRateLimit = false;
   let lastError: string | undefined;
 
-  if (config.geminiApiKey && config.geminiApiKey.trim() !== '') {
-    const modelsToTry = Array.from(
-      new Set([config.geminiModel, ...GEMINI_FALLBACK_MODELS])
-    );
+  const apiKey = config.geminiApiKey?.trim();
+  if (apiKey) {
+    const modelsToTry = resolveGeminiModelOrder(config.geminiModel);
 
     for (const m of modelsToTry) {
       const controller = new AbortController();
       const timeoutHandle = setTimeout(() => controller.abort(), GEMINI_REQUEST_TIMEOUT_MS);
       try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/${m}:generateContent?key=${config.geminiApiKey.trim()}`;
+        const url = `https://generativelanguage.googleapis.com/v1beta/${m}:generateContent`;
         const response = await fetch(url, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey,
+          },
           signal: controller.signal,
           body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
+            contents: [{ parts: [{ text: safePrompt }] }],
             generationConfig: {
               temperature: 0.2,
               responseMimeType: 'application/json',
@@ -353,7 +465,7 @@ async function requestAiPembahasan(
         });
 
         if (response.ok) {
-          const data = await response.json();
+          const data = await response.json().catch(() => null);
           const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
           const result = formatResult(parseAiJsonResponse(rawText));
           if (result) {
@@ -363,23 +475,24 @@ async function requestAiPembahasan(
               rateLimited: false,
             };
           }
-          lastError = `Verifikasi hasil Gemini (${m}) tidak lolos cek angka/struktur KP-05`;
-          console.warn(`Verifikasi hasil Gemini (${m}) untuk ${grafikKey} tidak sesuai, mencoba model fallback Gemini lain`);
+          lastError = `Hasil Gemini (${m}) tidak lolos verifikasi angka/struktur`;
+          console.warn(
+            `Verifikasi hasil Gemini (${m}) untuk ${grafikKey} tidak sesuai, mencoba model fallback lain`
+          );
         } else {
-          const errText = await response.text();
           if (response.status === 429 || response.status === 503) {
             hitRateLimit = true;
           }
-          lastError = `Gemini API (${m}) status ${response.status}`;
-          console.warn(`Gemini API (${m}) returned ${response.status}:`, errText);
+          lastError = sanitizeAiErrorMessage(`Gemini API (${m}) status ${response.status}`);
+          console.warn(`Gemini API (${m}) returned status ${response.status} untuk ${grafikKey}`);
         }
       } catch (err: any) {
         const isAbort = err?.name === 'AbortError';
         if (isAbort) hitRateLimit = true;
         lastError = isAbort
-          ? `Timeout ${GEMINI_REQUEST_TIMEOUT_MS / 1000}s saat memanggil ${m}`
-          : err?.message || `Gagal menghubungi Gemini API (${m})`;
-        console.error(`Error memanggil Gemini API (${m}):`, err);
+          ? `Batas waktu ${GEMINI_REQUEST_TIMEOUT_MS / 1000}d terlewati pada ${m}`
+          : sanitizeAiErrorMessage(err?.message, `Gagal menghubungi Gemini API (${m})`);
+        console.error(`Error memanggil Gemini API (${m}) untuk ${grafikKey}:`, lastError);
       } finally {
         clearTimeout(timeoutHandle);
       }
@@ -404,10 +517,9 @@ export async function buatPembahasanGrafikWithMeta(
   kesimpulanCtx?: KesimpulanContext,
   konfirmasiSummary?: string
 ): Promise<AiExecutionMeta> {
-  const rawGeminiModel = process.env.GEMINI_MODEL || 'deep-research-preview-04-2026';
   const config: AiProviderConfig = {
     geminiApiKey: process.env.GEMINI_API_KEY,
-    geminiModel: rawGeminiModel.startsWith('models/') ? rawGeminiModel : `models/${rawGeminiModel}`,
+    geminiModel: process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL,
   };
 
   if (!config.geminiApiKey || config.geminiApiKey.trim() === '') {
