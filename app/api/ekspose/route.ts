@@ -5,7 +5,9 @@ import { handleApiError } from '@/lib/api-error';
 import { isValidNumber } from '@/lib/hitung';
 import {
   getRekapGrafikMap,
+  getRingkasTemaTerbukaUntukAi,
   hitungKonfirmasiWawancaraRekap,
+  hitungPolaSelisihAgregat,
 } from '@/lib/pembahasan-server';
 
 export const dynamic = 'force-dynamic';
@@ -24,7 +26,7 @@ export async function GET(request: Request) {
       );
     }
 
-    const [kegiatan, listPeserta, rekapMap, selisihCount] = await Promise.all([
+    const [kegiatan, listPeserta, rekapMap, selisihCount, temaTerbukaMeta] = await Promise.all([
       prisma.kegiatan.findUnique({ where: { id: kegiatanId } }),
       prisma.peserta.findMany({
         where: { kegiatanId },
@@ -40,6 +42,7 @@ export async function GET(request: Request) {
       }),
       getRekapGrafikMap(kegiatanId),
       prisma.selisihImport.count({ where: { kegiatanId } }),
+      getRingkasTemaTerbukaUntukAi(kegiatanId),
     ]);
 
     if (!kegiatan) {
@@ -110,6 +113,7 @@ export async function GET(request: Request) {
 
     const kosongList = mapped.filter((p) => p.isWawancaraKosong);
     const konfirmasiWawancara = hitungKonfirmasiWawancaraRekap(listPeserta);
+    const polaSelisih = hitungPolaSelisihAgregat(listPeserta);
 
     return NextResponse.json(
       {
@@ -117,6 +121,13 @@ export async function GET(request: Request) {
         kegiatan,
         rekap: rekapMap,
         konfirmasiWawancara,
+        polaSelisih,
+        analisisTerbukaTersedia: {
+          kendalaTemaCount: temaTerbukaMeta.kendalaTemaCount,
+          wawancaraTemaCount: temaTerbukaMeta.wawancaraTemaCount,
+          topTemaKendalaNama: temaTerbukaMeta.topTemaKendalaNama,
+          topTemaWawancaraNama: temaTerbukaMeta.topTemaWawancaraNama,
+        },
         ringkasan: {
           totalPeserta: mapped.length,
           totalValidSurvei: validL.length,

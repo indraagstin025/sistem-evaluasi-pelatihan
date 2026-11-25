@@ -26,11 +26,33 @@ export interface PembahasanItem {
   sumber: 'template' | 'ai' | 'manual';
 }
 
+export interface SelisihAgregatSummary {
+  totalPeserta: number;
+  totalValidSurvei: number;
+  totalValidWawancara: number;
+  totalBerpasangan: number;
+  rataSurveiL: number | null;
+  rataWawancaraM: number | null;
+  rataSelisih: number | null; // M - L
+  surveiJauhLebihTinggi: number; // L - M > 15
+  wawancaraJauhLebihTinggi: number; // M - L > 15
+  selaras: number; // |M - L| <= 15
+  skorWawancaraRendah: number; // M < 51
+  wawancaraKosong: number;
+}
+
 export interface KesimpulanContext {
   totalPeserta: number;
   rekapMap?: Record<string, RekapGrafikData>;
+  selisihStats?: SelisihAgregatSummary;
+  extraSelisihSummary?: string;
   extraSurveySummary?: string;
   extraKonfirmasiSummary?: string;
+  extraTemaTerbukaSummary?: string;
+  topTemaKendalaNama?: string | null;
+  topTemaKendalaJumlah?: number | null;
+  topTemaWawancaraNama?: string | null;
+  topTemaWawancaraJumlah?: number | null;
 }
 
 function ringkasRentangDominan(dataA: number[], dataB: number[]) {
@@ -59,7 +81,8 @@ function ringkasRentangDominan(dataA: number[], dataB: number[]) {
  */
 export function generatePembahasanTemplate(
   grafikKey: string,
-  rekap?: RekapGrafikData
+  rekap?: RekapGrafikData,
+  kesimpulanCtx?: KesimpulanContext
 ): PembahasanItem {
   const dataA = rekap?.dataA || [0, 0, 0, 0, 0];
   const dataB = rekap?.dataB || [0, 0, 0, 0, 0];
@@ -139,14 +162,58 @@ export function generatePembahasanTemplate(
       break;
 
     case 'kesimpulan':
-    default:
-      // Slide 4 PPT: Kesimpulan dan Rekomendasi (rekomendasi dikosongkan agar dibuat oleh AI)
+    default: {
+      // Slide 6 / Slide 10 PPT: Kesimpulan dan Rekomendasi
       judul = 'Kesimpulan dan Rekomendasi';
-      poin1 = `Ringkasan capaian hasil wawancara dan survei alumni siap dianalisis menggunakan AI dari data peserta aktif.`;
-      poin2 = '';
-      poin3 = '';
-      poin4 = '';
+      if (kesimpulanCtx && kesimpulanCtx.totalPeserta > 0) {
+        const total = kesimpulanCtx.totalPeserta;
+        const g5 = kesimpulanCtx.rekapMap?.grafik5;
+        const optSurvei = g5?.dataA?.[4] ?? 0;
+        const optWaw = g5?.dataB?.[4] ?? 0;
+        const sel = kesimpulanCtx.selisihStats;
+
+        poin1 = g5
+          ? `Dari total ${total} peserta yang dievaluasi, capaian keseluruhan rentang optimal (76–100%) tercatat sebanyak ${optWaw} peserta pada penilaian wawancara dan ${optSurvei} peserta pada hasil survei.`
+          : `Evaluasi pasca pelatihan telah mencakup ${total} peserta terdaftar berdasarkan data survei dan wawancara yang tersimpan di sistem.`;
+
+        if (sel) {
+          const avgLStr = sel.rataSurveiL !== null ? sel.rataSurveiL.toFixed(1) : '-';
+          const avgMStr = sel.rataWawancaraM !== null ? sel.rataWawancaraM.toFixed(1) : '-';
+          poin2 = `Perbandingan rata-rata survei (${avgLStr}) terhadap wawancara (${avgMStr}) menunjukkan ${sel.surveiJauhLebihTinggi} peserta memiliki skor survei jauh lebih tinggi dari wawancara (selisih > 15 poin), ${sel.skorWawancaraRendah} peserta berada pada skor wawancara rendah (< 51), dan ${sel.wawancaraKosong} peserta belum memiliki nilai wawancara.`;
+        } else {
+          poin2 = `Masih terdapat perbedaan sebaran capaian antara persepsi survei alumni dan hasil verifikasi wawancara evaluator yang perlu ditindaklanjuti secara terukur.`;
+        }
+
+        const prioritasCount = sel
+          ? sel.surveiJauhLebihTinggi + sel.skorWawancaraRendah
+          : 0;
+        poin3 =
+          prioritasCount > 0 && sel
+            ? `Lakukan verifikasi lapangan dan pendampingan terfokus kepada ${sel.skorWawancaraRendah} peserta berskor wawancara rendah (< 51) serta ${sel.surveiJauhLebihTinggi} peserta dengan kesenjangan survei di atas wawancara (> 15 poin) agar kendala bukti implementasi segera teridentifikasi.`
+            : `Pertahankan proses klarifikasi bukti implementasi bersama atasan langsung dan evaluator terutama bagi peserta yang status konfirmasinya masih belum tuntas.`;
+
+        const temaKendala = kesimpulanCtx.topTemaKendalaNama;
+        const temaKendalaJml = kesimpulanCtx.topTemaKendalaJumlah;
+        const temaWaw = kesimpulanCtx.topTemaWawancaraNama;
+        const temaWawJml = kesimpulanCtx.topTemaWawancaraJumlah;
+
+        const rek2 = temaKendala
+          ? `Susun langkah mitigasi konkret bersama perangkat daerah untuk menindaklanjuti hambatan utama di lapangan, khususnya tema "${temaKendala}" (${temaKendalaJml ?? 0} catatan survei)${temaWaw ? ` dan temuan wawancara "${temaWaw}" (${temaWawJml ?? 0} catatan)` : ''}.`
+          : temaWaw
+            ? `Tindak lanjuti temuan dominan catatan evaluator terkait "${temaWaw}" (${temaWawJml ?? 0} catatan) melalui koordinasi lintas unit kerja dan dukungan sumber daya operasional.`
+            : `Perkuat dukungan instansi asal terkait ketersediaan SDM, sarana aplikasi, dan keberlanjutan penugasan pasca-mutasi agar aksi perubahan tetap berjalan.`;
+
+        const rek3 = `Dokumentasikan praktik baik dari ${optWaw} peserta berkinerja optimal (rentang 76–100%) sebagai bahan pembelajaran dan referensi replikasi bagi angkatan pelatihan berikutnya.`;
+
+        poin4 = `${rek2}\n${rek3}`;
+      } else {
+        poin1 = `Ringkasan capaian hasil wawancara dan survei alumni siap dianalisis menggunakan AI dari data peserta aktif.`;
+        poin2 = '';
+        poin3 = '';
+        poin4 = '';
+      }
       break;
+    }
   }
 
   const teksLengkap = [poin1, poin2, poin3, poin4]
@@ -286,13 +353,18 @@ export function verifikasiHasilAI(
 }
 
 const OVERPROMISE_RE =
-  /\b(?:pasti|dijamin|dipastikan)\s+(?:akan\s+)?(?:meningkat|naik|berhasil|optimal|tercapai\s+100%)/i;
+  /(?:\b(?:pasti|dijamin|dipastikan)\s+(?:akan\s+)?(?:meningkat|naik|berhasil|optimal|tercapai|tuntas|membaik)|\bmenjamin\s+(?:peningkatan|kenaikan|keberhasilan|capaian|kinerja)|\btercapai\s+100%|\bseluruh\s+peserta\s+pasti\b)/i;
+
+const PII_LEAK_RE =
+  /(?:\b\d{16,18}\b|[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})/i;
 
 /**
- * PENGAMAN NARASI KESIMPULAN AI (R-7)
- * Memastikan struktur 4 poin terisi substantif, angka total peserta tercantum
- * akurat bila tersedia, tidak ada klaim jumlah melebihi totalPeserta,
- * dan tidak memuat janji hasil pasti tanpa dasar data.
+ * PENGAMAN NARASI KESIMPULAN & REKOMENDASI AI (Batch 3 Hardening)
+ * Memastikan:
+ * 1. Struktur 4 poin terisi substantif & minimal 2 rekomendasi tindak lanjut konkret (poin3 + poin4).
+ * 2. Tidak memuat placeholder, janji hasil pasti (overpromise), atau kebocoran NIP/email.
+ * 3. Menambatkan angka totalPeserta + minimal 1 angka kunci aktual dari rekap/selisih/tema,
+ *    serta menolak klaim jumlah peserta melebihi totalPeserta.
  */
 export function verifikasiKesimpulanAI(
   teks: string,
@@ -313,11 +385,27 @@ export function verifikasiKesimpulanAI(
     return false;
   }
 
+  // Validasi rekomendasi konkret pada poin3 & poin4
+  const rekomendasiItems = [
+    sections[2],
+    ...sections[3].split(/\r?\n/),
+  ]
+    .map((line) => line.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, '').trim())
+    .filter(Boolean);
+
+  if (rekomendasiItems.length < 2 || rekomendasiItems.some((r) => r.length < 20)) {
+    return false;
+  }
+
   if (/(lorem ipsum|placeholder|\bTODO\b|\bN\/A\b)/i.test(teks)) {
     return false;
   }
 
   if (OVERPROMISE_RE.test(teks)) {
+    return false;
+  }
+
+  if (PII_LEAK_RE.test(teks)) {
     return false;
   }
 
@@ -328,9 +416,44 @@ export function verifikasiKesimpulanAI(
       return false;
     }
 
-    // Tolak jika terdapat klaim jumlah orang/peserta/responden/alumni melebihi totalPeserta
+    // Minimal 1 angka kunci tambahan (dari grafik5 / pola selisih / tema terbuka) harus dirujuk akurat
+    const anchorCandidates = new Set<number>();
+    const g5 = kesimpulanCtx?.rekapMap?.grafik5;
+    if (g5) {
+      if (typeof g5.dataA?.[4] === 'number' && g5.dataA[4] > 0) anchorCandidates.add(g5.dataA[4]);
+      if (typeof g5.dataB?.[4] === 'number' && g5.dataB[4] > 0) anchorCandidates.add(g5.dataB[4]);
+      if (typeof g5.dataB?.[3] === 'number' && g5.dataB[3] > 0) anchorCandidates.add(g5.dataB[3]);
+    }
+    const sel = kesimpulanCtx?.selisihStats;
+    if (sel) {
+      if (sel.surveiJauhLebihTinggi > 0) anchorCandidates.add(sel.surveiJauhLebihTinggi);
+      if (sel.wawancaraJauhLebihTinggi > 0) anchorCandidates.add(sel.wawancaraJauhLebihTinggi);
+      if (sel.skorWawancaraRendah > 0) anchorCandidates.add(sel.skorWawancaraRendah);
+      if (sel.wawancaraKosong > 0) anchorCandidates.add(sel.wawancaraKosong);
+      if (sel.selaras > 0) anchorCandidates.add(sel.selaras);
+    }
+    if (typeof kesimpulanCtx?.topTemaKendalaJumlah === 'number' && kesimpulanCtx.topTemaKendalaJumlah > 0) {
+      anchorCandidates.add(kesimpulanCtx.topTemaKendalaJumlah);
+    }
+    if (typeof kesimpulanCtx?.topTemaWawancaraJumlah === 'number' && kesimpulanCtx.topTemaWawancaraJumlah > 0) {
+      anchorCandidates.add(kesimpulanCtx.topTemaWawancaraJumlah);
+    }
+    // Hapus totalPeserta dari kandidat tambahan agar benar-benar memeriksa angka kedua
+    anchorCandidates.delete(totalPeserta);
+
+    if (anchorCandidates.size > 0) {
+      const hasAnyAnchor = Array.from(anchorCandidates).some((n) =>
+        new RegExp(`\\b${n}\\b`).test(teks)
+      );
+      if (!hasAnyAnchor) {
+        return false;
+      }
+    }
+
+    // Tolak jika terdapat klaim jumlah orang/peserta/alumni melebihi totalPeserta
+    // (khusus "responden" survei boleh hingga 2 * totalPeserta karena mencakup alumni + atasan)
     const countPattern =
-      /(?:^|[^\d.,\-–%])\b(\d+)\s+(?:orang|peserta|responden|alumni)\b/gi;
+      /(?:^|[^\d.,\-–%])\b(\d+)\s+(orang|peserta|responden|alumni)\b/gi;
     const contextIgnorePattern =
       /\b(?:tahun|angkatan|periode|skala|skor|nilai|rentang|kategori|bab|slide|grafik|pkp)\s*$/i;
 
@@ -339,7 +462,9 @@ export function verifikasiKesimpulanAI(
       const before = teks.slice(Math.max(0, fullIndex - 24), fullIndex);
       if (contextIgnorePattern.test(before)) continue;
       const num = Number(match[1]);
-      if (!Number.isNaN(num) && num > totalPeserta) {
+      const unit = String(match[2] || '').toLowerCase();
+      const maxAllowed = unit === 'responden' ? totalPeserta * 2 : totalPeserta;
+      if (!Number.isNaN(num) && num > maxAllowed) {
         return false;
       }
     }
@@ -388,12 +513,22 @@ export interface AiExecutionMeta {
 }
 
 const GEMINI_REQUEST_TIMEOUT_MS = 15_000;
+const GEMINI_KESIMPULAN_TIMEOUT_MS = 25_000;
 
 interface RawAiAttemptResult {
   item: PembahasanItem | null;
   modelUsed: string | null;
   rateLimited: boolean;
   errorMessage?: string;
+}
+
+function cleanAiPointText(raw: unknown): string {
+  return String(raw || '')
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^\s*(?:•|-|\*)\s+/, '').trim())
+    .filter(Boolean)
+    .join('\n')
+    .trim();
 }
 
 /**
@@ -407,15 +542,19 @@ async function requestAiPembahasan(
   validate?: (teksLengkap: string) => boolean
 ): Promise<RawAiAttemptResult> {
   const safePrompt = sanitizeAiPromptText(prompt);
+  const timeoutMs =
+    grafikKey === 'kesimpulan'
+      ? GEMINI_KESIMPULAN_TIMEOUT_MS
+      : GEMINI_REQUEST_TIMEOUT_MS;
 
   const formatResult = (parsed: any): PembahasanItem | null => {
     if (!parsed?.poin1 || !parsed?.poin2 || !parsed?.poin3 || !parsed?.poin4) {
       return null;
     }
-    const poin1 = String(parsed.poin1).trim();
-    const poin2 = String(parsed.poin2).trim();
-    const poin3 = String(parsed.poin3).trim();
-    const poin4 = String(parsed.poin4).trim();
+    const poin1 = cleanAiPointText(parsed.poin1);
+    const poin2 = cleanAiPointText(parsed.poin2);
+    const poin3 = cleanAiPointText(parsed.poin3);
+    const poin4 = cleanAiPointText(parsed.poin4);
     if (!poin1 || !poin2 || !poin3 || !poin4) return null;
 
     const teksLengkap = [poin1, poin2, poin3, poin4].map((p) => `• ${p}`).join('\n');
@@ -445,7 +584,7 @@ async function requestAiPembahasan(
 
     for (const m of modelsToTry) {
       const controller = new AbortController();
-      const timeoutHandle = setTimeout(() => controller.abort(), GEMINI_REQUEST_TIMEOUT_MS);
+      const timeoutHandle = setTimeout(() => controller.abort(), timeoutMs);
       try {
         const url = `https://generativelanguage.googleapis.com/v1beta/${m}:generateContent`;
         const response = await fetch(url, {
@@ -490,7 +629,7 @@ async function requestAiPembahasan(
         const isAbort = err?.name === 'AbortError';
         if (isAbort) hitRateLimit = true;
         lastError = isAbort
-          ? `Batas waktu ${GEMINI_REQUEST_TIMEOUT_MS / 1000}d terlewati pada ${m}`
+          ? `Batas waktu ${timeoutMs / 1000}d terlewati pada ${m}`
           : sanitizeAiErrorMessage(err?.message, `Gagal menghubungi Gemini API (${m})`);
         console.error(`Error memanggil Gemini API (${m}) untuk ${grafikKey}:`, lastError);
       } finally {
@@ -524,7 +663,7 @@ export async function buatPembahasanGrafikWithMeta(
 
   if (!config.geminiApiKey || config.geminiApiKey.trim() === '') {
     return {
-      item: generatePembahasanTemplate(grafikKey, rekap),
+      item: generatePembahasanTemplate(grafikKey, rekap, kesimpulanCtx),
       modelUsed: null,
       rateLimited: false,
       errorMessage: 'GEMINI_API_KEY kosong, memakai templat KP-05',
@@ -547,6 +686,10 @@ export async function buatPembahasanGrafikWithMeta(
         ? ` — wajib cantumkan angka total ${kesimpulanCtx.totalPeserta} peserta`
         : '';
 
+    const selisihContextBlock = kesimpulanCtx?.extraSelisihSummary
+      ? `\nPola Selisih Survei (L) vs Wawancara (M) (Agregat Anonim):\n${kesimpulanCtx.extraSelisihSummary}\n`
+      : '';
+
     const surveyContextBlock = kesimpulanCtx?.extraSurveySummary
       ? `\nRingkasan Hasil Survei Keseluruhan (Alumni vs Atasan):\n${kesimpulanCtx.extraSurveySummary}\n`
       : '';
@@ -555,15 +698,25 @@ export async function buatPembahasanGrafikWithMeta(
       ? `\nRekapitulasi Status Konfirmasi Wawancara 5 Kriteria (Data Aktual Database):\n${kesimpulanCtx.extraKonfirmasiSummary}\n`
       : '';
 
-    const promptKesimpulan = `Anda adalah analis evaluasi pasca pelatihan di BPSDM Provinsi Jawa Barat.
-Berikut adalah data rekapitulasi aktual dari ${kesimpulanCtx?.totalPeserta ?? 'seluruh'} peserta terdaftar:
-${ringkasanTeks}${surveyContextBlock}${konfirmasiContextBlock}
+    const temaTerbukaBlock = kesimpulanCtx?.extraTemaTerbukaSummary
+      ? `\nTema Dominan Jawaban Terbuka & Catatan Evaluator (Terverifikasi Anonim):\n${kesimpulanCtx.extraTemaTerbukaSummary}\n`
+      : '';
 
-Susunlah narasi resmi Slide Kesimpulan & Rekomendasi berbasis data aktual di atas (jangan mengarang angka di luar data):
-- "poin1": Paragraf kesimpulan umum tentang capaian implementasi aksi perubahan peserta berdasarkan data survei dan wawancara aktual${totalPesertaLabel}.
-- "poin2": Paragraf analisis perbandingan kesenjangan antara hasil survei alumni dengan hasil wawancara evaluator, serta kondisi peserta dengan skor rendah/kosong bila ada.
-- "poin3": Satu butir rekomendasi kebijakan pertama yang konkret, spesifik, dan langsung menjawab temuan data di atas (tanpa nomor di awal kalimat).
-- "poin4": Dua butir rekomendasi kebijakan lanjutan yang konkret untuk keberlanjutan/replikasi dan penguatan aspek lemah berdasarkan data di atas, pisahkan tepat dengan satu baris baru (\\n) tanpa nomor urut di awal kalimat.
+    const promptKesimpulan = `Anda adalah analis evaluasi pasca pelatihan di BPSDM Provinsi Jawa Barat.
+Berikut adalah data rekapitulasi agregat anonim dari ${kesimpulanCtx?.totalPeserta ?? 'seluruh'} peserta terdaftar:
+${ringkasanTeks}${selisihContextBlock}${surveyContextBlock}${konfirmasiContextBlock}${temaTerbukaBlock}
+
+ATURAN WAJIB:
+- Seluruh angka yang disebut WAJIB persis sama dengan data di atas (jangan mengarang angka di luar data dan jangan menyebut nama/NIP).
+- DILARANG membuat janji hasil pasti (jangan pakai frasa "pasti meningkat", "dijamin berhasil", "dipastikan optimal", "menjamin kenaikan", atau "tercapai 100%"). Gunakan bahasa rekomendasi kebijakan yang realistis dan berbasis bukti.
+
+Susunlah narasi resmi Slide 6 (Kesimpulan & Rekomendasi):
+- "poin1": Paragraf kesimpulan umum tentang capaian implementasi aksi perubahan peserta berdasarkan distribusi grafik survei dan wawancara aktual${totalPesertaLabel}.
+- "poin2": Paragraf analisis kesenjangan antara Survei (L) dan Wawancara (M) (merujuk jumlah selisih besar, skor wawancara rendah/kosong, serta dinamika mutasi/konfirmasi bila ada).
+- "poin3": Rekomendasi tindak lanjut 1 yang konkret bagi kelompok prioritas (peserta dengan selisih L vs M tinggi, skor wawancara < 51, atau status konfirmasi belum tuntas), tanpa nomor di awal kalimat.
+- "poin4": Dua rekomendasi tindak lanjut tambahan yang dipisahkan tepat oleh satu baris baru (\\n) tanpa nomor urut di awal kalimat:
+  Baris 1: Rekomendasi penanganan kendala dominan lapangan (merujuk tema kendala/catatan wawancara bila tersedia).
+  Baris 2: Rekomendasi penguatan keberlanjutan, pendampingan pasca-mutasi, atau replikasi bagi kelompok capaian optimal (76–100%).
 
 Format balasan wajib JSON:
 {
@@ -581,7 +734,7 @@ Format balasan wajib JSON:
       (teksLengkap) => verifikasiKesimpulanAI(teksLengkap, kesimpulanCtx)
     );
     return {
-      item: aiAttempt.item || generatePembahasanTemplate('kesimpulan'),
+      item: aiAttempt.item || generatePembahasanTemplate('kesimpulan', undefined, kesimpulanCtx),
       modelUsed: aiAttempt.modelUsed,
       rateLimited: aiAttempt.rateLimited,
       errorMessage: aiAttempt.errorMessage,

@@ -1,13 +1,13 @@
 import { prisma } from '@/lib/prisma';
 import { buatPembahasanGrafikWithMeta, sanitizeAiErrorMessage } from '@/lib/ai';
 import {
+  buildKesimpulanContext,
   getKonfirmasiWawancaraMap,
   getRekapGrafikMap,
   PEMBAHASAN_KEYS,
   ringkasKonfirmasiUntukAi,
   type PembahasanKey,
 } from '@/lib/pembahasan-server';
-import { getHasilSurveyKegiatan, ringkasHasilSurveyUntukAi } from '@/lib/survey-summary';
 import { EKSPOSE_SLIDE_KRITERIA_MAP } from '@/lib/wawancara-kriteria';
 
 export const DEFAULT_COOLDOWN_MS = 1_200;
@@ -394,13 +394,14 @@ export async function processNextAiJob(kegiatanId: string): Promise<ProcessAiJob
       });
     }
 
-    let extraSurveySummary: string | undefined;
-    let extraKonfirmasiSummary: string | undefined;
-    if (claimedJob.grafikKey === 'kesimpulan') {
-      const surveySummary = await getHasilSurveyKegiatan(kegiatanId);
-      extraSurveySummary = ringkasHasilSurveyUntukAi(surveySummary);
-      extraKonfirmasiSummary = ringkasKonfirmasiUntukAi(konfirmasiMap);
-    }
+    const kesimpulanCtx =
+      claimedJob.grafikKey === 'kesimpulan'
+        ? await buildKesimpulanContext(kegiatanId, {
+            totalPeserta,
+            rekapMap,
+            konfirmasiMap,
+          })
+        : undefined;
 
     const slideKeys =
       EKSPOSE_SLIDE_KRITERIA_MAP[
@@ -414,9 +415,7 @@ export async function processNextAiJob(kegiatanId: string): Promise<ProcessAiJob
     const meta = await buatPembahasanGrafikWithMeta(
       claimedJob.grafikKey,
       rekap,
-      claimedJob.grafikKey === 'kesimpulan'
-        ? { totalPeserta, rekapMap, extraSurveySummary, extraKonfirmasiSummary }
-        : undefined,
+      kesimpulanCtx,
       slideKonfirmasiSummary
     );
 

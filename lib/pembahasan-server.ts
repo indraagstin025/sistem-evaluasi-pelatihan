@@ -1,10 +1,17 @@
 import { prisma } from './prisma';
 import {
   hitungDistribusiRentang,
+  isValidNumber,
   tentukanRentang,
   tentukanRentangItemSurvei,
 } from './hitung';
-import type { RekapGrafikData } from './ai';
+import type {
+  KesimpulanContext,
+  RekapGrafikData,
+  SelisihAgregatSummary,
+} from './ai';
+import type { StoredTemaTerbuka } from './ai-jawaban-terbuka';
+import { getHasilSurveyKegiatan, ringkasHasilSurveyUntukAi } from './survey-summary';
 import {
   normalizeStatusKonfirmasi,
   WAWANCARA_KRITERIA,
@@ -217,5 +224,224 @@ export async function getRekapGrafikMap(
       dataB: g5_wawancara,
       totalB: g5_wawancara.reduce((a, b) => a + b, 0),
     },
+  };
+}
+
+/**
+ * Menghitung agregat anonim pola selisih Survei (L) vs Wawancara (M) tanpa menyertakan nama/NIP.
+ */
+export function hitungPolaSelisihAgregat(
+  listPeserta: Array<{
+    hasil?: {
+      rataSurveiL?: number | null;
+      rataWawancaraM?: number | null;
+      selisih?: number | null;
+    } | null;
+  }>
+): SelisihAgregatSummary {
+  const totalPeserta = listPeserta.length;
+  let sumL = 0;
+  let countL = 0;
+  let sumM = 0;
+  let countM = 0;
+  let sumDiff = 0;
+  let countPair = 0;
+  let surveiJauhLebihTinggi = 0; // L - M > 15
+  let wawancaraJauhLebihTinggi = 0; // M - L > 15
+  let selaras = 0; // |M - L| <= 15
+  let skorWawancaraRendah = 0; // M < 51
+  let wawancaraKosong = 0;
+
+  for (const p of listPeserta) {
+    const l = p.hasil?.rataSurveiL;
+    const m = p.hasil?.rataWawancaraM;
+    const hasL = isValidNumber(l);
+    const hasM = isValidNumber(m);
+
+    if (hasL) {
+      sumL += l;
+      countL += 1;
+    }
+    if (hasM) {
+      sumM += m;
+      countM += 1;
+      if (m < 51) {
+        skorWawancaraRendah += 1;
+      }
+    } else {
+      wawancaraKosong += 1;
+    }
+
+    if (hasL && hasM) {
+      const diff = isValidNumber(p.hasil?.selisih) ? p.hasil!.selisih! : m - l;
+      sumDiff += diff;
+      countPair += 1;
+      if (l - m > 15) {
+        surveiJauhLebihTinggi += 1;
+      } else if (m - l > 15) {
+        wawancaraJauhLebihTinggi += 1;
+      } else {
+        selaras += 1;
+      }
+    }
+  }
+
+  return {
+    totalPeserta,
+    totalValidSurvei: countL,
+    totalValidWawancara: countM,
+    totalBerpasangan: countPair,
+    rataSurveiL: countL > 0 ? Number((sumL / countL).toFixed(2)) : null,
+    rataWawancaraM: countM > 0 ? Number((sumM / countM).toFixed(2)) : null,
+    rataSelisih: countPair > 0 ? Number((sumDiff / countPair).toFixed(2)) : null,
+    surveiJauhLebihTinggi,
+    wawancaraJauhLebihTinggi,
+    selaras,
+    skorWawancaraRendah,
+    wawancaraKosong,
+  };
+}
+
+export function ringkasPolaSelisihUntukAi(stats: SelisihAgregatSummary): string {
+  const avgL = stats.rataSurveiL !== null ? stats.rataSurveiL.toFixed(1) : '-';
+  const avgM = stats.rataWawancaraM !== null ? stats.rataWawancaraM.toFixed(1) : '-';
+  const avgDiff =
+    stats.rataSelisih !== null
+      ? `${stats.rataSelisih > 0 ? '+' : ''}${stats.rataSelisih.toFixed(1)}`
+      : '-';
+
+  return [
+    `- Rata-rata Survei (L): ${avgL} (N=${stats.totalValidSurvei}); Rata-rata Wawancara (M): ${avgM} (N=${stats.totalValidWawancara}); Rata-rata selisih (M - L): ${avgDiff} poin.`,
+    `- Pola kesenjangan (dari ${stats.totalBerpasangan} peserta berpasangan): ${stats.surveiJauhLebihTinggi} peserta skor survei jauh lebih tinggi dari wawancara (L - M > 15), ${stats.wawancaraJauhLebihTinggi} peserta wawancara jauh lebih tinggi (M - L > 15), dan ${stats.selaras} peserta relatif selaras (|M - L| <= 15).`,
+    `- Kelompok prioritas perhatian: ${stats.skorWawancaraRendah} peserta memiliki skor wawancara rendah (< 51), dan ${stats.wawancaraKosong} peserta belum memiliki nilai wawancara.`,
+  ].join('\n');
+}
+
+export interface AnalisisTerbukaRingkasMeta {
+  kendalaTemaCount: number;
+  wawancaraTemaCount: number;
+  topTemaKendalaNama: string | null;
+  topTemaKendalaJumlah: number | null;
+  topTemaWawancaraNama: string | null;
+  topTemaWawancaraJumlah: number | null;
+  summaryText: string;
+}
+
+const SKIP_NO_ISSUE_THEME_RE =
+  /tidak ada kendala|berjalan baik|berjalan lancar|keberhasilan implementasi|lainnya/i;
+
+/**
+ * Membaca tema terverifikasi Batch 2 (hanya agregat nama tema + jumlah catatan/peserta, tanpa PII)
+ * untuk memperkaya rekomendasi tindak lanjut di Slide 6.
+ */
+export async function getRingkasTemaTerbukaUntukAi(
+  kegiatanId: string
+): Promise<AnalisisTerbukaRingkasMeta> {
+  const rows = await prisma.analisisTerbuka.findMany({
+    where: {
+      kegiatanId,
+      kategori: { in: ['kendala_survei', 'deskripsi_wawancara'] },
+    },
+    select: {
+      kategori: true,
+      temaJson: true,
+      totalTeks: true,
+    },
+  });
+
+  const parseTemas = (raw: unknown): StoredTemaTerbuka[] =>
+    Array.isArray(raw) ? (raw as StoredTemaTerbuka[]) : [];
+
+  const kndRow = rows.find((r) => r.kategori === 'kendala_survei');
+  const wawRow = rows.find((r) => r.kategori === 'deskripsi_wawancara');
+  const kndTemas = kndRow ? parseTemas(kndRow.temaJson) : [];
+  const wawTemas = wawRow ? parseTemas(wawRow.temaJson) : [];
+
+  const pickTopActionable = (temas: StoredTemaTerbuka[]) => {
+    const actionable = temas.find((t) => !SKIP_NO_ISSUE_THEME_RE.test(t.namaTema || ''));
+    return actionable || temas[0] || null;
+  };
+
+  const topKnd = pickTopActionable(kndTemas);
+  const topWaw = pickTopActionable(wawTemas);
+
+  const lines: string[] = [];
+  if (kndTemas.length > 0) {
+    lines.push(
+      `Tema Kendala Terbuka Survei (${kndRow?.totalTeks ?? 0} catatan):`
+    );
+    for (const t of kndTemas.slice(0, 4)) {
+      lines.push(`- ${t.namaTema}: ${t.jumlah} catatan (${t.jumlahPeserta} peserta unik)`);
+    }
+  }
+  if (wawTemas.length > 0) {
+    lines.push(
+      `Tema Catatan Evaluator Wawancara (${wawRow?.totalTeks ?? 0} catatan):`
+    );
+    for (const t of wawTemas.slice(0, 4)) {
+      lines.push(`- ${t.namaTema}: ${t.jumlah} catatan (${t.jumlahPeserta} peserta unik)`);
+    }
+  }
+
+  return {
+    kendalaTemaCount: kndTemas.length,
+    wawancaraTemaCount: wawTemas.length,
+    topTemaKendalaNama: topKnd?.namaTema ?? null,
+    topTemaKendalaJumlah: topKnd?.jumlah ?? null,
+    topTemaWawancaraNama: topWaw?.namaTema ?? null,
+    topTemaWawancaraJumlah: topWaw?.jumlah ?? null,
+    summaryText: lines.join('\n'),
+  };
+}
+
+/**
+ * Merakit konteks lengkap & anonim Slide 6 (Kesimpulan & Rekomendasi) secara terpusat
+ * untuk digunakan bersama oleh antrean AI (`lib/ai-queue.ts`) dan route sinkron (`/api/ai/pembahasan`).
+ */
+export async function buildKesimpulanContext(
+  kegiatanId: string,
+  preloaded?: {
+    totalPeserta?: number;
+    rekapMap?: Record<'grafik1' | 'grafik2' | 'grafik3' | 'grafik4' | 'grafik5', RekapGrafikData>;
+    konfirmasiMap?: KonfirmasiWawancaraMap;
+  }
+): Promise<KesimpulanContext> {
+  const [rekapMap, konfirmasiMap, surveySummary, pesertaHasilRows, temaMeta] =
+    await Promise.all([
+      preloaded?.rekapMap ? Promise.resolve(preloaded.rekapMap) : getRekapGrafikMap(kegiatanId),
+      preloaded?.konfirmasiMap
+        ? Promise.resolve(preloaded.konfirmasiMap)
+        : getKonfirmasiWawancaraMap(kegiatanId),
+      getHasilSurveyKegiatan(kegiatanId),
+      prisma.peserta.findMany({
+        where: { kegiatanId },
+        select: {
+          hasil: {
+            select: {
+              rataSurveiL: true,
+              rataWawancaraM: true,
+              selisih: true,
+            },
+          },
+        },
+      }),
+      getRingkasTemaTerbukaUntukAi(kegiatanId),
+    ]);
+
+  const totalPeserta = preloaded?.totalPeserta ?? pesertaHasilRows.length;
+  const selisihStats = hitungPolaSelisihAgregat(pesertaHasilRows);
+
+  return {
+    totalPeserta,
+    rekapMap,
+    selisihStats,
+    extraSelisihSummary: ringkasPolaSelisihUntukAi(selisihStats),
+    extraSurveySummary: ringkasHasilSurveyUntukAi(surveySummary),
+    extraKonfirmasiSummary: ringkasKonfirmasiUntukAi(konfirmasiMap),
+    extraTemaTerbukaSummary: temaMeta.summaryText || undefined,
+    topTemaKendalaNama: temaMeta.topTemaKendalaNama,
+    topTemaKendalaJumlah: temaMeta.topTemaKendalaJumlah,
+    topTemaWawancaraNama: temaMeta.topTemaWawancaraNama,
+    topTemaWawancaraJumlah: temaMeta.topTemaWawancaraJumlah,
   };
 }
