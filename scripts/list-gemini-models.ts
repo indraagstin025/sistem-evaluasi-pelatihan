@@ -23,8 +23,12 @@ console.log(`Menguji API Key: ${apiKey.slice(0, 8)}...${apiKey.slice(-6)}`);
 
 async function listModels() {
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
-    const res = await fetch(url);
+    const url = 'https://generativelanguage.googleapis.com/v1beta/models';
+    const res = await fetch(url, {
+      headers: {
+        'x-goog-api-key': apiKey,
+      },
+    });
 
     if (!res.ok) {
       const errText = await res.text();

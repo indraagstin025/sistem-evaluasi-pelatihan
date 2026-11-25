@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { buatPembahasanGrafikWithMeta } from '@/lib/ai';
+import { buatPembahasanGrafikWithMeta, sanitizeAiErrorMessage } from '@/lib/ai';
 import {
   getKonfirmasiWawancaraMap,
   getRekapGrafikMap,
@@ -167,6 +167,18 @@ export async function enqueueAiJobs(
     };
   }
 
+  const kegiatan = await prisma.kegiatan.findUnique({
+    where: { id: kegiatanId },
+    select: { id: true },
+  });
+  if (!kegiatan) {
+    return {
+      ok: false,
+      status: 404,
+      error: 'Kegiatan tidak ditemukan.',
+    };
+  }
+
   const totalPeserta = await prisma.peserta.count({ where: { kegiatanId } });
   if (totalPeserta === 0) {
     return {
@@ -251,6 +263,8 @@ export interface ProcessAiJobResult {
   processed: boolean;
   retrying?: boolean;
   waitingBackoff?: boolean;
+  usedTemplateFallback?: boolean;
+  fallbackReason?: string | null;
   job?: AiQueueJobDTO;
   savedPembahasan?: any;
   activeJobs: AiQueueJobDTO[];
@@ -414,7 +428,7 @@ export async function processNextAiJob(kegiatanId: string): Promise<ProcessAiJob
         data: {
           status: 'queued',
           nextRunAt: retryAt,
-          lastError: `${meta.errorMessage || 'Rate limit Gemini'} - retry ke-${claimedJob.attempts} dalam ${backoffMs / 1000}d`,
+          lastError: `${sanitizeAiErrorMessage(meta.errorMessage, 'Rate limit Gemini')} - retry ke-${claimedJob.attempts} dalam ${backoffMs / 1000}d`,
         },
       });
       const snapshot = await getQueueSnapshot(kegiatanId);
@@ -452,14 +466,18 @@ export async function processNextAiJob(kegiatanId: string): Promise<ProcessAiJob
       },
     });
 
+    const usedTemplateFallback = meta.item.sumber !== 'ai';
+    const fallbackReason = usedTemplateFallback
+      ? sanitizeAiErrorMessage(meta.errorMessage, 'Memakai templat resmi KP-05')
+      : null;
+
     const finishedJob = await prisma.aiJob.update({
       where: { id: claimedJob.id },
       data: {
         status: 'done',
         finishedAt: new Date(),
         modelUsed: meta.modelUsed || 'template-kp05',
-        lastError:
-          meta.item.sumber === 'ai' ? null : meta.errorMessage || 'Memakai templat resmi KP-05',
+        lastError: fallbackReason,
       },
     });
 
@@ -467,11 +485,16 @@ export async function processNextAiJob(kegiatanId: string): Promise<ProcessAiJob
     return buildProcessResult(snapshot, {
       processed: true,
       retrying: false,
+      usedTemplateFallback,
+      fallbackReason,
       job: toJobDto(finishedJob),
       savedPembahasan,
     });
-  } catch (err: any) {
-    const msg = err?.message || 'Kesalahan saat memproses job AI';
+  } catch (err: unknown) {
+    const msg = sanitizeAiErrorMessage(
+      err instanceof Error ? err.message : undefined,
+      'Kesalahan saat memproses antrean AI'
+    );
     const isFinal = claimedJob.attempts >= claimedJob.maxAttempts;
     const updatedJob = await prisma.aiJob.update({
       where: { id: claimedJob.id },
