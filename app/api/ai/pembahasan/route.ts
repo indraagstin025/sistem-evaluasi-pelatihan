@@ -4,12 +4,12 @@ import { requireSession } from '@/lib/auth';
 import { handleApiError } from '@/lib/api-error';
 import { buatPembahasanGrafik, generatePembahasanTemplate } from '@/lib/ai';
 import {
+  buildKesimpulanContext,
   getKonfirmasiWawancaraMap,
   getRekapGrafikMap,
   PEMBAHASAN_KEYS,
   ringkasKonfirmasiUntukAi,
 } from '@/lib/pembahasan-server';
-import { getHasilSurveyKegiatan, ringkasHasilSurveyUntukAi } from '@/lib/survey-summary';
 import { EKSPOSE_SLIDE_KRITERIA_MAP } from '@/lib/wawancara-kriteria';
 
 export const dynamic = 'force-dynamic';
@@ -40,6 +40,10 @@ export async function GET(request: Request) {
 
     const missingKeys = keys.filter((key) => !saved.some((s) => s.grafikKey === key));
     const rekapMap = missingKeys.length > 0 ? await getRekapGrafikMap(kegiatanId) : null;
+    const initialKesimpulanCtx =
+      missingKeys.includes('kesimpulan') && rekapMap
+        ? await buildKesimpulanContext(kegiatanId, { totalPeserta, rekapMap })
+        : undefined;
 
     await Promise.all(
       keys.map(async (key) => {
@@ -49,7 +53,11 @@ export async function GET(request: Request) {
           return;
         }
         const rekap = rekapMap ? (rekapMap as any)[key] : undefined;
-        const initial = generatePembahasanTemplate(key, rekap);
+        const initial = generatePembahasanTemplate(
+          key,
+          rekap,
+          key === 'kesimpulan' ? initialKesimpulanCtx : undefined
+        );
         const created = await prisma.pembahasan.create({
           data: {
             kegiatanId,
@@ -118,13 +126,14 @@ export async function POST(request: Request) {
         await new Promise((resolve) => setTimeout(resolve, 800));
       }
 
-      let extraSurveySummary: string | undefined;
-      let extraKonfirmasiSummary: string | undefined;
-      if (key === 'kesimpulan') {
-        const surveySummary = await getHasilSurveyKegiatan(kegiatanId);
-        extraSurveySummary = ringkasHasilSurveyUntukAi(surveySummary);
-        extraKonfirmasiSummary = ringkasKonfirmasiUntukAi(konfirmasiMap);
-      }
+      const kesimpulanCtx =
+        key === 'kesimpulan'
+          ? await buildKesimpulanContext(kegiatanId, {
+              totalPeserta,
+              rekapMap,
+              konfirmasiMap,
+            })
+          : undefined;
 
       const slideKeys =
         EKSPOSE_SLIDE_KRITERIA_MAP[key as keyof typeof EKSPOSE_SLIDE_KRITERIA_MAP];
@@ -136,9 +145,7 @@ export async function POST(request: Request) {
       const hasil = await buatPembahasanGrafik(
         key,
         rekap,
-        key === 'kesimpulan'
-          ? { totalPeserta, rekapMap, extraSurveySummary, extraKonfirmasiSummary }
-          : undefined,
+        kesimpulanCtx,
         slideKonfirmasiSummary
       );
       const payload = {

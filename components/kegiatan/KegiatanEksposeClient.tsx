@@ -1590,9 +1590,81 @@ export default function KegiatanEksposeClient({
                     )}
                   </div>
 
-                  <div className="mt-4 border-t border-slate-500/25 pt-2 text-right text-[10px] font-normal text-slate-700">
-                    {data?.kegiatan?.penyelenggara || 'BPSDM Provinsi Jawa Barat'} ·{' '}
-                    {new Date().getFullYear()}
+                  {/* Konteks Anonim Rekomendasi AI (Hidden on Print) */}
+                  {data?.polaSelisih && (
+                    <div className="no-print mt-4 rounded-md border border-[#A9D08E] bg-white/80 p-3 text-[11px] text-slate-800">
+                      <p className="font-semibold text-slate-900">
+                        Konteks Data Rekomendasi (Anonim · Tanpa Nama/NIP)
+                      </p>
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        <span className="rounded border border-slate-300 bg-white px-2 py-0.5 tabular-nums">
+                          Rata-rata L:{' '}
+                          <strong>
+                            {data.polaSelisih.rataSurveiL !== null
+                              ? Number(data.polaSelisih.rataSurveiL).toFixed(1)
+                              : '-'}
+                          </strong>{' '}
+                          vs M:{' '}
+                          <strong>
+                            {data.polaSelisih.rataWawancaraM !== null
+                              ? Number(data.polaSelisih.rataWawancaraM).toFixed(1)
+                              : '-'}
+                          </strong>
+                        </span>
+                        <span className="rounded border border-slate-300 bg-white px-2 py-0.5 tabular-nums">
+                          Selisih L &gt; M (&gt;15):{' '}
+                          <strong>{data.polaSelisih.surveiJauhLebihTinggi}</strong> peserta
+                        </span>
+                        <span className="rounded border border-slate-300 bg-white px-2 py-0.5 tabular-nums">
+                          Skor wawancara &lt; 51:{' '}
+                          <strong>{data.polaSelisih.skorWawancaraRendah}</strong> peserta
+                        </span>
+                      </div>
+                      <div className="mt-1.5 text-[11px] text-slate-700">
+                        {data?.analisisTerbukaTersedia &&
+                        (data.analisisTerbukaTersedia.kendalaTemaCount > 0 ||
+                          data.analisisTerbukaTersedia.wawancaraTemaCount > 0) ? (
+                          <span>
+                            Terhubung ke tema Batch 2:{' '}
+                            <strong>
+                              {data.analisisTerbukaTersedia.kendalaTemaCount} tema kendala survei
+                            </strong>{' '}
+                            &amp;{' '}
+                            <strong>
+                              {data.analisisTerbukaTersedia.wawancaraTemaCount} tema catatan
+                              wawancara
+                            </strong>
+                            .
+                          </span>
+                        ) : (
+                          <span>
+                            Tema kendala terbuka belum dianalisis.{' '}
+                            <Link
+                              href={`/kegiatan/${kegiatanId}/hasil-survei`}
+                              className="font-medium text-slate-950 underline underline-offset-2"
+                            >
+                              Jalankan di Hasil Survei
+                            </Link>{' '}
+                            agar rekomendasi lebih spesifik.
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mt-4 flex items-center justify-between border-t border-slate-500/25 pt-2 text-[10px] font-normal text-slate-700">
+                    <span>
+                      Sumber:{' '}
+                      {kesimpulanItem?.sumber === 'ai'
+                        ? 'AI (Gemini)'
+                        : kesimpulanItem?.sumber === 'manual'
+                        ? 'Diubah manual'
+                        : 'Templat bawaan slide'}
+                    </span>
+                    <span>
+                      {data?.kegiatan?.penyelenggara || 'BPSDM Provinsi Jawa Barat'} ·{' '}
+                      {new Date().getFullYear()}
+                    </span>
                   </div>
                 </div>
               </div>
