@@ -14,10 +14,14 @@ import {
   ReloadIcon,
 } from '@radix-ui/react-icons';
 import {
+  buildKonfirmasiNarasi,
+  buildRingkasanKonteksFallback,
   EKSPOSE_CATEGORIES,
   EKSPOSE_GRAFIK_SLIDES,
   extractKesimpulanContent,
+  isKonfirmasiNarasiStillFresh,
   parseBoldSegments,
+  type AiDataReadiness,
 } from '@/lib/ekspose-config';
 import { EKSPOSE_SLIDE_KRITERIA_MAP } from '@/lib/wawancara-kriteria';
 import {
@@ -35,6 +39,10 @@ import { Progress } from '@/components/ui/progress';
 import { StatusBanner } from '@/components/ui/status-banner';
 import { CardsGridSkeleton } from '@/components/ui/page-skeletons';
 import { ConfirmDialog } from '@/components/ui/alert-dialog';
+import IncompleteEksposeModal, {
+  type IncompletePesertaItem,
+  type PendingFinalAction,
+} from '@/components/kegiatan/IncompleteEksposeModal';
 import {
   Tooltip,
   TooltipContent,
@@ -109,16 +117,24 @@ interface KriteriaKonfirmasiItem {
 function KonfirmasiWawancaraNotes({
   slideKey,
   konfirmasiMap,
+  aiCatatanKonfirmasi,
   variant = 'blue',
 }: {
   slideKey: keyof typeof EKSPOSE_SLIDE_KRITERIA_MAP;
   konfirmasiMap?: Record<string, KriteriaKonfirmasiItem> | null;
+  aiCatatanKonfirmasi?: string | null;
   variant?: 'blue' | 'peach';
 }) {
-  if (!konfirmasiMap) return null;
-  const keys = EKSPOSE_SLIDE_KRITERIA_MAP[slideKey] || [];
-  const rows = keys.map((k) => konfirmasiMap[k]).filter(Boolean);
-  if (rows.length === 0) return null;
+  const hasFreshAiText = isKonfirmasiNarasiStillFresh(
+    aiCatatanKonfirmasi,
+    konfirmasiMap,
+    slideKey
+  );
+  const hasStaleAiText = Boolean(aiCatatanKonfirmasi && !hasFreshAiText);
+  const sentences = hasFreshAiText
+    ? [String(aiCatatanKonfirmasi).trim()]
+    : buildKonfirmasiNarasi(konfirmasiMap, slideKey);
+  if (sentences.length === 0) return null;
 
   const wrapperClass =
     variant === 'peach'
@@ -127,38 +143,26 @@ function KonfirmasiWawancaraNotes({
 
   return (
     <div className={wrapperClass}>
-      <p className="text-[11px] font-semibold text-slate-900">
-        Catatan Konfirmasi Wawancara (Data Aktual)
-      </p>
-      <div className="mt-2 space-y-2">
-        {rows.map((r, idx) => (
-          <div
-            key={r.kriteria}
-            className="flex flex-col gap-1 border-t border-slate-200/80 pt-1.5 text-[11px] first:border-t-0 first:pt-0"
-          >
-            <div className="flex flex-wrap items-baseline justify-between gap-1">
-              <span className="font-medium text-slate-900">
-                {slideKey === 'grafik5' && idx === 0
-                  ? `${r.judul} (Fokus Slide 5)`
-                  : r.judul}
-              </span>
-              <span className="font-mono text-[10px] text-slate-600 tabular-nums">
-                {r.totalPeserta} peserta
-              </span>
-            </div>
-            <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] tabular-nums">
-              <span className="rounded border border-slate-900 bg-slate-900 px-1.5 py-0.5 font-semibold text-white">
-                YA: {r.ya}
-              </span>
-              <span className="rounded border border-slate-500 bg-white px-1.5 py-0.5 font-semibold text-slate-900">
-                TIDAK: {r.tidak}
-              </span>
-              <span className="rounded border border-slate-300 bg-slate-100 px-1.5 py-0.5 font-medium text-slate-800">
-                Belum Konfirmasi: {r.belumKonfirmasi}
-              </span>
-            </div>
-          </div>
+      <div className="flex flex-wrap items-center justify-between gap-1.5">
+        <p className="text-[11px] font-semibold text-slate-900">
+          Catatan Konfirmasi Wawancara (Data Aktual)
+        </p>
+        {hasFreshAiText && (
+          <span className="no-print rounded border border-slate-300 bg-slate-50 px-1.5 py-0.5 text-[9px] font-medium text-slate-700">
+            Ringkasan AI · Sesuai Data
+          </span>
+        )}
+      </div>
+      <div className="mt-1.5 space-y-1.5 text-[11px] leading-relaxed text-slate-800">
+        {sentences.map((kalimat, idx) => (
+          <p key={idx}>{kalimat}</p>
         ))}
+        {hasStaleAiText && (
+          <p className="no-print text-[10px] italic text-slate-600">
+            Status konfirmasi berubah di database; klik &ldquo;Buat dengan AI&rdquo; untuk
+            memperbarui kalimat AI.
+          </p>
+        )}
       </div>
     </div>
   );
@@ -225,6 +229,7 @@ export default function KegiatanEksposeClient({
   const [cancellingQueue, setCancellingQueue] = useState(false);
   const [confirmRegenerateAllOpen, setConfirmRegenerateAllOpen] = useState(false);
   const [confirmCancelQueueOpen, setConfirmCancelQueueOpen] = useState(false);
+  const [pendingFinalAction, setPendingFinalAction] = useState<PendingFinalAction | null>(null);
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [downloadingPptx, setDownloadingPptx] = useState(false);
 
@@ -700,6 +705,108 @@ export default function KegiatanEksposeClient({
 
   const kegiatanNama = data?.kegiatan?.nama || 'Evaluasi Pasca Pelatihan';
   const selisihImportCount = Number(data?.ringkasan?.selisihImportCount || 0);
+  const aiReadiness: AiDataReadiness | null = data?.aiReadiness ?? null;
+  const isAiBlocked = aiReadiness?.status === 'blocked';
+
+  const incompleteList: IncompletePesertaItem[] = Array.isArray(data?.ringkasan?.daftarBelumLengkap)
+    ? data.ringkasan.daftarBelumLengkap
+    : Array.isArray(data?.ringkasan?.daftarKosong)
+      ? data.ringkasan.daftarKosong.map((p: any) => ({
+          id: String(p.id || p.nama),
+          nama: String(p.nama || 'Peserta'),
+          instansi: p.instansi ?? null,
+          timNama: p.timNama ?? null,
+          wawancaraKosong: true,
+          keteranganKosong: 'Nilai wawancara kosong',
+        }))
+      : [];
+  const hasIncompletePeserta = incompleteList.length > 0;
+  const validSurveiCount = Number(
+    data?.ringkasan?.totalValidSurvei ?? aiReadiness?.validSurvei ?? 0
+  );
+  const validWawancaraCount = Number(
+    data?.ringkasan?.totalValidWawancara ?? aiReadiness?.validWawancara ?? 0
+  );
+
+  const requestRegenerateAll = () => {
+    if (isAiBlocked) return;
+    if (hasIncompletePeserta) {
+      setPendingFinalAction({ kind: 'ai_all' });
+      return;
+    }
+    setConfirmRegenerateAllOpen(true);
+  };
+
+  const requestRegenerate = (key: string) => {
+    if (isAiBlocked) return;
+    if (hasIncompletePeserta) {
+      setPendingFinalAction({
+        kind: 'ai_slide',
+        slideKey: key,
+        slideLabel: SLIDE_QUEUE_LABELS[key] || key,
+      });
+      return;
+    }
+    void handleRegenerate(key);
+  };
+
+  const requestExportCSV = () => {
+    if (!data?.rekap) return;
+    if (hasIncompletePeserta) {
+      setPendingFinalAction({ kind: 'csv' });
+      return;
+    }
+    handleExportCSV();
+  };
+
+  const requestPrint = () => {
+    if (hasIncompletePeserta) {
+      setPendingFinalAction({ kind: 'pdf' });
+      return;
+    }
+    handlePrint();
+  };
+
+  const requestExportPptx = () => {
+    if (editingKey !== null) {
+      setActionError(
+        'Simpan atau batalkan perubahan pembahasan sebelum mengunduh file PowerPoint (PPTX).'
+      );
+      return;
+    }
+    if (isBrowserOffline()) {
+      setActionError(CLIENT_NETWORK_ERROR_MESSAGE);
+      return;
+    }
+    if (hasIncompletePeserta) {
+      setPendingFinalAction({ kind: 'pptx' });
+      return;
+    }
+    void handleExportPptx();
+  };
+
+  const handleConfirmFinalAction = (confirmed: PendingFinalAction) => {
+    setPendingFinalAction(null);
+    switch (confirmed.kind) {
+      case 'pptx':
+        void handleExportPptx();
+        break;
+      case 'pdf':
+        requestAnimationFrame(() => {
+          handlePrint();
+        });
+        break;
+      case 'csv':
+        handleExportCSV();
+        break;
+      case 'ai_all':
+        void handleRegenerate('all');
+        break;
+      case 'ai_slide':
+        void handleRegenerate(confirmed.slideKey);
+        break;
+    }
+  };
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 pb-16 print:m-0 print:max-w-none print:p-0">
@@ -720,9 +827,9 @@ export default function KegiatanEksposeClient({
         <div className="flex shrink-0 flex-wrap items-center gap-2 xl:flex-nowrap">
           <button
             type="button"
-            onClick={() => setConfirmRegenerateAllOpen(true)}
-            disabled={isAllQueued || savingKey !== null || totalPeserta === 0}
-            className={`inline-flex min-h-[38px] items-center gap-1.5 whitespace-nowrap rounded-lg border px-3 py-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
+            onClick={requestRegenerateAll}
+            disabled={isAiBlocked || isAllQueued || savingKey !== null || totalPeserta === 0}
+            className={`inline-flex min-h-[44px] items-center gap-1.5 whitespace-nowrap rounded-lg border px-3 py-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-[38px] ${
               activeJobs.length > 0
                 ? 'border-zinc-950 bg-zinc-950 text-white'
                 : 'border-zinc-500 bg-white text-zinc-950 hover:bg-zinc-100'
@@ -742,9 +849,9 @@ export default function KegiatanEksposeClient({
 
           <button
             type="button"
-            onClick={handleExportCSV}
+            onClick={requestExportCSV}
             disabled={totalPeserta === 0}
-            className="inline-flex min-h-[38px] items-center gap-1.5 whitespace-nowrap rounded-lg border border-zinc-500 bg-white px-3 py-2 text-xs font-medium text-zinc-950 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex min-h-[44px] items-center gap-1.5 whitespace-nowrap rounded-lg border border-zinc-500 bg-white px-3 py-2 text-xs font-medium text-zinc-950 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-[38px]"
           >
             <DownloadIcon className="h-3.5 w-3.5 text-zinc-700" aria-hidden="true" />
             Unduh Rekap CSV
@@ -752,9 +859,9 @@ export default function KegiatanEksposeClient({
 
           <button
             type="button"
-            onClick={handlePrint}
+            onClick={requestPrint}
             disabled={totalPeserta === 0}
-            className="inline-flex min-h-[38px] items-center gap-1.5 whitespace-nowrap rounded-lg border border-zinc-500 bg-white px-3 py-2 text-xs font-medium text-zinc-950 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex min-h-[44px] items-center gap-1.5 whitespace-nowrap rounded-lg border border-zinc-500 bg-white px-3 py-2 text-xs font-medium text-zinc-950 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-[38px]"
           >
             <PrinterIcon className="h-3.5 w-3.5 text-zinc-700" />
             Cetak Slide (PDF)
@@ -762,9 +869,9 @@ export default function KegiatanEksposeClient({
 
           <button
             type="button"
-            onClick={handleExportPptx}
+            onClick={requestExportPptx}
             disabled={totalPeserta === 0 || downloadingPptx}
-            className="inline-flex min-h-[38px] items-center gap-1.5 whitespace-nowrap rounded-lg bg-zinc-950 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex min-h-[44px] items-center gap-1.5 whitespace-nowrap rounded-lg bg-zinc-950 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-[38px]"
           >
             {downloadingPptx ? (
               <ReloadIcon className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
@@ -783,6 +890,55 @@ export default function KegiatanEksposeClient({
           message={`Terdapat ${selisihImportCount} selisih nilai antarfile Excel yang tercatat pada panel peringatan. Seluruh grafik Ekspose memakai angka resmi Form Penilaian.`}
           className="no-print"
         />
+      )}
+
+      {totalPeserta > 0 && isAiBlocked && aiReadiness && (
+        <StatusBanner
+          tone="warning"
+          title="Data belum lengkap"
+          message={aiReadiness.message}
+          className="no-print"
+        />
+      )}
+
+      {totalPeserta > 0 && !isAiBlocked && hasIncompletePeserta && (
+        <div className="no-print flex flex-col justify-between gap-3 rounded-2xl border border-zinc-500 bg-zinc-50 px-5 py-4 sm:flex-row sm:items-center">
+          <div className="flex items-start gap-3">
+            <ExclamationTriangleIcon
+              className="mt-0.5 h-4 w-4 shrink-0 text-zinc-950"
+              aria-hidden="true"
+            />
+            <div className="space-y-0.5 text-xs">
+              <p className="font-semibold text-zinc-950">
+                Ada <span className="font-mono tabular-nums">{incompleteList.length}</span> peserta
+                dengan nilai kosong (
+                <span className="font-mono tabular-nums">
+                  {Math.max(0, totalPeserta - incompleteList.length)}/{totalPeserta}
+                </span>{' '}
+                lengkap)
+              </p>
+              <p className="leading-relaxed text-zinc-700">
+                Peserta yang masih kosong:{' '}
+                <strong className="font-medium text-zinc-950">
+                  {incompleteList
+                    .slice(0, 3)
+                    .map((p) => (p.timNama ? `${p.nama} (${p.timNama})` : p.nama))
+                    .join(', ')}
+                  {incompleteList.length > 3 ? ` dan ${incompleteList.length - 3} lainnya` : ''}
+                </strong>
+                . Anda tetap dapat meninjau pratinjau slide di bawah, dan sistem akan meminta
+                konfirmasi saat Anda mengunduh atau membuat pembahasan akhir.
+              </p>
+            </div>
+          </div>
+
+          <Link
+            href={`/kegiatan/${kegiatanId}/wawancara?status=ada_kosong`}
+            className="inline-flex min-h-[44px] shrink-0 items-center justify-center self-start rounded-lg border border-zinc-500 bg-white px-3.5 py-2 text-xs font-semibold text-zinc-950 transition hover:bg-zinc-100 sm:min-h-[38px] sm:self-auto"
+          >
+            Periksa Daftar Wawancara
+          </Link>
+        </div>
       )}
 
       {actionError && (
@@ -857,7 +1013,7 @@ export default function KegiatanEksposeClient({
               type="button"
               onClick={() => setConfirmCancelQueueOpen(true)}
               disabled={cancellingQueue}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-500 bg-white px-3 py-1.5 text-xs font-medium text-zinc-950 transition hover:bg-zinc-100 disabled:opacity-50"
+              className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-lg border border-zinc-500 bg-white px-3 py-1.5 text-xs font-medium text-zinc-950 transition hover:bg-zinc-100 disabled:opacity-50 sm:min-h-[34px]"
             >
               <CircleBackslashIcon className="h-3.5 w-3.5" aria-hidden="true" />
               {cancellingQueue ? 'Membatalkan...' : `Batalkan Antrean (${queuedCount})`}
@@ -896,14 +1052,14 @@ export default function KegiatanEksposeClient({
               <a
                 key={s.key}
                 href={`#${s.key}`}
-                className="rounded-lg border border-zinc-500 bg-white px-3 py-1.5 font-medium text-zinc-900 transition hover:border-zinc-950 hover:bg-zinc-950 hover:text-white"
+                className="inline-flex min-h-[44px] items-center rounded-lg border border-zinc-500 bg-white px-3 py-1.5 font-medium text-zinc-900 transition hover:border-zinc-950 hover:bg-zinc-950 hover:text-white sm:min-h-[34px]"
               >
                 {s.slideNumber}
               </a>
             ))}
             <a
               href="#kesimpulan"
-              className="rounded-lg border border-zinc-950 bg-zinc-950 px-3 py-1.5 font-medium text-white transition hover:bg-zinc-800"
+              className="inline-flex min-h-[44px] items-center rounded-lg border border-zinc-950 bg-zinc-950 px-3 py-1.5 font-medium text-white transition hover:bg-zinc-800 sm:min-h-[34px]"
             >
               Slide 6 (Kesimpulan & Rekomendasi)
             </a>
@@ -1077,8 +1233,8 @@ export default function KegiatanEksposeClient({
                                     <TooltipTrigger asChild>
                                       <button
                                         type="button"
-                                        onClick={() => handleRegenerate(slide.key)}
-                                        disabled={isItemLoading || isItemSaving}
+                                        onClick={() => requestRegenerate(slide.key)}
+                                        disabled={isAiBlocked || isItemLoading || isItemSaving}
                                         aria-label={`Buat ulang pembahasan ${slide.slideNumber} dengan AI`}
                                         className="inline-flex h-[44px] w-[44px] items-center justify-center rounded border border-zinc-500 bg-white/95 text-zinc-900 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50 sm:h-7 sm:w-7"
                                       >
@@ -1196,8 +1352,8 @@ export default function KegiatanEksposeClient({
                                 </p>
                                 <button
                                   type="button"
-                                  onClick={() => handleRegenerate(slide.key)}
-                                  disabled={isItemLoading}
+                                  onClick={() => requestRegenerate(slide.key)}
+                                  disabled={isAiBlocked || isItemLoading}
                                   className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-950 bg-zinc-950 px-3.5 py-2 text-xs font-medium text-white transition hover:bg-zinc-800 disabled:opacity-50"
                                 >
                                   <ReaderIcon className="h-3.5 w-3.5" aria-hidden="true" />
@@ -1235,6 +1391,7 @@ export default function KegiatanEksposeClient({
                           <KonfirmasiWawancaraNotes
                             slideKey={slide.key}
                             konfirmasiMap={data?.konfirmasiWawancara}
+                            aiCatatanKonfirmasi={pItem?.catatanKonfirmasi}
                             variant="blue"
                           />
                         </div>
@@ -1380,6 +1537,7 @@ export default function KegiatanEksposeClient({
                     <KonfirmasiWawancaraNotes
                       slideKey="kesimpulan"
                       konfirmasiMap={data?.konfirmasiWawancara}
+                      aiCatatanKonfirmasi={kesimpulanItem?.catatanKonfirmasi}
                       variant="peach"
                     />
                   </div>
@@ -1404,9 +1562,9 @@ export default function KegiatanEksposeClient({
                           <div className="flex items-center gap-1.5">
                             <button
                               type="button"
-                              onClick={() => handleRegenerate('kesimpulan')}
-                              disabled={isKesimpulanLoading || savingKey === 'kesimpulan'}
-                              className="inline-flex items-center gap-1 rounded border border-zinc-500 bg-white/90 px-2.5 py-1.5 text-[11px] font-medium text-zinc-950 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                              onClick={() => requestRegenerate('kesimpulan')}
+                              disabled={isAiBlocked || isKesimpulanLoading || savingKey === 'kesimpulan'}
+                              className="inline-flex min-h-[44px] items-center gap-1 rounded border border-zinc-500 bg-white/90 px-2.5 py-1.5 text-[11px] font-medium text-zinc-950 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-[32px]"
                             >
                               {kesimpulanQueue.isProcessing ? (
                                 <ReloadIcon
@@ -1433,7 +1591,7 @@ export default function KegiatanEksposeClient({
                               type="button"
                               onClick={() => handleStartEdit('kesimpulan', kesimpulanItem)}
                               disabled={isKesimpulanLoading || savingKey === 'kesimpulan'}
-                              className="inline-flex items-center gap-1 rounded border border-zinc-500 bg-white/95 px-2.5 py-1.5 text-[11px] font-medium text-zinc-900 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                              className="inline-flex min-h-[44px] items-center gap-1 rounded border border-zinc-500 bg-white/95 px-2.5 py-1.5 text-[11px] font-medium text-zinc-900 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-[32px]"
                             >
                               <Pencil1Icon className="h-3 w-3" aria-hidden="true" />
                               Ubah
@@ -1511,8 +1669,8 @@ export default function KegiatanEksposeClient({
                           </p>
                           <button
                             type="button"
-                            onClick={() => handleRegenerate('kesimpulan')}
-                            disabled={isKesimpulanLoading}
+                            onClick={() => requestRegenerate('kesimpulan')}
+                            disabled={isAiBlocked || isKesimpulanLoading}
                             className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-950 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-zinc-800 disabled:opacity-50"
                           >
                             <ReaderIcon className="h-3.5 w-3.5" aria-hidden="true" />
@@ -1590,55 +1748,48 @@ export default function KegiatanEksposeClient({
                     )}
                   </div>
 
-                  {/* Konteks Anonim Rekomendasi AI (Hidden on Print) */}
-                  {data?.polaSelisih && (
-                    <div className="no-print mt-4 rounded-md border border-[#A9D08E] bg-white/80 p-3 text-[11px] text-slate-800">
-                      <p className="font-semibold text-slate-900">
-                        Konteks Data Rekomendasi (Anonim · Tanpa Nama/NIP)
-                      </p>
-                      <div className="mt-1.5 flex flex-wrap gap-1.5">
-                        <span className="rounded border border-slate-300 bg-white px-2 py-0.5 tabular-nums">
-                          Rata-rata L:{' '}
-                          <strong>
-                            {data.polaSelisih.rataSurveiL !== null
-                              ? Number(data.polaSelisih.rataSurveiL).toFixed(1)
-                              : '-'}
-                          </strong>{' '}
-                          vs M:{' '}
-                          <strong>
-                            {data.polaSelisih.rataWawancaraM !== null
-                              ? Number(data.polaSelisih.rataWawancaraM).toFixed(1)
-                              : '-'}
-                          </strong>
-                        </span>
-                        <span className="rounded border border-slate-300 bg-white px-2 py-0.5 tabular-nums">
-                          Selisih L &gt; M (&gt;15):{' '}
-                          <strong>{data.polaSelisih.surveiJauhLebihTinggi}</strong> peserta
-                        </span>
-                        <span className="rounded border border-slate-300 bg-white px-2 py-0.5 tabular-nums">
-                          Skor wawancara &lt; 51:{' '}
-                          <strong>{data.polaSelisih.skorWawancaraRendah}</strong> peserta
-                        </span>
-                      </div>
-                      <div className="mt-1.5 text-[11px] text-slate-700">
-                        {data?.analisisTerbukaTersedia &&
+                  {/* Ringkasan Dasar Rekomendasi (Bahasa Mudah Dimengerti, Hidden on Print) */}
+                  {data?.polaSelisih && (() => {
+                    const aiKonteksText =
+                      typeof kesimpulanItem?.ringkasanKonteks === 'string' &&
+                      kesimpulanItem.ringkasanKonteks.trim().length > 0
+                        ? kesimpulanItem.ringkasanKonteks.trim()
+                        : null;
+                    const displayKonteks =
+                      aiKonteksText ||
+                      buildRingkasanKonteksFallback({
+                        rataSurveiL: data.polaSelisih.rataSurveiL ?? null,
+                        rataWawancaraM: data.polaSelisih.rataWawancaraM ?? null,
+                        surveiJauhLebihTinggi: data.polaSelisih.surveiJauhLebihTinggi ?? 0,
+                        skorWawancaraRendah: data.polaSelisih.skorWawancaraRendah ?? 0,
+                        totalPeserta,
+                        sudahUnggahEvidence: data.evidenceSummary?.sudahUnggah,
+                        kendalaTemaCount: data.analisisTerbukaTersedia?.kendalaTemaCount,
+                        wawancaraTemaCount: data.analisisTerbukaTersedia?.wawancaraTemaCount,
+                      });
+                    const hasThemes = Boolean(
+                      data?.analisisTerbukaTersedia &&
                         (data.analisisTerbukaTersedia.kendalaTemaCount > 0 ||
-                          data.analisisTerbukaTersedia.wawancaraTemaCount > 0) ? (
-                          <span>
-                            Terhubung ke tema Batch 2:{' '}
-                            <strong>
-                              {data.analisisTerbukaTersedia.kendalaTemaCount} tema kendala survei
-                            </strong>{' '}
-                            &amp;{' '}
-                            <strong>
-                              {data.analisisTerbukaTersedia.wawancaraTemaCount} tema catatan
-                              wawancara
-                            </strong>
-                            .
-                          </span>
-                        ) : (
-                          <span>
-                            Tema kendala terbuka belum dianalisis.{' '}
+                          data.analisisTerbukaTersedia.wawancaraTemaCount > 0)
+                    );
+                    return (
+                      <div className="no-print mt-4 rounded-md border border-[#A9D08E] bg-white/80 p-3 text-[11px] text-slate-800">
+                        <div className="flex flex-wrap items-center justify-between gap-1.5">
+                          <p className="font-semibold text-slate-900">
+                            Ringkasan Dasar Rekomendasi (Anonim · Tanpa Nama/NIP)
+                          </p>
+                          {aiKonteksText && (
+                            <span className="rounded border border-slate-300 bg-slate-50 px-1.5 py-0.5 text-[9px] font-medium text-slate-700">
+                              Ringkasan AI · Sesuai Data
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1.5 leading-relaxed text-slate-800">
+                          {displayKonteks}
+                        </p>
+                        {!hasThemes && (
+                          <p className="mt-1.5 text-[11px] text-slate-700">
+                            Tema jawaban terbuka belum dianalisis.{' '}
                             <Link
                               href={`/kegiatan/${kegiatanId}/hasil-survei`}
                               className="font-medium text-slate-950 underline underline-offset-2"
@@ -1646,11 +1797,11 @@ export default function KegiatanEksposeClient({
                               Jalankan di Hasil Survei
                             </Link>{' '}
                             agar rekomendasi lebih spesifik.
-                          </span>
+                          </p>
                         )}
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   <div className="mt-4 flex items-center justify-between border-t border-slate-500/25 pt-2 text-[10px] font-normal text-slate-700">
                     <span>
@@ -1684,6 +1835,18 @@ export default function KegiatanEksposeClient({
           setConfirmRegenerateAllOpen(false);
           void handleRegenerate('all');
         }}
+      />
+
+      <IncompleteEksposeModal
+        open={pendingFinalAction !== null}
+        action={pendingFinalAction}
+        kegiatanId={kegiatanId}
+        totalPeserta={totalPeserta}
+        validSurvei={validSurveiCount}
+        validWawancara={validWawancaraCount}
+        incompleteList={incompleteList}
+        onCancel={() => setPendingFinalAction(null)}
+        onConfirm={handleConfirmFinalAction}
       />
 
       <ConfirmDialog

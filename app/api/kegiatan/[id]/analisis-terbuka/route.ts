@@ -2,10 +2,12 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireSession } from '@/lib/auth';
 import { handleApiError } from '@/lib/api-error';
+import { AI_OPEN_TEXT_MIN_RECORDS } from '@/lib/ekspose-config';
 import {
   ANALISIS_TERBUKA_KATEGORI_LIST,
   AnalisisTerbukaKategori,
   analisisJawabanTerbukaDenganAi,
+  collectSumberTeksTerbuka,
   getAnalisisTerbukaKegiatan,
   isValidAnalisisTerbukaKategori,
 } from '@/lib/ai-jawaban-terbuka';
@@ -81,8 +83,23 @@ export async function POST(
       );
     }
 
+    if (targets.length === 1) {
+      const sumberCheck = await collectSumberTeksTerbuka(params.id, targets[0]);
+      if (sumberCheck.length < AI_OPEN_TEXT_MIN_RECORDS) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Data jawaban terbuka belum cukup untuk dianalisis AI (saat ini ${sumberCheck.length} catatan, minimal ${AI_OPEN_TEXT_MIN_RECORDS} catatan).`,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     const updatedResults: Partial<Record<AnalisisTerbukaKategori, Awaited<ReturnType<typeof analisisJawabanTerbukaDenganAi>>>> = {};
     for (const kat of targets) {
+      const sumberCheck = await collectSumberTeksTerbuka(params.id, kat);
+      if (sumberCheck.length < AI_OPEN_TEXT_MIN_RECORDS) continue;
       updatedResults[kat] = await analisisJawabanTerbukaDenganAi(params.id, kat);
     }
 

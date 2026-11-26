@@ -10,10 +10,12 @@ import PptxGenJS from 'pptxgenjs';
 import type { PembahasanItem, RekapGrafikData } from './ai';
 import type { KonfirmasiWawancaraMap } from './pembahasan-server';
 import {
+  buildKonfirmasiNarasi,
   EKSPOSE_CATEGORIES,
   EKSPOSE_COLORS,
   EKSPOSE_GRAFIK_SLIDES,
   extractKesimpulanContent,
+  isKonfirmasiNarasiStillFresh,
   parseBoldSegments,
 } from './ekspose-config';
 import { EKSPOSE_SLIDE_KRITERIA_MAP } from './wawancara-kriteria';
@@ -124,17 +126,13 @@ function buildListTextProps(
 
 function buildKonfirmasiLines(
   konfirmasiMap: KonfirmasiWawancaraMap | undefined,
-  slideKey: keyof typeof EKSPOSE_SLIDE_KRITERIA_MAP
+  slideKey: keyof typeof EKSPOSE_SLIDE_KRITERIA_MAP,
+  aiCatatanKonfirmasi?: string | null
 ): string[] {
-  if (!konfirmasiMap) return [];
-  const keys = EKSPOSE_SLIDE_KRITERIA_MAP[slideKey] || [];
-  return keys
-    .map((key) => konfirmasiMap[key])
-    .filter(Boolean)
-    .map(
-      (r) =>
-        `${r.judul}: YA ${r.ya} | TIDAK ${r.tidak} | Belum Konfirmasi ${r.belumKonfirmasi} (${r.totalPeserta} peserta)`
-    );
+  if (isKonfirmasiNarasiStillFresh(aiCatatanKonfirmasi, konfirmasiMap, slideKey)) {
+    return [String(aiCatatanKonfirmasi).trim()];
+  }
+  return buildKonfirmasiNarasi(konfirmasiMap, slideKey);
 }
 
 function addStyledNarrativePanel(
@@ -183,15 +181,16 @@ function addStyledNarrativePanel(
   const bodyW = opts.w - 0.48;
   const totalBodyH = opts.h - 0.80;
   const konfLines = opts.konfirmasiLines || [];
+  const totalKonfChars = konfLines.reduce((sum, line) => sum + line.length, 0);
   const noteH =
     konfLines.length === 0
       ? 0
-      : konfLines.length >= 4
-        ? 1.56
-        : konfLines.length >= 2
-          ? 0.94
-          : 0.68;
-  const bodyH = konfLines.length > 0 ? Math.max(2.0, totalBodyH - noteH - 0.1) : totalBodyH;
+      : totalKonfChars > 260
+        ? 1.24
+        : totalKonfChars > 150
+          ? 0.96
+          : 0.72;
+  const bodyH = konfLines.length > 0 ? Math.max(2.1, totalBodyH - noteH - 0.1) : totalBodyH;
 
   if (opts.items.length === 0) {
     slide.addText(opts.emptyFallback || 'Belum ada catatan pembahasan.', {
@@ -258,17 +257,17 @@ function addStyledNarrativePanel(
       },
     ];
 
-    const lineFontSize = konfLines.length >= 4 ? 8.2 : 9.2;
+    const lineFontSize = totalKonfChars > 260 ? 8.5 : 9.2;
     konfLines.forEach((line, idx) => {
       noteRuns.push({
-        text: `• ${line}`,
+        text: line,
         options: {
           fontFace: FONT_FAMILY,
           fontSize: lineFontSize,
           bold: false,
           color: '1E293B',
           breakLine: idx < konfLines.length - 1,
-          paraSpaceAfter: 2,
+          paraSpaceAfter: 3,
         },
       });
     });
@@ -413,7 +412,11 @@ export async function generateEksposePptxBuffer(input: EksposePptxInput): Promis
       bulletMode: 'bullet',
       emptyFallback: 'Pembahasan untuk slide ini belum tersedia.',
       denseThreshold: [600, 860],
-      konfirmasiLines: buildKonfirmasiLines(input.konfirmasiMap, meta.key),
+      konfirmasiLines: buildKonfirmasiLines(
+        input.konfirmasiMap,
+        meta.key,
+        pItem?.catatanKonfirmasi
+      ),
     });
   }
 
@@ -436,7 +439,11 @@ export async function generateEksposePptxBuffer(input: EksposePptxInput): Promis
     bulletMode: 'bullet',
     emptyFallback: 'Pembahasan kesimpulan belum dibuat.',
     denseThreshold: [740, 1020],
-    konfirmasiLines: buildKonfirmasiLines(input.konfirmasiMap, 'kesimpulan'),
+    konfirmasiLines: buildKonfirmasiLines(
+      input.konfirmasiMap,
+      'kesimpulan',
+      kesimpulanItem?.catatanKonfirmasi
+    ),
   });
 
   addStyledNarrativePanel(closingSlide, {

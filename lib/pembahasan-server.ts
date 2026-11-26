@@ -6,11 +6,16 @@ import {
   tentukanRentangItemSurvei,
 } from './hitung';
 import type {
+  EvidenceAgregatSummary,
   KesimpulanContext,
   RekapGrafikData,
   SelisihAgregatSummary,
 } from './ai';
 import type { StoredTemaTerbuka } from './ai-jawaban-terbuka';
+import {
+  AI_MIN_COMPLETENESS_PCT,
+  type AiDataReadiness,
+} from './ekspose-config';
 import { getHasilSurveyKegiatan, ringkasHasilSurveyUntukAi } from './survey-summary';
 import {
   normalizeStatusKonfirmasi,
@@ -395,6 +400,51 @@ export async function getRingkasTemaTerbukaUntukAi(
 }
 
 /**
+ * Menghitung agregat anonim kelengkapan unggah dokumen evidence (InovasiProper) per kegiatan
+ * tanpa menyertakan nama/NIP peserta untuk konteks Slide 6 & AI Rekomendasi.
+ */
+export async function getRingkasEvidenceUntukAi(
+  kegiatanId: string,
+  totalPesertaOverride?: number
+): Promise<EvidenceAgregatSummary & { summaryText: string }> {
+  const [totalPeserta, rows] = await Promise.all([
+    typeof totalPesertaOverride === 'number'
+      ? Promise.resolve(totalPesertaOverride)
+      : prisma.peserta.count({ where: { kegiatanId } }),
+    prisma.inovasiProper.findMany({
+      where: { kegiatanId },
+      select: {
+        jangkaMenengahStatus: true,
+        jangkaPanjangStatus: true,
+      },
+    }),
+  ]);
+
+  const sudahUnggah = rows.length;
+  const belumUnggah = Math.max(0, totalPeserta - sudahUnggah);
+  const menengahSudah = rows.filter(
+    (r) => r.jangkaMenengahStatus === 'SUDAH_DILAKSANAKAN'
+  ).length;
+  const panjangSudah = rows.filter(
+    (r) => r.jangkaPanjangStatus === 'SUDAH_DILAKSANAKAN'
+  ).length;
+
+  const summaryText =
+    totalPeserta > 0
+      ? `- Dokumen evidence diunggah: ${sudahUnggah} dari ${totalPeserta} peserta (${belumUnggah} peserta belum mengunggah).\n- Status milestone pada laporan evidence yang masuk: ${menengahSudah} peserta melaporkan jangka menengah Sudah Dilaksanakan dan ${panjangSudah} peserta melaporkan jangka panjang Sudah Dilaksanakan.`
+      : '';
+
+  return {
+    totalPeserta,
+    sudahUnggah,
+    belumUnggah,
+    menengahSudah,
+    panjangSudah,
+    summaryText,
+  };
+}
+
+/**
  * Merakit konteks lengkap & anonim Slide 6 (Kesimpulan & Rekomendasi) secara terpusat
  * untuk digunakan bersama oleh antrean AI (`lib/ai-queue.ts`) dan route sinkron (`/api/ai/pembahasan`).
  */
@@ -406,7 +456,7 @@ export async function buildKesimpulanContext(
     konfirmasiMap?: KonfirmasiWawancaraMap;
   }
 ): Promise<KesimpulanContext> {
-  const [rekapMap, konfirmasiMap, surveySummary, pesertaHasilRows, temaMeta] =
+  const [rekapMap, konfirmasiMap, surveySummary, pesertaHasilRows, temaMeta, evidenceMeta] =
     await Promise.all([
       preloaded?.rekapMap ? Promise.resolve(preloaded.rekapMap) : getRekapGrafikMap(kegiatanId),
       preloaded?.konfirmasiMap
@@ -426,22 +476,133 @@ export async function buildKesimpulanContext(
         },
       }),
       getRingkasTemaTerbukaUntukAi(kegiatanId),
+      getRingkasEvidenceUntukAi(kegiatanId, preloaded?.totalPeserta),
     ]);
 
   const totalPeserta = preloaded?.totalPeserta ?? pesertaHasilRows.length;
   const selisihStats = hitungPolaSelisihAgregat(pesertaHasilRows);
+  const evidenceStats: EvidenceAgregatSummary = {
+    totalPeserta,
+    sudahUnggah: evidenceMeta.sudahUnggah,
+    belumUnggah: Math.max(0, totalPeserta - evidenceMeta.sudahUnggah),
+    menengahSudah: evidenceMeta.menengahSudah,
+    panjangSudah: evidenceMeta.panjangSudah,
+  };
 
   return {
     totalPeserta,
     rekapMap,
     selisihStats,
+    evidenceStats,
     extraSelisihSummary: ringkasPolaSelisihUntukAi(selisihStats),
     extraSurveySummary: ringkasHasilSurveyUntukAi(surveySummary),
     extraKonfirmasiSummary: ringkasKonfirmasiUntukAi(konfirmasiMap),
+    extraEvidenceSummary: evidenceMeta.summaryText || undefined,
     extraTemaTerbukaSummary: temaMeta.summaryText || undefined,
     topTemaKendalaNama: temaMeta.topTemaKendalaNama,
     topTemaKendalaJumlah: temaMeta.topTemaKendalaJumlah,
     topTemaWawancaraNama: temaMeta.topTemaWawancaraNama,
     topTemaWawancaraJumlah: temaMeta.topTemaWawancaraJumlah,
   };
+}
+
+/**
+ * Mengevaluasi kelengkapan data Survei (L) dan Wawancara (M) terhadap ambang ketat 80%:
+ * - blocked (< 80% atau 0 peserta): AI tidak boleh dijalankan.
+ * - warning (80% - 99%): AI boleh dijalankan dengan dialog konfirmasi peringatan.
+ * - ready (100%): AI langsung siap dijalankan.
+ */
+export function evaluateAiDataReadiness(
+  stats: SelisihAgregatSummary,
+  minPct = AI_MIN_COMPLETENESS_PCT
+): AiDataReadiness {
+  const totalPeserta = stats.totalPeserta;
+  const validSurvei = stats.totalValidSurvei;
+  const validWawancara = stats.totalValidWawancara;
+  const missingSurvei = Math.max(0, totalPeserta - validSurvei);
+  const missingWawancara = Math.max(0, totalPeserta - validWawancara);
+
+  if (totalPeserta === 0) {
+    return {
+      status: 'blocked',
+      minPct,
+      totalPeserta: 0,
+      validSurvei: 0,
+      validWawancara: 0,
+      missingSurvei: 0,
+      missingWawancara: 0,
+      surveiPct: 0,
+      wawancaraPct: 0,
+      message: 'Data belum lengkap: belum ada peserta terdaftar. Impor data terlebih dahulu sebelum menjalankan AI.',
+    };
+  }
+
+  const surveiPct = Number(((validSurvei / totalPeserta) * 100).toFixed(1));
+  const wawancaraPct = Number(((validWawancara / totalPeserta) * 100).toFixed(1));
+
+  if (surveiPct < minPct || wawancaraPct < minPct) {
+    return {
+      status: 'blocked',
+      minPct,
+      totalPeserta,
+      validSurvei,
+      validWawancara,
+      missingSurvei,
+      missingWawancara,
+      surveiPct,
+      wawancaraPct,
+      message: `Data belum lengkap untuk dianalisis AI (minimal ${minPct}% terisi). Saat ini survei terisi ${validSurvei}/${totalPeserta} peserta (${surveiPct}%) dan wawancara ${validWawancara}/${totalPeserta} peserta (${wawancaraPct}%). Lengkapi penilaian terlebih dahulu.`,
+    };
+  }
+
+  if (missingSurvei > 0 || missingWawancara > 0) {
+    const parts: string[] = [];
+    if (missingSurvei > 0) {
+      parts.push(`${missingSurvei} peserta belum memiliki nilai survei (${surveiPct}% terisi)`);
+    }
+    if (missingWawancara > 0) {
+      parts.push(`${missingWawancara} peserta belum memiliki nilai wawancara (${wawancaraPct}% terisi)`);
+    }
+    return {
+      status: 'warning',
+      minPct,
+      totalPeserta,
+      validSurvei,
+      validWawancara,
+      missingSurvei,
+      missingWawancara,
+      surveiPct,
+      wawancaraPct,
+      message: `Data hampir lengkap: ${parts.join(' dan ')} dari ${totalPeserta} peserta. Hasil AI tetap dapat dibuat dari data yang masuk dan akan mencatat peserta yang belum mengisi.`,
+    };
+  }
+
+  return {
+    status: 'ready',
+    minPct,
+    totalPeserta,
+    validSurvei,
+    validWawancara,
+    missingSurvei: 0,
+    missingWawancara: 0,
+    surveiPct: 100,
+    wawancaraPct: 100,
+    message: `Seluruh data survei dan wawancara (${totalPeserta} peserta) sudah lengkap 100% dan siap dianalisis AI.`,
+  };
+}
+
+export async function getAiDataReadiness(kegiatanId: string): Promise<AiDataReadiness> {
+  const rows = await prisma.peserta.findMany({
+    where: { kegiatanId },
+    select: {
+      hasil: {
+        select: {
+          rataSurveiL: true,
+          rataWawancaraM: true,
+          selisih: true,
+        },
+      },
+    },
+  });
+  return evaluateAiDataReadiness(hitungPolaSelisihAgregat(rows));
 }

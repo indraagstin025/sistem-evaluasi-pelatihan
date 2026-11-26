@@ -5,6 +5,7 @@ import { handleApiError } from '@/lib/api-error';
 import { buatPembahasanGrafik, generatePembahasanTemplate } from '@/lib/ai';
 import {
   buildKesimpulanContext,
+  getAiDataReadiness,
   getKonfirmasiWawancaraMap,
   getRekapGrafikMap,
   PEMBAHASAN_KEYS,
@@ -96,16 +97,17 @@ export async function POST(request: Request) {
       );
     }
 
-    const totalPeserta = await prisma.peserta.count({ where: { kegiatanId } });
-    if (totalPeserta === 0) {
+    const readiness = await getAiDataReadiness(kegiatanId);
+    if (readiness.status === 'blocked') {
       return NextResponse.json(
         {
           success: false,
-          error: 'Belum ada data peserta untuk dianalisis. Impor data terlebih dahulu.',
+          error: readiness.message,
         },
         { status: 400 }
       );
     }
+    const totalPeserta = readiness.totalPeserta;
 
     const targetKey = body.grafikKey || 'all';
     const [rekapMap, konfirmasiMap] = await Promise.all([
@@ -155,6 +157,8 @@ export async function POST(request: Request) {
         poin3: hasil.poin3,
         poin4: hasil.poin4,
         teksLengkap: hasil.teksLengkap,
+        catatanKonfirmasi: hasil.catatanKonfirmasi ?? null,
+        ringkasanKonteks: hasil.ringkasanKonteks ?? null,
         sumber: hasil.sumber,
       };
       const saved = await prisma.pembahasan.upsert({

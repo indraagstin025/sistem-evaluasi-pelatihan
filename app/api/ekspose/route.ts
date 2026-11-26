@@ -4,7 +4,9 @@ import { requireSession } from '@/lib/auth';
 import { handleApiError } from '@/lib/api-error';
 import { isValidNumber } from '@/lib/hitung';
 import {
+  evaluateAiDataReadiness,
   getRekapGrafikMap,
+  getRingkasEvidenceUntukAi,
   getRingkasTemaTerbukaUntukAi,
   hitungKonfirmasiWawancaraRekap,
   hitungPolaSelisihAgregat,
@@ -26,7 +28,7 @@ export async function GET(request: Request) {
       );
     }
 
-    const [kegiatan, listPeserta, rekapMap, selisihCount, temaTerbukaMeta] = await Promise.all([
+    const [kegiatan, listPeserta, rekapMap, selisihCount, temaTerbukaMeta, evidenceMeta] = await Promise.all([
       prisma.kegiatan.findUnique({ where: { id: kegiatanId } }),
       prisma.peserta.findMany({
         where: { kegiatanId },
@@ -43,6 +45,7 @@ export async function GET(request: Request) {
       getRekapGrafikMap(kegiatanId),
       prisma.selisihImport.count({ where: { kegiatanId } }),
       getRingkasTemaTerbukaUntukAi(kegiatanId),
+      getRingkasEvidenceUntukAi(kegiatanId),
     ]);
 
     if (!kegiatan) {
@@ -85,6 +88,7 @@ export async function GET(request: Request) {
         selisih: p.hasil?.selisih ?? null,
         rangeSurvei: p.hasil?.rangeSurvei ?? null,
         rangeWawancara: p.hasil?.rangeWawancara ?? null,
+        isSurveiKosong: !isValidNumber(p.hasil?.rataSurveiL),
         isWawancaraKosong:
           !isValidNumber(w_panjang) && !isValidNumber(w_tujuan) && !isValidNumber(w_manfaat),
       };
@@ -112,8 +116,30 @@ export async function GET(request: Request) {
         : null;
 
     const kosongList = mapped.filter((p) => p.isWawancaraKosong);
+    const daftarBelumLengkap = mapped
+      .filter((p) => !isValidNumber(p.L) || !isValidNumber(p.M))
+      .map((p) => {
+        const surveiKosong = !isValidNumber(p.L);
+        const wawancaraKosong = !isValidNumber(p.M);
+        const keteranganKosong =
+          surveiKosong && wawancaraKosong
+            ? 'Nilai survei dan wawancara kosong'
+            : surveiKosong
+              ? 'Nilai survei kosong'
+              : 'Nilai wawancara kosong';
+        return {
+          id: p.id,
+          nama: p.nama,
+          instansi: p.instansi,
+          timNama: p.timNama,
+          surveiKosong,
+          wawancaraKosong,
+          keteranganKosong,
+        };
+      });
     const konfirmasiWawancara = hitungKonfirmasiWawancaraRekap(listPeserta);
     const polaSelisih = hitungPolaSelisihAgregat(listPeserta);
+    const aiReadiness = evaluateAiDataReadiness(polaSelisih);
 
     return NextResponse.json(
       {
@@ -122,6 +148,14 @@ export async function GET(request: Request) {
         rekap: rekapMap,
         konfirmasiWawancara,
         polaSelisih,
+        aiReadiness,
+        evidenceSummary: {
+          totalPeserta: mapped.length,
+          sudahUnggah: evidenceMeta.sudahUnggah,
+          belumUnggah: Math.max(0, mapped.length - evidenceMeta.sudahUnggah),
+          menengahSudah: evidenceMeta.menengahSudah,
+          panjangSudah: evidenceMeta.panjangSudah,
+        },
         analisisTerbukaTersedia: {
           kendalaTemaCount: temaTerbukaMeta.kendalaTemaCount,
           wawancaraTemaCount: temaTerbukaMeta.wawancaraTemaCount,
@@ -133,11 +167,13 @@ export async function GET(request: Request) {
           totalValidSurvei: validL.length,
           totalValidWawancara: validM.length,
           totalKosongWawancara: kosongList.length,
+          totalBelumLengkap: daftarBelumLengkap.length,
           rataRataSurveiL: avgL,
           rataRataWawancaraM: avgM,
           selisihTerbesarPositif: maxPositive,
           selisihTerbesarNegatif: maxNegative,
           daftarKosong: kosongList,
+          daftarBelumLengkap,
           selisihImportCount: selisihCount,
         },
         peserta: mapped,

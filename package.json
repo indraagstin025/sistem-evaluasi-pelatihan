@@ -9,6 +9,8 @@
     "lint": "next lint",
     "postinstall": "prisma generate",
     "seed": "npx tsx prisma/seed.ts",
+    "seed:wawancara": "npx tsx --env-file=.env scripts/seed-wawancara-form.ts",
+    "seed:wawancara:reset": "npx tsx --env-file=.env scripts/seed-wawancara-form.ts --reset",
     "list-models": "npx tsx scripts/list-gemini-models.ts"
   },
   "prisma": {

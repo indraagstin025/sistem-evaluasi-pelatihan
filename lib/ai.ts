@@ -23,6 +23,8 @@ export interface PembahasanItem {
   poin3: string;
   poin4: string;
   teksLengkap: string;
+  catatanKonfirmasi?: string | null;
+  ringkasanKonteks?: string | null;
   sumber: 'template' | 'ai' | 'manual';
 }
 
@@ -41,13 +43,23 @@ export interface SelisihAgregatSummary {
   wawancaraKosong: number;
 }
 
+export interface EvidenceAgregatSummary {
+  totalPeserta: number;
+  sudahUnggah: number;
+  belumUnggah: number;
+  menengahSudah: number;
+  panjangSudah: number;
+}
+
 export interface KesimpulanContext {
   totalPeserta: number;
   rekapMap?: Record<string, RekapGrafikData>;
   selisihStats?: SelisihAgregatSummary;
+  evidenceStats?: EvidenceAgregatSummary;
   extraSelisihSummary?: string;
   extraSurveySummary?: string;
   extraKonfirmasiSummary?: string;
+  extraEvidenceSummary?: string;
   extraTemaTerbukaSummary?: string;
   topTemaKendalaNama?: string | null;
   topTemaKendalaJumlah?: number | null;
@@ -172,9 +184,15 @@ export function generatePembahasanTemplate(
         const optWaw = g5?.dataB?.[4] ?? 0;
         const sel = kesimpulanCtx.selisihStats;
 
+        const ev = kesimpulanCtx.evidenceStats;
+        const evSuffix =
+          ev && ev.totalPeserta > 0
+            ? ` Kelengkapan unggah dokumen evidence tercatat sebanyak ${ev.sudahUnggah} dari ${ev.totalPeserta} peserta (${ev.belumUnggah} belum mengunggah).`
+            : '';
+
         poin1 = g5
-          ? `Dari total ${total} peserta yang dievaluasi, capaian keseluruhan rentang optimal (76–100%) tercatat sebanyak ${optWaw} peserta pada penilaian wawancara dan ${optSurvei} peserta pada hasil survei.`
-          : `Evaluasi pasca pelatihan telah mencakup ${total} peserta terdaftar berdasarkan data survei dan wawancara yang tersimpan di sistem.`;
+          ? `Dari total ${total} peserta yang dievaluasi, capaian keseluruhan rentang optimal (76–100%) tercatat sebanyak ${optWaw} peserta pada penilaian wawancara dan ${optSurvei} peserta pada hasil survei.${evSuffix}`
+          : `Evaluasi pasca pelatihan telah mencakup ${total} peserta terdaftar berdasarkan data survei dan wawancara yang tersimpan di sistem.${evSuffix}`;
 
         if (sel) {
           const avgLStr = sel.rataSurveiL !== null ? sel.rataSurveiL.toFixed(1) : '-';
@@ -265,6 +283,8 @@ export const DEFAULT_GEMINI_MODEL = 'models/gemini-3.5-flash-lite';
 
 export const GEMINI_FALLBACK_MODELS = [
   'models/gemini-3.5-flash-lite',
+  'models/gemini-3-flash-preview',
+  'models/gemini-flash-lite-latest',
   'models/gemini-3.6-flash',
   'models/gemini-3.5-flash',
 ] as const;
@@ -297,7 +317,8 @@ export function resolveGeminiModelOrder(configuredModel?: string): string[] {
  */
 export function verifikasiHasilAI(
   teks: string,
-  rekap: RekapGrafikData
+  rekap: RekapGrafikData,
+  maxAllowedTotal?: number
 ): boolean {
   if (!teks || typeof teks !== 'string') return false;
   if (/(lorem ipsum|placeholder|\bTODO\b|\bN\/A\b)/i.test(teks)) return false;
@@ -331,7 +352,11 @@ export function verifikasiHasilAI(
     return false;
   }
 
-  const maxTotal = Math.max(rekap.totalA ?? 0, rekap.totalB ?? 0);
+  const maxTotal = Math.max(
+    rekap.totalA ?? 0,
+    rekap.totalB ?? 0,
+    typeof maxAllowedTotal === 'number' ? maxAllowedTotal : 0
+  );
   if (maxTotal > 0) {
     const countPattern =
       /(?:^|[^\d.,\-–%])\b(\d+)\s+(?:orang|peserta|responden|alumni)\b/gi;
@@ -438,6 +463,11 @@ export function verifikasiKesimpulanAI(
     if (typeof kesimpulanCtx?.topTemaWawancaraJumlah === 'number' && kesimpulanCtx.topTemaWawancaraJumlah > 0) {
       anchorCandidates.add(kesimpulanCtx.topTemaWawancaraJumlah);
     }
+    const ev = kesimpulanCtx?.evidenceStats;
+    if (ev) {
+      if (ev.sudahUnggah > 0) anchorCandidates.add(ev.sudahUnggah);
+      if (ev.belumUnggah > 0) anchorCandidates.add(ev.belumUnggah);
+    }
     // Hapus totalPeserta dari kandidat tambahan agar benar-benar memeriksa angka kedua
     anchorCandidates.delete(totalPeserta);
 
@@ -470,6 +500,87 @@ export function verifikasiKesimpulanAI(
     }
   }
 
+  return true;
+}
+
+const TECHNICAL_JARGON_RE =
+  /\b(?:batch\s*2|l\s*>\s*m|m\s*-\s*l|rataSurveiL|rataWawancaraM)\b/i;
+
+/**
+ * Verifikasi kalimat `catatanKonfirmasi` hasil AI agar cocok dengan angka aktual
+ * di ringkasan konfirmasi database, tanpa halusinasi dan tanpa kebocoran PII.
+ */
+export function verifikasiCatatanKonfirmasiAI(
+  text: string,
+  konfirmasiSummary?: string
+): boolean {
+  const clean = String(text || '').trim();
+  if (clean.length < 20 || clean.length > 520) return false;
+  if (/(lorem ipsum|placeholder|\bTODO\b|\bN\/A\b)/i.test(clean)) return false;
+  if (OVERPROMISE_RE.test(clean) || PII_LEAK_RE.test(clean)) return false;
+
+  if (konfirmasiSummary) {
+    const totalMatch = /Total\s+(\d+)\s+peserta/i.exec(konfirmasiSummary);
+    const maxTotal = totalMatch ? Number(totalMatch[1]) : 0;
+    const countMatches = Array.from(
+      konfirmasiSummary.matchAll(/YA\s+(\d+)\s+peserta,\s*TIDAK\s+(\d+)\s+peserta,\s*Belum Konfirmasi\s+(\d+)\s+peserta/gi)
+    );
+    for (const m of countMatches) {
+      const ya = Number(m[1]);
+      const tidak = Number(m[2]);
+      const belum = Number(m[3]);
+      if (ya > 0 && !new RegExp(`\\b${ya}\\b`).test(clean)) return false;
+      if (tidak > 0 && !new RegExp(`\\b${tidak}\\b`).test(clean)) return false;
+      if (belum > 0 && !new RegExp(`\\b${belum}\\b`).test(clean)) return false;
+    }
+    if (maxTotal > 0) {
+      for (const m of Array.from(clean.matchAll(/\b(\d+)\s+(?:orang|peserta)\b/gi))) {
+        const num = Number(m[1]);
+        if (!Number.isNaN(num) && num > maxTotal) return false;
+      }
+    }
+  }
+  return true;
+}
+
+/**
+ * Verifikasi kalimat `ringkasanKonteks` hasil AI pada Slide 6 agar memakai bahasa yang mudah dimengerti
+ * (tanpa kode teknis L/M atau Batch 2) dan tetap tertambat pada angka aktual kegiatan.
+ */
+export function verifikasiRingkasanKonteksAI(
+  text: string,
+  kesimpulanCtx?: KesimpulanContext
+): boolean {
+  const clean = String(text || '').trim();
+  if (clean.length < 30 || clean.length > 560) return false;
+  if (/(lorem ipsum|placeholder|\bTODO\b|\bN\/A\b)/i.test(clean)) return false;
+  if (OVERPROMISE_RE.test(clean) || PII_LEAK_RE.test(clean)) return false;
+  if (TECHNICAL_JARGON_RE.test(clean)) return false;
+
+  const totalPeserta = kesimpulanCtx?.totalPeserta;
+  if (typeof totalPeserta === 'number' && totalPeserta > 0) {
+    const anchors = new Set<number>([totalPeserta]);
+    const sel = kesimpulanCtx?.selisihStats;
+    if (sel) {
+      if (sel.surveiJauhLebihTinggi > 0) anchors.add(sel.surveiJauhLebihTinggi);
+      if (sel.skorWawancaraRendah > 0) anchors.add(sel.skorWawancaraRendah);
+    }
+    const ev = kesimpulanCtx?.evidenceStats;
+    if (ev && ev.sudahUnggah > 0) anchors.add(ev.sudahUnggah);
+
+    let matchedAnchors = 0;
+    for (const n of Array.from(anchors)) {
+      if (new RegExp(`\\b${n}\\b`).test(clean)) matchedAnchors += 1;
+    }
+    if (matchedAnchors < Math.min(2, anchors.size)) {
+      return false;
+    }
+
+    for (const m of Array.from(clean.matchAll(/\b(\d+)\s+(?:orang|peserta)\b/gi))) {
+      const num = Number(m[1]);
+      if (!Number.isNaN(num) && num > totalPeserta) return false;
+    }
+  }
   return true;
 }
 
@@ -539,7 +650,11 @@ async function requestAiPembahasan(
   grafikKey: string,
   judul: string,
   config: AiProviderConfig,
-  validate?: (teksLengkap: string) => boolean
+  validate?: (teksLengkap: string) => boolean,
+  extraValidators?: {
+    validateCatatanKonfirmasi?: (text: string) => boolean;
+    validateRingkasanKonteks?: (text: string) => boolean;
+  }
 ): Promise<RawAiAttemptResult> {
   const safePrompt = sanitizeAiPromptText(prompt);
   const timeoutMs =
@@ -563,6 +678,22 @@ async function requestAiPembahasan(
       return null;
     }
 
+    const rawKonfirmasi = cleanAiPointText(parsed.catatanKonfirmasi);
+    const catatanKonfirmasi =
+      rawKonfirmasi &&
+      (!extraValidators?.validateCatatanKonfirmasi ||
+        extraValidators.validateCatatanKonfirmasi(rawKonfirmasi))
+        ? rawKonfirmasi
+        : null;
+
+    const rawKonteks = cleanAiPointText(parsed.ringkasanKonteks);
+    const ringkasanKonteks =
+      rawKonteks &&
+      (!extraValidators?.validateRingkasanKonteks ||
+        extraValidators.validateRingkasanKonteks(rawKonteks))
+        ? rawKonteks
+        : null;
+
     return {
       grafikKey,
       judul,
@@ -571,6 +702,8 @@ async function requestAiPembahasan(
       poin3,
       poin4,
       teksLengkap,
+      catatanKonfirmasi,
+      ringkasanKonteks,
       sumber: 'ai',
     };
   };
@@ -698,32 +831,40 @@ export async function buatPembahasanGrafikWithMeta(
       ? `\nRekapitulasi Status Konfirmasi Wawancara 5 Kriteria (Data Aktual Database):\n${kesimpulanCtx.extraKonfirmasiSummary}\n`
       : '';
 
+    const evidenceContextBlock = kesimpulanCtx?.extraEvidenceSummary
+      ? `\nRekapitulasi Kelengkapan Dokumen Evidence Peserta (Agregat Anonim):\n${kesimpulanCtx.extraEvidenceSummary}\n`
+      : '';
+
     const temaTerbukaBlock = kesimpulanCtx?.extraTemaTerbukaSummary
       ? `\nTema Dominan Jawaban Terbuka & Catatan Evaluator (Terverifikasi Anonim):\n${kesimpulanCtx.extraTemaTerbukaSummary}\n`
       : '';
 
     const promptKesimpulan = `Anda adalah analis evaluasi pasca pelatihan di BPSDM Provinsi Jawa Barat.
 Berikut adalah data rekapitulasi agregat anonim dari ${kesimpulanCtx?.totalPeserta ?? 'seluruh'} peserta terdaftar:
-${ringkasanTeks}${selisihContextBlock}${surveyContextBlock}${konfirmasiContextBlock}${temaTerbukaBlock}
+${ringkasanTeks}${selisihContextBlock}${surveyContextBlock}${konfirmasiContextBlock}${evidenceContextBlock}${temaTerbukaBlock}
 
 ATURAN WAJIB:
 - Seluruh angka yang disebut WAJIB persis sama dengan data di atas (jangan mengarang angka di luar data dan jangan menyebut nama/NIP).
 - DILARANG membuat janji hasil pasti (jangan pakai frasa "pasti meningkat", "dijamin berhasil", "dipastikan optimal", "menjamin kenaikan", atau "tercapai 100%"). Gunakan bahasa rekomendasi kebijakan yang realistis dan berbasis bukti.
 
 Susunlah narasi resmi Slide 6 (Kesimpulan & Rekomendasi):
-- "poin1": Paragraf kesimpulan umum tentang capaian implementasi aksi perubahan peserta berdasarkan distribusi grafik survei dan wawancara aktual${totalPesertaLabel}.
-- "poin2": Paragraf analisis kesenjangan antara Survei (L) dan Wawancara (M) (merujuk jumlah selisih besar, skor wawancara rendah/kosong, serta dinamika mutasi/konfirmasi bila ada).
-- "poin3": Rekomendasi tindak lanjut 1 yang konkret bagi kelompok prioritas (peserta dengan selisih L vs M tinggi, skor wawancara < 51, atau status konfirmasi belum tuntas), tanpa nomor di awal kalimat.
+- "poin1": Paragraf kesimpulan umum tentang capaian implementasi aksi perubahan peserta berdasarkan distribusi grafik survei, wawancara, dan kelengkapan unggah dokumen evidence aktual${totalPesertaLabel}.
+- "poin2": Paragraf analisis kesenjangan antara Survei (L) dan Wawancara (M) (merujuk jumlah selisih besar, skor wawancara rendah/kosong, dinamika mutasi, serta status konfirmasi wawancara aktual).
+- "poin3": Rekomendasi tindak lanjut 1 yang konkret bagi kelompok prioritas (peserta dengan selisih L vs M tinggi, skor wawancara < 51, belum mengunggah evidence, atau status konfirmasi belum tuntas), tanpa nomor di awal kalimat.
 - "poin4": Dua rekomendasi tindak lanjut tambahan yang dipisahkan tepat oleh satu baris baru (\\n) tanpa nomor urut di awal kalimat:
   Baris 1: Rekomendasi penanganan kendala dominan lapangan (merujuk tema kendala/catatan wawancara bila tersedia).
   Baris 2: Rekomendasi penguatan keberlanjutan, pendampingan pasca-mutasi, atau replikasi bagi kelompok capaian optimal (76–100%).
+- "catatanKonfirmasi": 1 kalimat bahasa Indonesia yang natural dan mudah dimengerti merangkum status konfirmasi wawancara aktual (jumlah YA, TIDAK, dan Belum Konfirmasi dari total peserta, tanpa perhitungan persentase).
+- "ringkasanKonteks": 1–2 kalimat bahasa Indonesia sehari-hari yang mudah dipahami pembaca awam menjelaskan dasar penyusunan rekomendasi (bandingkan rata-rata survei mandiri dan hasil wawancara, sebutkan jumlah peserta yang berbeda jauh, jumlah skor wawancara di bawah 51, kelengkapan unggah dokumen bukti, serta jumlah tema kendala/catatan evaluator yang dipakai). DILARANG memakai kode teknis seperti "L", "M", "L > M", "M - L", atau "Batch 2".
 
 Format balasan wajib JSON:
 {
   "poin1": "...",
   "poin2": "...",
   "poin3": "...",
-  "poin4": "..."
+  "poin4": "...",
+  "catatanKonfirmasi": "...",
+  "ringkasanKonteks": "..."
 }`;
 
     const aiAttempt = await requestAiPembahasan(
@@ -731,7 +872,13 @@ Format balasan wajib JSON:
       'kesimpulan',
       'Kesimpulan dan Rekomendasi',
       config,
-      (teksLengkap) => verifikasiKesimpulanAI(teksLengkap, kesimpulanCtx)
+      (teksLengkap) => verifikasiKesimpulanAI(teksLengkap, kesimpulanCtx),
+      {
+        validateCatatanKonfirmasi: (text) =>
+          verifikasiCatatanKonfirmasiAI(text, kesimpulanCtx?.extraKonfirmasiSummary),
+        validateRingkasanKonteks: (text) =>
+          verifikasiRingkasanKonteksAI(text, kesimpulanCtx),
+      }
     );
     return {
       item: aiAttempt.item || generatePembahasanTemplate('kesimpulan', undefined, kesimpulanCtx),
@@ -766,22 +913,41 @@ Wajib susun tepat 4 poin berurutan dan akurat:
 Poin 1: Konsentrasi penilaian secara umum.
 Poin 2: Rentang Optimal (76-100) — wajib sebutkan angka ${rekap.dataA[4]} dan ${rekap.dataB[4]}.
 Poin 3: Rentang Dominan (51-75) — wajib sebutkan angka ${rekap.dataA[3]} dan ${rekap.dataB[3]}.
-Poin 4: Rentang Rendah (26-50).
+Poin 4: Rentang Rendah (26-50)${konfirmasiSummary ? ' disertai ringkasan singkat status konfirmasi wawancara aktual di atas (tanpa mengarang angka)' : ''}.${
+    konfirmasiSummary
+      ? '\nTambahkan juga field "catatanKonfirmasi": 1 kalimat bahasa Indonesia yang natural dan mudah dimengerti merangkum angka aktual YA, TIDAK, dan Belum Konfirmasi dari data konfirmasi di atas (tanpa perhitungan persentase dan tanpa mengarang angka).'
+      : ''
+  }
 
 Format balasan wajib JSON:
 {
   "poin1": "...",
   "poin2": "...",
   "poin3": "...",
-  "poin4": "..."
+  "poin4": "..."${konfirmasiSummary ? ',\n  "catatanKonfirmasi": "..."' : ''}
 }`;
+
+  const konfirmasiTotalMatch = konfirmasiSummary
+    ? /Total\s+(\d+)\s+peserta/i.exec(konfirmasiSummary)
+    : null;
+  const maxAllowedForGrafik = Math.max(
+    rekap.totalA ?? 0,
+    rekap.totalB ?? 0,
+    konfirmasiTotalMatch ? Number(konfirmasiTotalMatch[1]) : 0
+  );
 
   const aiAttempt = await requestAiPembahasan(
     promptGrafik,
     grafikKey,
     rekap.judul,
     config,
-    (teksLengkap) => verifikasiHasilAI(teksLengkap, rekap)
+    (teksLengkap) => verifikasiHasilAI(teksLengkap, rekap, maxAllowedForGrafik),
+    konfirmasiSummary
+      ? {
+          validateCatatanKonfirmasi: (text) =>
+            verifikasiCatatanKonfirmasiAI(text, konfirmasiSummary),
+        }
+      : undefined
   );
   return {
     item: aiAttempt.item || generatePembahasanTemplate(grafikKey, rekap),

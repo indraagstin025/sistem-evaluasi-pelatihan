@@ -61,6 +61,8 @@ export async function GET(request: Request) {
           poin3: existing.poin3,
           poin4: existing.poin4,
           teksLengkap: existing.teksLengkap,
+          catatanKonfirmasi: existing.catatanKonfirmasi,
+          ringkasanKonteks: existing.ringkasanKonteks,
           sumber:
             existing.sumber === 'ai' || existing.sumber === 'manual'
               ? existing.sumber

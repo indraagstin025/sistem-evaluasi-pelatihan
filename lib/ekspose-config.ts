@@ -4,7 +4,39 @@
  * agar tampilan web `/ekspose` dan generator file `.pptx` selalu sinkron.
  */
 
+import {
+  EKSPOSE_SLIDE_KRITERIA_MAP,
+  type KriteriaWawancaraKey,
+} from './wawancara-kriteria';
+
 export type EksposeGrafikKey = 'grafik1' | 'grafik2' | 'grafik3' | 'grafik4' | 'grafik5';
+
+export const AI_MIN_COMPLETENESS_PCT = 80;
+export const AI_OPEN_TEXT_MIN_RECORDS = 3;
+
+export type AiDataReadinessStatus = 'blocked' | 'warning' | 'ready';
+
+export interface AiDataReadiness {
+  status: AiDataReadinessStatus;
+  minPct: number;
+  totalPeserta: number;
+  validSurvei: number;
+  validWawancara: number;
+  missingSurvei: number;
+  missingWawancara: number;
+  surveiPct: number;
+  wawancaraPct: number;
+  message: string;
+}
+
+export interface KonfirmasiKriteriaLike {
+  kriteria: string;
+  judul: string;
+  totalPeserta: number;
+  ya: number;
+  tidak: number;
+  belumKonfirmasi: number;
+}
 
 export interface EksposeSlideMeta {
   key: EksposeGrafikKey;
@@ -126,4 +158,166 @@ export function extractKesimpulanContent(item?: KesimpulanFields | null): {
     .filter(Boolean);
 
   return { pembahasanList, rekomendasiList };
+}
+
+function formatStatusLengkap(r: KonfirmasiKriteriaLike): string {
+  if (r.ya === 0 && r.tidak === 0) {
+    return `seluruh ${r.totalPeserta} peserta belum dikonfirmasi`;
+  }
+  return `${r.ya} peserta menyatakan YA, ${r.tidak} peserta TIDAK, dan ${r.belumKonfirmasi} peserta belum dikonfirmasi`;
+}
+
+function formatStatusRingkas(r: KonfirmasiKriteriaLike): string {
+  if (r.ya === 0 && r.tidak === 0) {
+    return 'seluruhnya belum dikonfirmasi';
+  }
+  return `${r.ya} YA, ${r.tidak} TIDAK, dan ${r.belumKonfirmasi} belum dikonfirmasi`;
+}
+
+function semuaStatusIdentik(rows: KonfirmasiKriteriaLike[]): boolean {
+  if (rows.length <= 1) return true;
+  const [first, ...rest] = rows;
+  return rest.every(
+    (r) =>
+      r.ya === first.ya &&
+      r.tidak === first.tidak &&
+      r.belumKonfirmasi === first.belumKonfirmasi &&
+      r.totalPeserta === first.totalPeserta
+  );
+}
+
+/**
+ * Menyusun Catatan Konfirmasi Wawancara (Data Aktual) dalam bentuk kalimat narasi natural
+ * untuk dipakai bersama pada tampilan Web Ekspose dan ekspor PowerPoint (.pptx).
+ */
+export function buildKonfirmasiNarasi(
+  konfirmasiMap: Partial<Record<KriteriaWawancaraKey | string, KonfirmasiKriteriaLike>> | null | undefined,
+  slideKey: keyof typeof EKSPOSE_SLIDE_KRITERIA_MAP
+): string[] {
+  if (!konfirmasiMap) return [];
+  const keys = EKSPOSE_SLIDE_KRITERIA_MAP[slideKey] || [];
+  const rows = keys
+    .map((k) => konfirmasiMap[k])
+    .filter((v): v is KonfirmasiKriteriaLike => Boolean(v));
+
+  if (rows.length === 0) return [];
+
+  if (rows.length === 1) {
+    const [r] = rows;
+    return [
+      `Dari ${r.totalPeserta} peserta, status konfirmasi wawancara untuk kriteria ${r.judul} mencatat ${formatStatusLengkap(r)}.`,
+    ];
+  }
+
+  if (rows.length === 2) {
+    const [r1, r2] = rows;
+    if (semuaStatusIdentik(rows)) {
+      return [
+        `Dari ${r1.totalPeserta} peserta, status konfirmasi wawancara pada kriteria ${r1.judul} dan ${r2.judul} masing-masing mencatat ${formatStatusLengkap(r1)}.`,
+      ];
+    }
+    return [
+      `Dari ${r1.totalPeserta} peserta, status konfirmasi wawancara untuk kriteria ${r1.judul} mencatat ${formatStatusLengkap(r1)}, sedangkan pada kriteria ${r2.judul} tercatat ${formatStatusLengkap(r2)}.`,
+    ];
+  }
+
+  if (slideKey === 'grafik5') {
+    const [focus, ...others] = rows;
+    const kalimat1 = `Pada kriteria ${focus.judul}, dari ${focus.totalPeserta} peserta tercatat ${formatStatusLengkap(focus)}.`;
+    if (others.length === 0) return [kalimat1];
+    const kalimat2 = semuaStatusIdentik(others)
+      ? `Sementara itu, keempat kriteria penilaian lainnya (${others.map((o) => o.judul).join(', ')}) masing-masing mencatat ${formatStatusRingkas(others[0])}.`
+      : `Sementara itu, empat kriteria penilaian lainnya masing-masing mencatat: ${others.map((o) => `${o.judul} (${formatStatusRingkas(o)})`).join('; ')}.`;
+    return [kalimat1, kalimat2];
+  }
+
+  // Slide 6 (Kesimpulan — seluruh 5 kriteria)
+  const first = rows[0];
+  if (semuaStatusIdentik(rows)) {
+    return [
+      `Dari ${first.totalPeserta} peserta terdaftar, rekapitulasi status konfirmasi pada kelima kriteria wawancara masing-masing mencatat ${formatStatusLengkap(first)}.`,
+    ];
+  }
+  return [
+    `Dari ${first.totalPeserta} peserta terdaftar, rekapitulasi status konfirmasi wawancara mencatat: ${rows.map((r) => `${r.judul} (${formatStatusRingkas(r)})`).join('; ')}.`,
+  ];
+}
+
+/**
+ * Memastikan kalimat `catatanKonfirmasi` hasil AI yang tersimpan di database masih cocok
+ * dengan angka aktual konfirmasi di database (mencegah tampilan angka kadaluarsa bila
+ * evaluator baru saja mengubah dropdown YA/TIDAK di Form Wawancara).
+ */
+export function isKonfirmasiNarasiStillFresh(
+  aiText: string | null | undefined,
+  konfirmasiMap: Partial<Record<KriteriaWawancaraKey | string, KonfirmasiKriteriaLike>> | null | undefined,
+  slideKey: keyof typeof EKSPOSE_SLIDE_KRITERIA_MAP
+): boolean {
+  const clean = String(aiText || '').trim();
+  if (clean.length < 20 || !konfirmasiMap) return false;
+  const keys = EKSPOSE_SLIDE_KRITERIA_MAP[slideKey] || [];
+  const rows = keys
+    .map((k) => konfirmasiMap[k])
+    .filter((v): v is KonfirmasiKriteriaLike => Boolean(v));
+  if (rows.length === 0) return false;
+
+  const hasNum = (n: number) => {
+    if (n === 0) {
+      return /\b0\b|tidak ada|nihil|nol|belum ada/i.test(clean);
+    }
+    return new RegExp(`\\b${n}\\b`).test(clean);
+  };
+
+  for (const r of rows) {
+    if (!hasNum(r.ya) || !hasNum(r.belumKonfirmasi)) {
+      return false;
+    }
+    if (r.tidak > 0 && !hasNum(r.tidak)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+export interface RingkasanKonteksFallbackInput {
+  rataSurveiL: number | null;
+  rataWawancaraM: number | null;
+  surveiJauhLebihTinggi: number;
+  skorWawancaraRendah: number;
+  totalPeserta: number;
+  sudahUnggahEvidence?: number;
+  kendalaTemaCount?: number;
+  wawancaraTemaCount?: number;
+}
+
+/**
+ * Kalimat cadangan bahasa Indonesia yang mudah dimengerti (tanpa istilah teknis L/M atau Batch 2)
+ * untuk kotak Ringkasan Dasar Rekomendasi pada Slide 6.
+ */
+export function buildRingkasanKonteksFallback(
+  input: RingkasanKonteksFallbackInput
+): string {
+  const avgSurvei =
+    input.rataSurveiL !== null ? input.rataSurveiL.toFixed(1).replace('.', ',') : '-';
+  const avgWaw =
+    input.rataWawancaraM !== null ? input.rataWawancaraM.toFixed(1).replace('.', ',') : '-';
+
+  const kalimat1 = `Rata-rata penilaian survei mandiri peserta (${avgSurvei}) dibandingkan dengan hasil wawancara evaluator (${avgWaw}) menunjukkan ${input.surveiJauhLebihTinggi} peserta memiliki perbedaan penilaian yang cukup lebar dan ${input.skorWawancaraRendah} peserta memperoleh nilai wawancara di bawah 51.`;
+
+  const bagian2: string[] = [];
+  if (typeof input.sudahUnggahEvidence === 'number') {
+    bagian2.push(
+      `Sebanyak ${input.sudahUnggahEvidence} dari ${input.totalPeserta} peserta telah mengunggah dokumen bukti`
+    );
+  }
+  const knd = input.kendalaTemaCount ?? 0;
+  const waw = input.wawancaraTemaCount ?? 0;
+  if (knd > 0 || waw > 0) {
+    bagian2.push(
+      `rekomendasi ini turut mempertimbangkan ${knd} tema kendala survei dan ${waw} tema catatan evaluator`
+    );
+  }
+
+  if (bagian2.length === 0) return kalimat1;
+  return `${kalimat1} ${bagian2.join(', dan ')}.`;
 }

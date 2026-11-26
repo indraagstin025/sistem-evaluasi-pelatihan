@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { buatPembahasanGrafikWithMeta, sanitizeAiErrorMessage } from '@/lib/ai';
 import {
   buildKesimpulanContext,
+  getAiDataReadiness,
   getKonfirmasiWawancaraMap,
   getRekapGrafikMap,
   PEMBAHASAN_KEYS,
@@ -179,12 +180,12 @@ export async function enqueueAiJobs(
     };
   }
 
-  const totalPeserta = await prisma.peserta.count({ where: { kegiatanId } });
-  if (totalPeserta === 0) {
+  const readiness = await getAiDataReadiness(kegiatanId);
+  if (readiness.status === 'blocked') {
     return {
       ok: false,
       status: 400,
-      error: 'Belum ada data peserta untuk dianalisis. Impor data terlebih dahulu.',
+      error: readiness.message,
     };
   }
 
@@ -447,6 +448,8 @@ export async function processNextAiJob(kegiatanId: string): Promise<ProcessAiJob
       poin3: meta.item.poin3,
       poin4: meta.item.poin4,
       teksLengkap: meta.item.teksLengkap,
+      catatanKonfirmasi: meta.item.catatanKonfirmasi ?? null,
+      ringkasanKonteks: meta.item.ringkasanKonteks ?? null,
       sumber: meta.item.sumber,
     };
 

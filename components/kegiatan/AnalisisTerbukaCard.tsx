@@ -9,6 +9,7 @@ import {
   ReloadIcon,
 } from '@radix-ui/react-icons';
 import { StatusBanner } from '@/components/ui/status-banner';
+import { AI_OPEN_TEXT_MIN_RECORDS } from '@/lib/ekspose-config';
 import type { AnalisisTerbukaView } from '@/lib/ai-jawaban-terbuka';
 
 interface AnalisisTerbukaCardProps {
@@ -73,6 +74,7 @@ export function AnalisisTerbukaCard({
   }
 
   const hasData = data.totalTeksAktual > 0;
+  const hasEnoughData = data.totalTeksAktual >= AI_OPEN_TEXT_MIN_RECORDS;
   const modelLabel = shortModelLabel(data.modelUsed);
   const updatedLabel = formatWaktuIndonesia(data.updatedAt);
 
@@ -93,7 +95,7 @@ export function AnalisisTerbukaCard({
         <button
           type="button"
           onClick={onAnalyze}
-          disabled={analyzing || !hasData}
+          disabled={analyzing || !hasEnoughData}
           className="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-2 rounded-lg bg-zinc-950 px-4 py-2 text-xs font-semibold text-white transition hover:bg-zinc-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-950 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {analyzing ? (
@@ -165,6 +167,12 @@ export function AnalisisTerbukaCard({
       {!hasData ? (
         <div className="rounded-lg border border-dashed border-zinc-300 bg-white px-4 py-6 text-center text-xs text-zinc-600">
           Belum ada jawaban terbuka yang terisi untuk {data.sumberLabel.toLowerCase()}.
+        </div>
+      ) : !hasEnoughData ? (
+        <div className="rounded-lg border border-dashed border-zinc-300 bg-white px-4 py-5 text-xs leading-relaxed text-zinc-700">
+          Data jawaban terbuka belum cukup untuk dikelompokkan AI (baru tersedia{' '}
+          <strong className="text-zinc-950">{data.totalTeksAktual} catatan</strong>; minimal{' '}
+          <strong className="text-zinc-950">{AI_OPEN_TEXT_MIN_RECORDS} catatan</strong>).
         </div>
       ) : !data.hasSavedResult ? (
         <div className="rounded-lg border border-dashed border-zinc-300 bg-white px-4 py-5 text-xs leading-relaxed text-zinc-700">

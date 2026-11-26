@@ -258,6 +258,31 @@ html.dark {
     color: #71717A;
   }
 
+/* Native modal dialog scroll containment & theme tokens */
+dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background-color: rgba(9, 9, 11, 0.55);
+}
+
+html.dark dialog:not(.ekspose-paper *) {
+  background-color: #18181B;
+  color: #FAFAFA;
+  border-color: #A1A1AA;
+}
+
+html.dark dialog::backdrop {
+  background-color: rgba(0, 0, 0, 0.72);
+}
+
+html.dark dialog .dialog-control-border {
+  border-color: #A1A1AA;
+}
+
 /* Print presentation styles */
 @media print {
   @page {
@@ -275,6 +300,7 @@ html.dark {
   }
 
   .no-print,
+  dialog,
   aside,
   header.no-print,
   nav,

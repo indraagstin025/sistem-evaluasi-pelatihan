@@ -211,18 +211,20 @@ model InovasiProper {
 }
 
 model Pembahasan {
-  id          String   @id @default(cuid())
-  kegiatanId  String
-  kegiatan    Kegiatan @relation(fields: [kegiatanId], references: [id], onDelete: Cascade)
-  grafikKey   String   // "grafik1" .. "grafik5" | "kesimpulan"
-  judul       String
-  poin1       String
-  poin2       String
-  poin3       String
-  poin4       String
-  teksLengkap String
-  sumber      String   @default("template") // "template" | "ai" | "manual"
-  updatedAt   DateTime @updatedAt
+  id                String   @id @default(cuid())
+  kegiatanId        String
+  kegiatan          Kegiatan @relation(fields: [kegiatanId], references: [id], onDelete: Cascade)
+  grafikKey         String   // "grafik1" .. "grafik5" | "kesimpulan"
+  judul             String
+  poin1             String
+  poin2             String
+  poin3             String
+  poin4             String
+  teksLengkap       String
+  catatanKonfirmasi String?
+  ringkasanKonteks  String?
+  sumber            String   @default("template") // "template" | "ai" | "manual"
+  updatedAt         DateTime @updatedAt
 
   @@unique([kegiatanId, grafikKey])
 }
